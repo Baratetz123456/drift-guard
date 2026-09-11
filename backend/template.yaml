@@ -1,0 +1,558 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: DeltaNet - Network Automation & AI Analysis Platform
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  FrontendDomain:
+    Type: String
+    Default: 'http://localhost:5173'
+    Description: Frontend domain for CORS
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref DeltaNetTable
+        BUCKET_NAME: !Ref SnapshotBucket
+        KMS_KEY_ID: !Ref EncryptionKey
+        ENVIRONMENT: !Ref Environment
+    Layers:
+      - !Ref SharedLayer
+
+Resources:
+  # ============================================================
+  # Authentication — AWS Cognito
+  # ============================================================
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub deltanet-users-${Environment}
+      AutoVerifiedAttributes: [email]
+      UsernameAttributes: [email]
+      MfaConfiguration: OPTIONAL
+      EnabledMfas: [SOFTWARE_TOKEN_MFA]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: deltanet-web-client
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  # ============================================================
+  # Storage — DynamoDB + S3
+  # ============================================================
+  DeltaNetTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub DeltaNet-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: PK, AttributeType: S }
+        - { AttributeName: SK, AttributeType: S }
+        - { AttributeName: GSI1PK, AttributeType: S }
+        - { AttributeName: GSI1SK, AttributeType: S }
+        - { AttributeName: GSI2PK, AttributeType: S }
+        - { AttributeName: GSI2SK, AttributeType: S }
+      KeySchema:
+        - { AttributeName: PK, KeyType: HASH }
+        - { AttributeName: SK, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - { AttributeName: GSI1PK, KeyType: HASH }
+            - { AttributeName: GSI1SK, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: GSI2
+          KeySchema:
+            - { AttributeName: GSI2PK, KeyType: HASH }
+            - { AttributeName: GSI2SK, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  SnapshotBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub deltanet-snapshots-${AWS::AccountId}-${Environment}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldSnapshots
+            Status: Enabled
+            ExpirationInDays: 365
+
+  # ============================================================
+  # Security — KMS
+  # ============================================================
+  EncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: DeltaNet field-level encryption for credentials and API keys
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowRootAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: '*'
+
+  EncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/deltanet-${Environment}
+      TargetKeyId: !Ref EncryptionKey
+
+  # ============================================================
+  # API Gateway
+  # ============================================================
+  DeltaNetApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub deltanet-api-${Environment}
+      StageName: v1
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: !Sub "'${FrontendDomain}'"
+        AllowCredentials: true
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt CognitoUserPool.Arn
+
+  # ============================================================
+  # Lambda Layers
+  # ============================================================
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: deltanet-shared
+      Description: Shared utilities for DeltaNet Lambda functions
+      ContentUri: shared/
+      CompatibleRuntimes: [python3.12]
+    Metadata:
+      BuildMethod: python3.12
+
+  NetmikoLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: deltanet-netmiko
+      Description: Netmiko SSH library for network device connectivity
+      ContentUri: layers/netmiko/
+      CompatibleRuntimes: [python3.12]
+
+  # ============================================================
+  # Lambda Functions
+  # ============================================================
+
+  # --- User Settings ---
+  SettingsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub deltanet-settings-${Environment}
+      Handler: functions.settings.handler.lambda_handler
+      CodeUri: .
+      Timeout: 10
+      MemorySize: 128
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DeltaNetTable }
+        - KMSEncryptPolicy: { KeyId: !Ref EncryptionKey }
+        - KMSDecryptPolicy: { KeyId: !Ref EncryptionKey }
+      Events:
+        GetSettings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /settings
+            Method: GET
+        PutSettings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /settings
+            Method: PUT
+
+  # --- Devices ---
+  DevicesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub deltanet-devices-${Environment}
+      Handler: functions.devices.handler.lambda_handler
+      CodeUri: .
+      Timeout: 60
+      MemorySize: 256
+      Layers:
+        - !Ref SharedLayer
+        - !Ref NetmikoLayer
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DeltaNetTable }
+        - KMSEncryptPolicy: { KeyId: !Ref EncryptionKey }
+        - KMSDecryptPolicy: { KeyId: !Ref EncryptionKey }
+      Events:
+        ListDevices:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /devices
+            Method: GET
+        CreateDevice:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /devices
+            Method: POST
+        GetDevice:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /devices/{deviceId}
+            Method: GET
+        UpdateDevice:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /devices/{deviceId}
+            Method: PUT
+        DeleteDevice:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /devices/{deviceId}
+            Method: DELETE
+        TestDevice:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /devices/{deviceId}/test
+            Method: POST
+
+  # --- Command Sets ---
+  CommandsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub deltanet-commands-${Environment}
+      Handler: functions.commands.handler.lambda_handler
+      CodeUri: .
+      Timeout: 10
+      MemorySize: 128
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DeltaNetTable }
+      Events:
+        ListCommandSets:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /command-sets
+            Method: GET
+        CreateCommandSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /command-sets
+            Method: POST
+        GetCommandSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /command-sets/{setId}
+            Method: GET
+        UpdateCommandSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /command-sets/{setId}
+            Method: PUT
+        DeleteCommandSet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /command-sets/{setId}
+            Method: DELETE
+
+  # --- Collection Orchestrator ---
+  CollectionOrchestratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub deltanet-collection-orchestrator-${Environment}
+      Handler: functions.collection_orchestrator.handler.lambda_handler
+      CodeUri: .
+      Timeout: 15
+      MemorySize: 256
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref CollectionStateMachine
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DeltaNetTable }
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: !GetAtt CollectionStateMachine.Name
+      Events:
+        StartCollection:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /collections
+            Method: POST
+        ListCollections:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /collections
+            Method: GET
+        GetCollection:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /collections/{jobId}
+            Method: GET
+        CancelCollection:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /collections/{jobId}
+            Method: DELETE
+
+  # --- Collection Worker ---
+  CollectionWorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub deltanet-collection-worker-${Environment}
+      Handler: functions.collection_worker.handler.lambda_handler
+      CodeUri: .
+      Timeout: 300
+      MemorySize: 512
+      Layers:
+        - !Ref SharedLayer
+        - !Ref NetmikoLayer
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DeltaNetTable }
+        - S3CrudPolicy: { BucketName: !Ref SnapshotBucket }
+        - KMSDecryptPolicy: { KeyId: !Ref EncryptionKey }
+
+  # --- Snapshots ---
+  SnapshotsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub deltanet-snapshots-${Environment}
+      Handler: functions.snapshots.handler.lambda_handler
+      CodeUri: .
+      Timeout: 15
+      MemorySize: 256
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DeltaNetTable }
+        - S3ReadPolicy: { BucketName: !Ref SnapshotBucket }
+      Events:
+        ListSnapshots:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /snapshots
+            Method: GET
+        GetSnapshot:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /snapshots/{snapshotId}
+            Method: GET
+        DeleteSnapshot:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /snapshots/{snapshotId}
+            Method: DELETE
+
+  # --- Compare ---
+  CompareFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub deltanet-compare-${Environment}
+      Handler: functions.compare.handler.lambda_handler
+      CodeUri: .
+      Timeout: 60
+      MemorySize: 512
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DeltaNetTable }
+        - S3CrudPolicy: { BucketName: !Ref SnapshotBucket }
+      Events:
+        CreateComparison:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /comparisons
+            Method: POST
+        ListComparisons:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /comparisons
+            Method: GET
+        GetComparison:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /comparisons/{comparisonId}
+            Method: GET
+        DeleteComparison:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /comparisons/{comparisonId}
+            Method: DELETE
+
+  # --- AI Analyze ---
+  AIAnalyzeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub deltanet-ai-analyze-${Environment}
+      Handler: functions.ai_analyze.handler.lambda_handler
+      CodeUri: .
+      Timeout: 120
+      MemorySize: 256
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DeltaNetTable }
+        - S3ReadPolicy: { BucketName: !Ref SnapshotBucket }
+        - KMSDecryptPolicy: { KeyId: !Ref EncryptionKey }
+      Events:
+        AnalyzeComparison:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /comparisons/{comparisonId}/analyze
+            Method: POST
+
+  # --- History ---
+  HistoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub deltanet-history-${Environment}
+      Handler: functions.history.handler.lambda_handler
+      CodeUri: .
+      Timeout: 15
+      MemorySize: 128
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref DeltaNetTable }
+        - S3ReadPolicy: { BucketName: !Ref SnapshotBucket }
+      Events:
+        GetHistory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /history
+            Method: GET
+        ExportComparison:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /export/comparison/{comparisonId}
+            Method: GET
+        ExportAnalysis:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /export/analysis/{analysisId}
+            Method: GET
+
+  # --- Audit ---
+  AuditFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub deltanet-audit-${Environment}
+      Handler: functions.audit.handler.lambda_handler
+      CodeUri: .
+      Timeout: 10
+      MemorySize: 128
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DeltaNetTable }
+      Events:
+        GetAuditLogs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DeltaNetApi
+            Path: /audit-logs
+            Method: GET
+
+  # ============================================================
+  # Step Functions — Collection Workflow
+  # ============================================================
+  CollectionStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub deltanet-collection-${Environment}
+      DefinitionUri: state_machines/collection_workflow.asl.json
+      DefinitionSubstitutions:
+        CollectionWorkerArn: !GetAtt CollectionWorkerFunction.Arn
+        DeltaNetTableName: !Ref DeltaNetTable
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CollectionWorkerFunction
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DeltaNetTable
+
+# ============================================================
+# Outputs
+# ============================================================
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${DeltaNetApi}.execute-api.${AWS::Region}.amazonaws.com/v1
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref CognitoUserPoolClient
+  TableName:
+    Description: DynamoDB Table Name
+    Value: !Ref DeltaNetTable
+  BucketName:
+    Description: S3 Bucket Name
+    Value: !Ref SnapshotBucket

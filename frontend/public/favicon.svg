@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
+  <!-- Geometric Shield (slate-500) -->
+  <path
+    d="M4 3.5C4 3.5 12 2.5 12 2.5C12 2.5 20 3.5 20 3.5C20.5 3.5 21 3.9 21 4.5V13C21 17.5 16.8 20.8 12 22C7.2 20.8 3 17.5 3 13V4.5C3 3.9 3.5 3.5 4 3.5Z"
+    stroke="#64748B"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <!-- Baseline Trace (slate-400) -->
+  <line
+    x1="6"
+    y1="14"
+    x2="18"
+    y2="14"
+    stroke="#94A3B8"
+    stroke-width="2"
+    stroke-linecap="round"
+  />
+  <!-- Drifted Trace Converging to Catch Point (#C8FF00) -->
+  <path
+    d="M6 14C8 14 9 7.5 12 7.5C14.2 7.5 15 12 16.2 14"
+    stroke="#C8FF00"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <!-- Catch-point node (#C8FF00) -->
+  <circle cx="16.2" cy="14" r="1.8" fill="#C8FF00" />
+</svg>

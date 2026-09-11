@@ -1,0 +1,93 @@
+{
+  "Comment": "DeltaNet Collection Workflow — Orchestrates parallel device data collection",
+  "StartAt": "ValidateInput",
+  "States": {
+    "ValidateInput": {
+      "Type": "Pass",
+      "Next": "CollectFromDevices"
+    },
+    "CollectFromDevices": {
+      "Type": "Map",
+      "ItemsPath": "$.devices",
+      "MaxConcurrency": 10,
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "CollectFromDevice",
+        "States": {
+          "CollectFromDevice": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "${CollectionWorkerArn}",
+              "Payload": {
+                "userId.$": "$.userId",
+                "jobId.$": "$.jobId",
+                "deviceId.$": "$.deviceId",
+                "deviceSK.$": "$.deviceSK",
+                "label.$": "$.label",
+                "changeLabel.$": "$.changeLabel",
+                "commands.$": "$.commands"
+              }
+            },
+            "ResultPath": "$.result",
+            "ResultSelector": {
+              "statusCode.$": "$.Payload.statusCode",
+              "body.$": "$.Payload.body"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+                "IntervalSeconds": 2,
+                "MaxAttempts": 2,
+                "BackoffRate": 2
+              }
+            ],
+            "Catch": [
+              {
+                "ErrorEquals": ["States.ALL"],
+                "ResultPath": "$.error",
+                "Next": "HandleDeviceError"
+              }
+            ],
+            "End": true
+          },
+          "HandleDeviceError": {
+            "Type": "Pass",
+            "Parameters": {
+              "deviceId.$": "$.deviceId",
+              "status": "FAILED",
+              "error.$": "$.error.Cause"
+            },
+            "ResultPath": "$.result",
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.collectionResults",
+      "Next": "UpdateJobStatus"
+    },
+    "UpdateJobStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${DeltaNetTableName}",
+        "Key": {
+          "PK": { "S.$": "$.PK" },
+          "SK": { "S.$": "$.SK" }
+        },
+        "UpdateExpression": "SET #status = :status, completedAt = :completedAt, collectionResults = :results",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": { "S": "COMPLETED" },
+          ":completedAt": { "S.$": "$$.State.EnteredTime" },
+          ":results": { "S.$": "States.JsonToString($.collectionResults)" }
+        }
+      },
+      "End": true
+    }
+  }
+}

@@ -1,0 +1,43 @@
+# DriftGuard Robots Exclusion Protocol
+# https://driftguard.network
+
+# Standard web crawlers
+User-agent: *
+Allow: /$
+Allow: /login$
+Allow: /register$
+Allow: /privacy$
+Allow: /terms$
+Allow: /llms.txt$
+Allow: /llms-full.txt$
+Allow: /sitemap.xml$
+Allow: /favicon.svg$
+Allow: /og-image.svg$
+Disallow: /overview
+Disallow: /operations
+Disallow: /analysis
+Disallow: /setup
+Disallow: /settings
+Disallow: /api/
+
+# AI Search and Evaluation Crawlers
+User-agent: GPTBot
+User-agent: PerplexityBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+Allow: /$
+Allow: /privacy$
+Allow: /terms$
+Allow: /llms.txt$
+Allow: /llms-full.txt$
+Disallow: /overview
+Disallow: /operations
+Disallow: /analysis
+Disallow: /setup
+Disallow: /settings
+Disallow: /api/
+
+# Sitemap reference
+Sitemap: https://driftguard.network/sitemap.xml

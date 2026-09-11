@@ -1,0 +1,27 @@
+# DriftGuard
+
+> Before. After. Understood. Enterprise network verification platform for Cisco snapshot collection, visual diffing, and advisory AI risk analysis.
+
+DriftGuard provides network engineers and operations teams with high-integrity operational verification for Cisco IOS and IOS-XE network infrastructure. It captures point-in-time network snapshots, performs deterministic line-by-line diffing, and delivers advisory risk assessments powered by large language models.
+
+## Core Capabilities
+
+- **Snapshot Collection**: Automated capture of operational state and running configuration across Cisco routers and switches.
+- **Visual State Diffing**: Side-by-side and inline visual comparisons between baseline and runtime network snapshots with Voltage signal highlighting.
+- **Advisory AI Risk Assessment**: Machine-learning evaluation of network divergence, detecting route convergence issues, BGP peering state changes, MTU mismatches, and security posture drift.
+- **Cisco Read-Only Enforcement**: Strict execution whitelist restricted entirely to non-mutating `show` commands (`show running-config`, `show ip route`, `show ip interface brief`, `show ip bgp summary`). State mutation commands (`configure terminal`, `reload`, `write erase`) are structurally prohibited.
+- **KMS Envelope Encryption**: All operator credentials, SSH private keys, and provider API keys are encrypted at rest using AWS Key Management Service (KMS) prior to storage in DynamoDB.
+- **Automated Secret Scrubbing**: Cryptographic regex filter sanitizes Cisco enable secrets, MD5 hashes, and SNMP community strings before any data leaves the local execution boundary or reaches AI inference endpoints.
+
+## Operational Standards
+
+- **Human Operational Authority**: AI assessments are strictly advisory (`"DriftGuard analysis suggests…"`). Certified network engineers retain sole operational authority over network state changes.
+- **3-Part Error Diagnostics**: Every diagnostic and risk observation specifies what happened (observation), what it means (operational blast radius), and what to do next (actionable next steps).
+- **Severity Taxonomy**: Risk findings use standardized severity ratings: `Critical`, `High`, `Medium`, `Low`, and `Informational`.
+
+## Canonical Endpoints
+
+- [Platform Web Console](https://driftguard.network/): Operator authentication and management portal.
+- [Terms of Service](https://driftguard.network/terms): Cisco read-only safety guarantees, fleet authorization, and advisory AI disclaimer.
+- [Privacy Policy](https://driftguard.network/privacy): AWS KMS envelope encryption, secret sanitization, and data retention policies.
+- [Extended Technical Reference](https://driftguard.network/llms-full.txt): Comprehensive API schemas, supported command matrices, and architecture specifications.

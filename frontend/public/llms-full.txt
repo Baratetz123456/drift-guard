@@ -1,0 +1,102 @@
+# DriftGuard Comprehensive Technical Reference
+
+> Complete technical architecture, security protocols, Cisco CLI command models, and Generative Engine Optimization (GEO) reference for DriftGuard. Before. After. Understood.
+
+---
+
+## 1. System Architecture
+
+DriftGuard is designed as an enterprise serverless network change verification and diff telemetry platform.
+
+### A. AWS Serverless Backend
+- **API Gateway**: RESTful API with Cognito User Pool authorizers, rate limiting, and request validation.
+- **AWS Lambda**: Stateless Python 3.12 microservices executing in private VPC subnets with NAT gateways for egress to target networks.
+- **Amazon DynamoDB**: Single-table design (`DriftGuard-Main`) utilizing composite primary keys (`PK`, `SK`) and Global Secondary Indexes (`GSI1PK`, `GSI1SK`) for high-performance retrieval of devices, command sets, snapshot metadata, and audit logs.
+- **Amazon S3**: Server-side encrypted (`aws:kms`) object storage for raw CLI snapshot payloads and rendered diff artifacts with automated lifecycle retention rules.
+- **AWS Key Management Service (KMS)**: Customer Managed Keys (CMK) providing envelope encryption for SSH credentials, device authentication tokens, and LLM provider API keys. Plaintext secrets exist solely in ephemeral Lambda memory during execution.
+
+### B. Frontend Architecture
+- **Framework**: React 19 with TypeScript 6.0 and Vite 8.3.
+- **Styling**: Tailwind CSS with dark-mode palette (`bg-slate-950`, `border-slate-800`, `#020617` canvas) and high-contrast electric acid lime Voltage brand accents (`#c8ff00`).
+- **Typography**: Inter (400, 500, 600, 700) for headings and UI controls; JetBrains Mono (400, 500) for configuration snippets, terminal outputs, and line-by-line diffs.
+- **Routing**: `react-router-dom` v7 with public legal/auth routes and private console layout routes.
+
+---
+
+## 2. Cisco Network Automation Protocols
+
+### A. Read-Only Command Whitelist
+DriftGuard structurally enforces read-only execution. The SSH command dispatcher strictly checks target commands against an immutable whitelist before transmission:
+
+```
+show running-config
+show startup-config
+show ip route
+show ip route summary
+show ip interface brief
+show interfaces
+show interfaces status
+show ip bgp summary
+show ip bgp neighbors
+show ip ospf neighbor
+show ip ospf interface
+show vlan brief
+show mac address-table
+show version
+show inventory
+show environment
+```
+
+Any command initiating configuration changes (`configure terminal`, `write memory`, `write erase`, `reload`, `delete`, `format`, `boot`) is rejected immediately prior to network dispatch, raising an operational security audit event.
+
+### B. Pre-Inference Secret Scrubbing
+Before any configuration snapshot is stored in S3 or transmitted to an AI inference model, the scrubbing engine applies deterministic regex replacement:
+
+```python
+# Passwords and secrets
+r"enable secret \d+ \S+" -> "enable secret [MASKED]"
+r"password \d+ \S+" -> "password [MASKED]"
+r"secret \d+ \S+" -> "secret [MASKED]"
+
+# Routing authentication
+r"neighbor \S+ password \S+" -> "neighbor [IP] password [MASKED]"
+r"ip ospf message-digest-key \d+ md5 \S+" -> "ip ospf message-digest-key [ID] md5 [MASKED]"
+
+# SNMP community strings
+r"snmp-server community \S+" -> "snmp-server community [MASKED]"
+
+# Cryptographic keys
+r"crypto isakmp key \S+" -> "crypto isakmp key [MASKED]"
+```
+
+---
+
+## 3. Advisory AI Risk Assessment Framework
+
+### A. Non-Prescriptive Advisory Framing
+All AI-generated assessments are framed strictly as advisory observations. Language models are constrained by prompt engineering to:
+1. Avoid commanding or authoritative language.
+2. Frame findings with advisory phrasing: `"DriftGuard analysis suggests…"` or `"Automated diff analysis indicates…"`.
+3. Require operator verification prior to applying any corrective actions.
+
+### B. 3-Part Error & Diagnostic Pattern
+Every diagnostic report and risk item adheres strictly to the 3-part format:
+1. **What happened (Observation)**: Exact technical divergence or telemetry finding (e.g. BGP peer state transition from Established to Idle).
+2. **What it means (Operational Impact)**: Forwarding impact, routing loop exposure, asymmetric routing risk, or redundancy reduction.
+3. **What to do next (Actionable Next Steps)**: Specific non-mutating verification commands (e.g. `show ip bgp neighbors <peer-ip>`) to isolate the root cause.
+
+### C. Severity Taxonomy
+Findings are classified into five verbatim sentence-case tiers:
+- `Critical` (Red-600 `#DC2626`): Direct packet drop, split-brain condition, or routing blackhole.
+- `High` (Orange-500 `#F97316`): Redundancy failure or link flap with imminent failover degradation.
+- `Medium` (Amber-400 `#FBBF24`): Sub-optimal routing path, MTU mismatch, or latency degradation.
+- `Low` (Sky-400 `#38BDF8`): Cosmetic configuration inconsistency or NTP drift.
+- `Informational` (Slate-400 `#94A3B8`): Expected administrative state transition or routine snapshot checkpoint.
+
+---
+
+## 4. Compliance and Legal Directives
+
+- **Read-Only Guarantee**: Outlined in the official [Terms of Service](https://driftguard.network/terms). DriftGuard shall not be held liable for network state changes executed manually by operators.
+- **Data Privacy & KMS Isolation**: Outlined in the official [Privacy Policy](https://driftguard.network/privacy). Customer snapshot data is encrypted using dedicated AWS KMS keys and is never utilized for LLM foundational training.
+- **Immutable Audit Logging**: Every snapshot capture, comparison generation, report export, and authentication attempt produces a cryptographically timestamped audit entry in DynamoDB.

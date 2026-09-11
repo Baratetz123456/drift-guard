@@ -1,0 +1,1 @@
+# Collection Worker function module
