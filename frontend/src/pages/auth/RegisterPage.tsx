@@ -25,13 +25,19 @@ export const RegisterPage: React.FC = () => {
     robots: 'index, follow',
   });
 
-  const { register } = useAppStore();
+  const { register, isAuthenticated } = useAppStore();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +53,7 @@ export const RegisterPage: React.FC = () => {
 
   return (
     <div className="min-h-screen w-screen flex bg-slate-950 font-sans overflow-x-hidden">
-      {/* Left Column: Ambient DotLottie Showcase & Pillars */}
+      {/* Left Column: Dynamic Cisco Network Trace Showcase */}
       <AuthVisualShowcase />
 
       {/* Right Column: Seamless Non-Card Registration Form */}

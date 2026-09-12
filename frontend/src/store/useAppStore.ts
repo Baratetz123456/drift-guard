@@ -19,6 +19,11 @@ import {
   initialAuditLogs,
 } from '../data/mockData';
 import { UI_COPY } from '../constants/uiCopy';
+import {
+  isJwtValid,
+  decodeJwt,
+  generateCognitoJwt,
+} from '../utils/jwt';
 
 interface Toast {
   id: string;
@@ -32,6 +37,7 @@ interface AppState {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
+  extendSession: () => void;
   logout: () => void;
 
   // Domain state
@@ -74,13 +80,30 @@ interface AppState {
   updateSettings: (updates: Partial<UserSettings> & { apiKey?: string }) => void;
 }
 
-const defaultUser: User = {
-  id: 'usr-001',
-  email: 'operator@driftguard.local',
-  name: 'Lead Network Architect',
-  role: 'admin',
-  token: 'mock-jwt-token-driftguard',
-};
+function getInitialAuth(): { user: User | null; isAuthenticated: boolean } {
+  const token = sessionStorage.getItem('auth_token');
+  if (!token || !isJwtValid(token)) {
+    sessionStorage.removeItem('auth_token');
+    return { user: null, isAuthenticated: false };
+  }
+  const decoded = decodeJwt(token);
+  if (!decoded || !decoded.payload) {
+    sessionStorage.removeItem('auth_token');
+    return { user: null, isAuthenticated: false };
+  }
+  return {
+    user: {
+      id: decoded.payload.sub,
+      email: decoded.payload.email,
+      name: decoded.payload.name,
+      role: decoded.payload['cognito:groups']?.[0] || 'Network Architect',
+      token,
+    },
+    isAuthenticated: true,
+  };
+}
+
+const initialAuth = getInitialAuth();
 
 const initialSettings: UserSettings = {
   userId: 'user-default',
@@ -94,19 +117,21 @@ const initialSettings: UserSettings = {
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
-  user: defaultUser,
-  isAuthenticated: true,
+  user: initialAuth.user,
+  isAuthenticated: initialAuth.isAuthenticated,
 
   login: async (email, password) => {
     await new Promise((r) => setTimeout(r, 600));
+    const token = generateCognitoJwt({ email, role: 'Network Architect' }, 1800);
+    const decoded = decodeJwt(token)!;
     const user: User = {
-      id: `usr-${Date.now().toString(36)}`,
-      email,
-      name: email.split('@')[0].replace('.', ' ').toUpperCase(),
+      id: decoded.payload.sub,
+      email: decoded.payload.email,
+      name: decoded.payload.name,
       role: 'Network Architect',
-      token: `jwt-${Date.now().toString(36)}`,
+      token,
     };
-    localStorage.setItem('auth_token', user.token);
+    sessionStorage.setItem('auth_token', token);
     set({ user, isAuthenticated: true });
     get().addToast('success', `Welcome back, ${user.name}`);
     return true;
@@ -114,21 +139,43 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   register: async (name, email, password) => {
     await new Promise((r) => setTimeout(r, 800));
+    const token = generateCognitoJwt({ email, name, role: 'Network Engineer' }, 1800);
+    const decoded = decodeJwt(token)!;
     const user: User = {
-      id: `usr-${Date.now().toString(36)}`,
-      email,
+      id: decoded.payload.sub,
+      email: decoded.payload.email,
       name,
       role: 'Network Engineer',
-      token: `jwt-${Date.now().toString(36)}`,
+      token,
     };
-    localStorage.setItem('auth_token', user.token);
+    sessionStorage.setItem('auth_token', token);
     set({ user, isAuthenticated: true });
     get().addToast('success', `Account created for ${name}.`);
     return true;
   },
 
+  extendSession: () => {
+    const currentUser = get().user;
+    if (!currentUser) return;
+    const newToken = generateCognitoJwt(
+      {
+        userId: currentUser.id,
+        email: currentUser.email,
+        name: currentUser.name,
+        role: currentUser.role,
+      },
+      1800
+    );
+    sessionStorage.setItem('auth_token', newToken);
+    set({
+      user: { ...currentUser, token: newToken },
+      isAuthenticated: true,
+    });
+    get().addToast('info', 'Operator session extended by 30 minutes.');
+  },
+
   logout: () => {
-    localStorage.removeItem('auth_token');
+    sessionStorage.removeItem('auth_token');
     set({ user: null, isAuthenticated: false });
     get().addToast('info', 'Signed out successfully.');
   },

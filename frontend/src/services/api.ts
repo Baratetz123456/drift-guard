@@ -1,12 +1,19 @@
 import { Device, CommandSet, Snapshot, Comparison, AIAnalysis, AuditLogEntry, UserSettings } from '../types';
+import { isJwtValid } from '../utils/jwt';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('auth_token') || 'mock-jwt-token';
+  const token = sessionStorage.getItem('auth_token');
+  if (token && !isJwtValid(token)) {
+    sessionStorage.removeItem('auth_token');
+    window.dispatchEvent(new Event('auth:expired'));
+    throw new Error('Operator session expired: Please authenticate again.');
+  }
+
   const headers = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
 
@@ -16,6 +23,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   });
 
   if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error(
+        'Request rate limit exceeded: System throttled this operation to preserve infrastructure stability. Wait a few seconds before retrying.'
+      );
+    }
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || `API Request failed with status ${response.status}`);
   }

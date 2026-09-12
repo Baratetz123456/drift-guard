@@ -25,11 +25,17 @@ export const LoginPage: React.FC = () => {
     robots: 'index, follow',
   });
 
-  const { login } = useAppStore();
+  const { login, isAuthenticated } = useAppStore();
   const [email, setEmail] = useState('operator@driftguard.local');
   const [password, setPassword] = useState('••••••••••••');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +61,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen w-screen flex bg-slate-950 font-sans overflow-x-hidden">
-      {/* Left Column: Ambient DotLottie Showcase & Pillars */}
+      {/* Left Column: Dynamic Cisco Network Trace Showcase */}
       <AuthVisualShowcase />
 
       {/* Right Column: Seamless Non-Card Authentication Form */}

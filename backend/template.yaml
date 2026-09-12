@@ -169,6 +169,19 @@ Resources:
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !GetAtt CognitoUserPool.Arn
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          ThrottlingRateLimit: 20
+          ThrottlingBurstLimit: 40
+        - ResourcePath: '/collections'
+          HttpMethod: 'POST'
+          ThrottlingRateLimit: 2
+          ThrottlingBurstLimit: 5
+        - ResourcePath: '/comparisons/{comparisonId}/analyze'
+          HttpMethod: 'POST'
+          ThrottlingRateLimit: 2
+          ThrottlingBurstLimit: 5
 
   # ============================================================
   # Lambda Layers

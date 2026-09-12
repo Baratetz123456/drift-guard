@@ -11,6 +11,8 @@ dist/
 frontend/dist/
 dist-ssr/
 frontend/dist-ssr/
+.vite/
+frontend/.vite/
 .npm/
 .yarn/
 *.tsbuildinfo
@@ -28,6 +30,8 @@ env/
 venv/
 .venv/
 ENV/
+vendor/
+backend/vendor/
 build/
 develop-eggs/
 dist/
@@ -47,15 +51,21 @@ share/python-wheels/
 MANIFEST
 
 # ------------------------------------------------------------------------------
-# AWS Serverless Application Model (SAM) & CDK
+# AWS Serverless Application Model (SAM) & Deployment Bundles
 # ------------------------------------------------------------------------------
 .aws-sam/
 backend/.aws-sam/
 samconfig.toml.bak
 cdk.out/
+backend/layers/staging/
+backend/layers/*.zip
+*.zip
+*.tar.gz
+*.tgz
+driftguard-backend.zip
 
 # ------------------------------------------------------------------------------
-# Testing & Code Coverage
+# Testing, Code Coverage & Browser Automation
 # ------------------------------------------------------------------------------
 .pytest_cache/
 .coverage
@@ -67,6 +77,11 @@ coverage.xml
 .hypothesis/
 htmlcov/
 junit.xml
+coverage/
+.playwright-mcp/
+playwright-report/
+test-results/
+blob-report/
 
 # ------------------------------------------------------------------------------
 # Environment Variables & Sensitive Credentials
@@ -117,11 +132,13 @@ ehthumbs_vista.db
 !.vscode/extensions.json
 *.code-workspace
 
-# Temporary editor swap files
+# Temporary editor swap & scratch files
 *.swp
 *.swo
 *~
 *.bak
+*.tmp
+scratch/
 
 # ------------------------------------------------------------------------------
 # Logs & Diagnostic Dumps

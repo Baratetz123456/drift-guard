@@ -38,28 +38,64 @@
 - An AWS account with billing enabled
 - A modern web browser (Chrome or Firefox recommended)
 - Git and Node.js 20+ installed locally (for building the frontend)
-- Python 3.12+ installed locally (for packaging Lambda code)
-- A Docker installation (Docker Desktop) — required for building the Netmiko arm64 layer
+- Python 3.12+ with pip installed locally (for packaging Lambda layers and code directly without Docker)
+- *(Optional)* Docker Desktop — only needed if you prefer building containerized artifacts rather than using Python `pip --platform`
 - The DriftGuard repository cloned locally at `d:\DriftGuard\drift-guard`
 
-### 1.2 Projected Monthly Cost (dev environment, low traffic)
+### 1.2 Projected Monthly Cost (Dev/Lab Environment)
 
-| Service | Configuration | Estimated Cost |
-|---|---|---|
-| AWS KMS | 1 CMK shared between dev + prod | ~$1.00/month |
-| DynamoDB | On-demand, ~1 GB data | Free tier covers first 25 GB |
-| S3 (snapshots) | < 5 GB stored, < 20K requests | Free tier covers first year |
-| Lambda | 10 functions, < 1M invocations/month | Free tier: 1M requests free forever |
-| Step Functions | Express Workflows, < 1M state transitions | Free tier: 4,000 state transitions/month |
-| API Gateway | REST API, < 1M calls/month | Free tier: 1M calls/month free for 12 months |
-| Cognito | < 50,000 MAUs | Free tier: 50,000 MAUs free forever |
-| CloudFront | < 1 TB transfer/month | Free tier: 1 TB/month free for 12 months |
-| S3 (frontend) | < 1 GB static files | Free tier covers well within limits |
-| CloudWatch Logs | Disabled (per your preference) | $0.00 |
-| **Total** | | **~$1.00 – $2.00/month after free tier expires** |
+DriftGuard is designed specifically around a **near-zero-cost serverless baseline**:
+
+| Service | Pricing Model & Free Tier Coverage | Monthly Cost |
+| :--- | :--- | :--- |
+| **AWS KMS** | 1 Customer Managed Key (`alias/driftguard`) shared between dev + prod | **~$1.00/month** *(only fixed cost)* |
+| **Amazon Cognito** | First **50,000 MAUs free forever** (low-volume email verification free) | **$0.00** |
+| **AWS Lambda** | First **1,000,000 requests + 3.2M sec compute free forever** | **$0.00** |
+| **Amazon DynamoDB** | On-Demand (Pay-Per-Request) — **25 GB storage free forever** | **$0.00** |
+| **Amazon S3** | Standard Storage — 5 GB storage + 20,000 GETs free for 12 months | **$0.00** |
+| **Amazon CloudFront** | First **1 TB data transfer-out + 10M requests free forever** | **$0.00** |
+| **Amazon API Gateway** | First **1,000,000 calls/month free for 12 months** (Method throttling enabled) | **$0.00** |
+| **AWS Step Functions** | Express Workflows — 4,000 state transitions free | **$0.00** |
+| **VPC / NAT Gateways** | Zero VPC or NAT Gateways provisioned (saving ~$32.40/month) | **$0.00** |
+| **AWS WAF** | Zero AWS WAF WebACLs provisioned (saving $5.00/month) | **$0.00** |
+| **Total** | | **~$1.00/month** |
 
 > [!IMPORTANT]
-> The $1/month KMS CMK fee is the primary recurring cost. It applies after the first 10,000 API requests/month free.
+> The single **$1.00/month KMS CMK fee** is the only recurring charge. It provides hardware-backed AES-256 envelope encryption for device credentials and AI keys with full CloudTrail audit trails.
+
+---
+
+### 1.3 Configure an AWS Zero-Cost Budget Alert ($1.50 / Month)
+
+To guarantee you are never surprised by unexpected usage or rogue resources, set up an automatic AWS Budget alert before provisioning infrastructure:
+
+1. Navigate to: **AWS Management Console** → **Billing and Cost Management** → **Budgets** (or search **AWS Budgets** in the top search bar).
+2. Click **Create budget**.
+3. Under **Budget setup**, choose **Customize (advanced)** → select **Cost budget - Recommended** → click **Next**.
+4. Under **Budget details**:
+   - **Budget name:** `driftguard-zero-cost-guardrail`
+   - **Period:** `Monthly`
+   - **Budget effective date:** `Recurring budget`
+   - **Start month:** Current month
+   - **Budgeting method:** `Fixed`
+   - **Enter your budgeted amount ($):** `1.50`  
+     *(This comfortably accommodates the $1.00 KMS key while alerting if any billable compute, NAT gateway, or storage is accidentally created).*
+5. Click **Next**.
+6. On the **Set alert thresholds** page, click **Add an alert threshold**:
+   - **Threshold:** `80` % of budgeted amount ($1.20)
+   - **Trigger:** `Actual`
+   - **Email recipients:** Enter your personal or operational email address
+7. *(Optional)* Click **Add alert threshold** for `100` % of budgeted amount ($1.50).
+8. Click **Next** → **Next** → review details → click **Create budget**.
+
+> [!TIP]
+> **AWS CLI Alternative**: Create the budget alert instantly in one command:
+> ```bash
+> aws budgets create-budget \
+>   --account-id YOUR_ACCOUNT_ID \
+>   --budget '{"BudgetName":"driftguard-zero-cost-guardrail","BudgetLimit":{"Amount":"1.50","Unit":"USD"},"TimeUnit":"MONTHLY","BudgetType":"COST"}' \
+>   --notifications-with-subscribers '[{"Notification":{"NotificationType":"ACTUAL","ComparisonOperator":"GREATER_THAN","Threshold":80},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"your-email@example.com"}]}]'
+> ```
 
 ---
 
@@ -256,54 +292,173 @@ After the table is Active:
 
 ## 6. Cognito — User Authentication
 
-### 6.1 Create the User Pool
+DriftGuard utilizes Amazon Cognito User Pools for secure operator authentication, issuing industry-standard JSON Web Tokens (`AccessToken`, `IdToken`, `RefreshToken`). Follow the 6-step console wizard below to configure the pool according to the application security baseline.
 
-1. Navigate to **Cognito** → **User pools** → **Create user pool**.
-2. Select **Email** as the sign-in option.
-3. Click **Next**.
+---
 
-**Password policy:**
-4. Select **Custom** password policy:
-   - Minimum length: `12`
-   - Require uppercase: checked
-   - Require lowercase: checked
-   - Require numbers: checked
-   - Require symbols: checked
-5. Under **Multi-factor authentication**, select **Optional MFA**.
-6. Under **MFA methods**, check **Authenticator apps (TOTP)**.
-7. Click **Next**.
+### 6.1 Create the User Pool (AWS Console Rapid Setup)
 
-**Self-registration:**
-8. Keep defaults (allow self-registration enabled).
-9. Under **Email**, select **Send email with Cognito** (free, no SES setup needed for low volume).
-10. Click **Next**.
+Navigate to: **AWS Management Console** → **Amazon Cognito** → **Set up resources for your application** (or **Create user pool**).
 
-**User pool name:**
-11. Set **User pool name:** `driftguard-users-dev`
-12. Under **Hosted authentication pages**, leave unchecked (DriftGuard uses Amplify UI, not Cognito Hosted UI).
-13. Click **Next**.
+The AWS Console presents the unified single-page setup screen **"Set up resources for your application"**. Configure each section as follows:
 
-**App client:**
-14. Under **App type**, select **Public client** (no client secret).
-15. Set **App client name:** `driftguard-web-client`
-16. Under **Authentication flows**, check:
-    - `ALLOW_USER_SRP_AUTH`
-    - `ALLOW_REFRESH_TOKEN_AUTH`
-17. Set token validity:
-    - Access token: `1 hour`
-    - ID token: `1 hour`
-    - Refresh token: `30 days`
-18. Under **Advanced app client settings** → **Prevent user existence errors:** Enable.
-19. Click **Next** → **Create user pool**.
+---
 
-### 6.2 Record the User Pool Outputs
+#### 1. Define your application
+1. Under **Application type**, select **Single-page application (SPA)**:
+   - *"A website with a single URL that updates content based on user interaction. Examples are JavaScript, Angular, React."*
 
-After creation, navigate to the User Pool and record:
-- **User Pool ID** — format: `ap-southeast-1_XXXXXXXXX`
-- **App client ID** — found under **App integration** → **App clients and analytics** tab
+> [!CAUTION]
+> **Do not leave "Traditional web application" selected.**  
+> DriftGuard's React 19 desktop interface executes entirely inside the client browser. Selecting **Single-page application (SPA)** instructs Cognito to generate a **Public client** without a client secret. If you leave *Traditional web application* selected, Cognito will generate a client secret, which breaks browser authentication flows (`ALLOW_USER_SRP_AUTH`).
+
+2. Under **Name your application**, enter:
+   - `driftguard-users-dev` (or `driftguard-users-prod`)
+
+---
+
+#### 2. Configure options
+1. Under **Options for sign-in identifiers**:
+   - Check **Email**
+   - Ensure **Phone number** is unchecked
+   - Ensure **Username** is unchecked  
+   *(DriftGuard enforces unique verified email addresses as primary operator identifiers).*
+2. Under **Self-registration**:
+   - Keep **Enable self-registration** checked.  
+   *(Allows initial operator sign-ups. You can disable this later in User pool settings if your enterprise mandates administrative-only provisioning).*
+3. Under **Required attributes for sign-up**:
+   - Leave `Select attributes` default/empty.
+
+---
+
+#### 3. Add a return URL - optional
+1. Under **Return URL**, enter your frontend local development URL:
+   - `http://localhost:5173`  
+   *(If your CloudFront distribution is already provisioned, you can instead enter `https://dXXXXXXXXXXXX.cloudfront.net`. This field is optional and can be updated at any time under App integration settings).*
+
+---
+
+#### 4. Create User Directory
+1. Scroll to the bottom of the page.
+2. Click **Create user directory** (or **Create user pool**).
+
+---
+
+#### 5. Post-Creation Password Policy & Security Verification
+From the dashboard of your user pool `driftguard-users-dev`, verify and complete security configurations across the dedicated console pages:
+
+1. **Configure Password Policy** (`Authentication` → `Authentication methods`):
+   - In the left sidebar, click **Authentication** → **Authentication methods**.
+   - Under the **Password policy** card, click **Edit**.
+   - Select **Custom** and verify:
+     - **Minimum length:** `12`
+     - **Require numbers:** Checked
+     - **Require special character:** Checked
+     - **Require uppercase letters:** Checked
+     - **Require lowercase letters:** Checked
+     - **Temporary password validity:** `7` days
+   - Click **Save changes**.
+
+2. **Configure Multi-factor Authentication (MFA)** (`Authentication` → `Sign-in`):
+   - In the left sidebar, click **Authentication** → **Sign-in**.
+   - Under the **Multi-factor authentication** card, click **Edit**.
+   - Under **MFA enforcement**, select **Optional MFA** *(allows operators to enroll without locking unconfigured accounts)*.
+   - Under **MFA methods**, check **Authenticator apps (TOTP)** *(ensure SMS is unchecked to avoid AWS SNS telephony fees)*.
+   - Click **Save changes**.
+
+3. **Verify User Account Recovery** (`Authentication` → `Sign-in`):
+   - On the same **Sign-in** page, locate the **User account recovery** card.
+   - Confirm **Self-service account recovery** is set to **Enabled**.
+   - Confirm **Recovery message delivery method** is set to **Email if available, otherwise SMS** (or **Email only**).
+
+4. **Verify App Client Configuration** (`Applications` → `App clients`):
+   - In the left sidebar, click **Applications** → **App clients**.
+   - Click your client application (`driftguard-users-dev` or `driftguard-web-client`).
+   - Confirm that **Client secret** displays **None** *(confirming it is a public client suitable for browser-based SPAs)*.
+   - Under **Authentication flows**, verify that `ALLOW_USER_SRP_AUTH` and `ALLOW_REFRESH_TOKEN_AUTH` are enabled.
+
+---
+
+### 6.2 Alternative: Automated Provisioning via AWS CLI
+
+If you prefer scripting infrastructure creation rather than navigating the console, execute the following commands in your shell:
+
+```powershell
+# 1. Create the User Pool
+$POOL_JSON = aws cognito-idp create-user-pool `
+  --pool-name "driftguard-users-dev" `
+  --auto-verified-attributes email `
+  --username-attributes email `
+  --policies '{\"PasswordPolicy\":{\"MinimumLength\":12,\"RequireUppercase\":true,\"RequireLowercase\":true,\"RequireNumbers\":true,\"RequireSymbols\":true}}' `
+  --mfa-configuration "OPTIONAL" `
+  --output json | ConvertFrom-Json
+
+$USER_POOL_ID = $POOL_JSON.UserPool.Id
+Write-Host "Created User Pool: $USER_POOL_ID"
+
+# 2. Create the Public App Client (No Secret)
+$CLIENT_JSON = aws cognito-idp create-user-pool-client `
+  --user-pool-id $USER_POOL_ID `
+  --client-name "driftguard-web-client" `
+  --no-generate-secret `
+  --explicit-auth-flows ALLOW_USER_SRP_AUTH ALLOW_REFRESH_TOKEN_AUTH `
+  --prevent-user-existence-errors ENABLED `
+  --access-token-validity 1 --id-token-validity 1 --refresh-token-validity 30 `
+  --token-validity-units '{\"AccessToken\":\"hours\",\"IdToken\":\"hours\",\"RefreshToken\":\"days\"}' `
+  --output json | ConvertFrom-Json
+
+$CLIENT_ID = $CLIENT_JSON.UserPoolClient.ClientId
+Write-Host "Created App Client ID: $CLIENT_ID"
+```
+
+---
+
+### 6.3 Provision the Initial Admin Operator User
+
+To sign in immediately upon frontend launch, create the root administrator account:
+
+#### Option A: Via AWS Management Console
+1. In the left sidebar under your user pool, navigate to: **User management** → **Users**.
+2. Click the **Create user** button.
+3. Under **User information**:
+   - Select **Don't send an invitation** (or send email invitation if testing email delivery).
+   - **Email address:** Enter your enterprise operator email (e.g. `operator@driftguard.local`).
+   - Check **Mark email address as verified**.
+   - Under **Temporary password**, set a compliant temporary password (e.g. `DriftGuard!2026`).
+4. Click **Create user**.
+
+#### Option B: Via AWS CLI (Direct Permanent Password)
+To provision the operator account and set a permanent password in one step (bypassing the force-change-password challenge):
+
+```bash
+# Create user with verified email
+aws cognito-idp admin-create-user \
+  --user-pool-id YOUR_USER_POOL_ID \
+  --username operator@driftguard.local \
+  --user-attributes Name=email,Value=operator@driftguard.local Name=email_verified,Value=true \
+  --message-action SUPPRESS
+
+# Set permanent operational password
+aws cognito-idp admin-set-user-password \
+  --user-pool-id YOUR_USER_POOL_ID \
+  --username operator@driftguard.local \
+  --password "DriftGuard!2026Secure" \
+  --permanent
+```
+
+---
+
+### 6.4 Record User Pool Outputs
+
+From your user pool console, record the two essential environment identifiers:
+
+| Environment Variable | Console Navigation Path | Example Output Value |
+| :--- | :--- | :--- |
+| `VITE_COGNITO_USER_POOL_ID` | Left sidebar → **Overview** → **User pool information** card → **User pool ID** | `ap-southeast-1_jIxSyYhv6` |
+| `VITE_COGNITO_CLIENT_ID` | Left sidebar → **Applications** → **App clients** → copy **App client ID** | `1a2b3c4d5e6f7g8h9i0jklmnop` |
 
 > [!IMPORTANT]
-> These two values must be set in the frontend's Amplify configuration. You will use them in [Section 12](#12-post-deployment-configuration).
+> Save these values securely. You will insert them into `frontend/.env.production` during [Section 11.6](#116-build-and-deploy-the-frontend-assets) and [Section 12](#12-post-deployment-configuration).
 
 ---
 
@@ -331,29 +486,62 @@ Compress-Archive -Path layers\staging\shared-layer\python `
   -DestinationPath layers\driftguard-shared-layer.zip -Force
 ```
 
-### 7.2 Build the Netmiko Layer (arm64 / Amazon Linux 2023)
+### 7.2 Build the Netmiko Layer (arm64 / Linux)
 
-Netmiko must be compiled on Amazon Linux 2023 to match the Lambda runtime. Use Docker:
+Netmiko and its cryptographic dependencies (`cryptography`, `bcrypt`, `pynacl`) require Linux-compatible binaries for AWS Lambda.
+
+#### Method 1: Native Windows PowerShell via pip (Recommended — No Docker Required)
+
+You do **not** need Docker to package Linux ARM64 binaries. Python's `pip` can download pre-compiled Linux wheels directly on Windows using the `--platform` parameter.
+
+Open PowerShell in `d:\DriftGuard\drift-guard\backend\` and run:
 
 ```powershell
-# From d:\DriftGuard\drift-guard\backend\
-docker run --rm --platform linux/arm64 `
-  -v "${PWD}\layers:/output" `
-  public.ecr.aws/sam/build-python3.12:latest-arm64 `
-  /bin/bash -c "pip install netmiko -t /output/staging/netmiko-layer/python/ && echo Done"
+# 1. Download official Linux ARM64 wheels directly on Windows
+pip install `
+  --platform manylinux2014_aarch64 `
+  --target layers\staging\netmiko-layer\python `
+  --implementation cp `
+  --python-version 3.12 `
+  --only-binary=:all: `
+  netmiko
 
-# Zip the output
+# 2. Compress the layer into a zip archive
 Compress-Archive -Path layers\staging\netmiko-layer\python `
   -DestinationPath layers\driftguard-netmiko-layer.zip -Force
 ```
 
+---
+
+#### Method 2: Via Docker (For Intel/AMD Windows Hosts)
+
 > [!NOTE]
-> If Docker is not available, use AWS CloudShell (browser-based) as an alternative. In CloudShell (Singapore region), run:
-> ```bash
-> mkdir -p python && pip install netmiko -t python/
-> zip -r driftguard-netmiko-layer.zip python/
-> ```
-> Then download the zip and upload it as shown in 7.4.
+> If you build via Docker on an Intel/AMD (x86_64) Windows machine, running `--platform linux/arm64` will fail with `exec /bin/bash: exec format error` unless QEMU multi-arch emulation is enabled in Docker Desktop. If you experience this error, use **Method 1** above (pip) or build with the native `x86_64` container:
+
+```powershell
+# From d:\DriftGuard\drift-guard\backend\
+docker run --rm --platform linux/amd64 `
+  -v "${PWD}\layers:/output" `
+  public.ecr.aws/sam/build-python3.12:latest-x86_64 `
+  /bin/bash -c "pip install netmiko -t /output/staging/netmiko-layer/python/ && echo Done"
+
+# Compress the layer package
+Compress-Archive -Path layers\staging\netmiko-layer\python `
+  -DestinationPath layers\driftguard-netmiko-layer.zip -Force
+```
+
+---
+
+#### Method 3: Via AWS CloudShell (Browser-Based, Zero Setup)
+
+If you do not have local Python installed, open **AWS CloudShell** from the Singapore region (`ap-southeast-1`) in your browser and run:
+
+```bash
+mkdir -p python && pip install netmiko -t python/
+zip -r driftguard-netmiko-layer.zip python/
+```
+
+Click **Actions** → **Download file** → enter `driftguard-netmiko-layer.zip` to download it to your local machine for upload in Section 7.4.
 
 ### 7.3 Upload the Shared Layer
 
