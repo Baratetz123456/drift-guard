@@ -18,7 +18,7 @@ export const PrivacyPolicyPage: React.FC = () => {
   usePageMetadata({
     title: 'Privacy Policy — DriftGuard',
     description:
-      'DriftGuard privacy policy detailing AWS KMS envelope encryption, secret scrubbing, and S3 snapshot retention.',
+      'DriftGuard privacy policy detailing cryptographic envelope encryption, secret scrubbing, and snapshot vault retention.',
     canonicalPath: '/privacy',
     robots: 'index, follow',
   });
@@ -26,9 +26,9 @@ export const PrivacyPolicyPage: React.FC = () => {
   const sections = [
     { id: 'scope', title: '1. Scope and application' },
     { id: 'telemetry', title: '2. Fleet telemetry and data collected' },
-    { id: 'kms', title: '3. AWS KMS envelope encryption' },
+    { id: 'kms', title: '3. Cryptographic envelope encryption' },
     { id: 'secret-masking', title: '4. Secret masking and AI telemetry' },
-    { id: 's3-retention', title: '5. S3 snapshot storage and retention' },
+    { id: 's3-retention', title: '5. Snapshot storage and vault retention' },
     { id: 'audit-rights', title: '6. Operator audit trail and rights' },
     { id: 'contact', title: '7. Security contact and governance' },
   ];
@@ -118,10 +118,10 @@ export const PrivacyPolicyPage: React.FC = () => {
               Scope and application
             </h2>
             <p>
-              DriftGuard is a specialized network change verification and diff telemetry platform built for network engineers and infrastructure architects. This policy applies to all network state snapshots, authentication credentials, and diagnostic data processed across DriftGuard's AWS serverless microservices and client interfaces.
+              DriftGuard is a specialized network change verification and diff telemetry platform built for network engineers and infrastructure architects. This policy applies to all network state snapshots, authentication credentials, and diagnostic data processed across DriftGuard's cloud-native microservices and client interfaces.
             </p>
             <p>
-              DriftGuard operates strictly within customer-designated AWS accounts and virtual private clouds (VPCs). We do not sell, broker, or aggregate network telemetry for marketing purposes.
+              DriftGuard operates strictly within designated customer environments and virtual private networks. We do not sell, broker, or aggregate network telemetry for marketing purposes.
             </p>
           </section>
 
@@ -136,16 +136,13 @@ export const PrivacyPolicyPage: React.FC = () => {
             </p>
             <ul className="list-disc pl-5 space-y-1.5 text-zinc-400">
               <li>
-                <strong className="text-zinc-200">Device metadata:</strong> Management IPv4/IPv6 addresses, hostnames, device models, and operating system types (Cisco IOS, IOS-XE, IOS-XR, NX-OS).
+                <strong className="text-zinc-200">Device metadata:</strong> Management IPv4/IPv6 addresses, hostnames, device models, and operating system types (Cisco IOS, IOS-XE, IOS-XR, NX-OS, ASA).
               </li>
               <li>
                 <strong className="text-zinc-200">State outputs:</strong> Read-only show command outputs (e.g. routing tables, BGP peer summaries, interface status, VLAN databases).
               </li>
               <li>
                 <strong className="text-zinc-200">Change context:</strong> Optional change management ticket IDs (e.g. CHG-998214) and operator notes for baseline correlation.
-              </li>
-              <li>
-                <strong className="text-zinc-200">Operational logs:</strong> SSH handshake latency, execution timestamps, and command execution success/timeout states.
               </li>
             </ul>
           </section>
@@ -154,7 +151,7 @@ export const PrivacyPolicyPage: React.FC = () => {
           <section id="kms" className="space-y-3 pt-4 border-t border-zinc-900">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <span className="text-[#c8ff00] font-mono text-base">03.</span>
-              AWS KMS envelope encryption
+              Cryptographic envelope encryption
             </h2>
             <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-2">
               <div className="flex items-center gap-2 text-xs font-bold text-white">
@@ -162,11 +159,11 @@ export const PrivacyPolicyPage: React.FC = () => {
                 <span>Zero-plaintext credential persistence</span>
               </div>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                SSH passwords, private keys, enable secrets, and AI provider API keys are protected using AWS Key Management Service (KMS) envelope encryption with AES-256-GCM prior to database persistence.
+                SSH passwords, private keys, enable secrets, and AI provider API keys are protected using cryptographic envelope encryption with AES-256-GCM prior to datastore persistence.
               </p>
             </div>
             <p>
-              Plaintext credentials reside exclusively in ephemeral Lambda container memory during active SSH collection tasks and are securely zeroed immediately upon session termination. Plaintext credentials are never written to disk, database records, CloudWatch logs, or client-side browser storage.
+              Plaintext credentials reside exclusively in ephemeral memory during active SSH collection tasks and are securely zeroed immediately upon session termination. Plaintext credentials are never written to disk, database records, audit logs, or client-side browser storage.
             </p>
           </section>
 
@@ -203,13 +200,13 @@ export const PrivacyPolicyPage: React.FC = () => {
           <section id="s3-retention" className="space-y-3 pt-4 border-t border-zinc-900">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <span className="text-[#c8ff00] font-mono text-base">05.</span>
-              S3 snapshot storage and retention
+              Snapshot storage and vault retention
             </h2>
             <p>
-              Snapshots and diff files are stored in Amazon Simple Storage Service (Amazon S3) with server-side encryption enabled (SSE-S3 or customer-managed AWS KMS keys). S3 buckets enforce strict bucket policies prohibiting public access and requiring TLS 1.3 for in-transit communication.
+              Snapshots and diff files are stored in an immutable encrypted snapshot archive vault with server-side encryption enabled (AES-256 with customer-managed keys). Snapshot vaults enforce strict network policies prohibiting public access and requiring TLS 1.3 for in-transit communication.
             </p>
             <p>
-              Operators retain total lifecycle control over their snapshot archives. When a snapshot or device is deleted by an operator, the associated S3 objects are unlinked and permanently purged in accordance with configured S3 bucket lifecycle rules.
+              Operators retain total lifecycle control over their snapshot archives. When a snapshot or device is deleted by an operator, the associated vault objects are unlinked and permanently purged in accordance with configured retention lifecycle rules.
             </p>
           </section>
 
@@ -220,7 +217,7 @@ export const PrivacyPolicyPage: React.FC = () => {
               Operator audit trail and rights
             </h2>
             <p>
-              Every action executed within DriftGuard—including device registration, credential modification, snapshot capture, diff comparison, and AI risk analysis—is recorded in an immutable audit log. Each entry records the authenticated Cognito identity, IP address, timestamp, and target resource.
+              Every action executed within DriftGuard—including device registration, credential modification, snapshot capture, diff comparison, and AI risk analysis—is recorded in an immutable audit log. Each entry records the authenticated operator identity, IP address, timestamp, and target resource.
             </p>
             <p>
               Organizations have the right to export full audit trails as JSON or CSV at any time for compliance audits (SOC 2, ISO 27001, HIPAA).

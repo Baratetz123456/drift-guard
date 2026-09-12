@@ -7,6 +7,7 @@ import { Modal } from '../components/common/Modal';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
 import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
+import { validateIpAddress, validateDeviceType, validateConnectionType } from '../utils/networkValidator';
 import {
   HardDrives,
   Plus,
@@ -18,10 +19,45 @@ import {
   Tag,
   Key,
   Funnel,
+  FileArrowUp,
+  Warning,
+  CheckCircle,
+  Eye,
+  EyeSlash,
 } from '@phosphor-icons/react';
 
+interface ParsedBulkDevice {
+  rawLineNumber: number;
+  hostname: string;
+  ipAddress: string;
+  deviceType: string;
+  normalizedDriver: DeviceType | null;
+  driverLabel?: string;
+  username: string;
+  password: string;
+  connectionType: string;
+  normalizedConnType: 'ssh' | 'telnet' | null;
+  resolvedPort: number;
+  isIpValid: boolean;
+  ipError?: string;
+  ipVersion?: string;
+  isDriverValid: boolean;
+  driverError?: string;
+  isConnValid: boolean;
+  connError?: string;
+  isValid: boolean;
+  validationSummary: string;
+}
+
+const SAMPLE_CSV = `# hostname, ip address, device type, username, password, connection type
+CORE-SW-01, 10.200.1.1, cisco_xe, admin, Cisco123!, ssh
+BORDER-RTR-02, 10.200.1.254, cisco_xr, netops, TransitPass99, ssh
+DIST-LEAF-03, 10.200.2.15, cisco_nxos, admin, LeafSecure42, ssh
+LEGACY-SW-04, 192.168.100.1, cisco_ios, operator, TelnetLabPass, telnet
+SEC-FW-05, 10.200.3.1, cisco_asa, secadmin, AsaShield88, ssh`;
+
 export const DevicesPage: React.FC = () => {
-  const { devices, addDevice, updateDevice, deleteDevice, testDeviceConnection } = useAppStore();
+  const { devices, addDevice, addDevices, updateDevice, deleteDevice, testDeviceConnection } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [driverFilter, setDriverFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -29,8 +65,12 @@ export const DevicesPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(5);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [registerMode, setRegisterMode] = useState<'single' | 'bulk'>('single');
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
+
+  // Bulk import state
+  const [bulkText, setBulkText] = useState(SAMPLE_CSV);
 
   // Delete confirmation state
   const [deletingDevice, setDeletingDevice] = useState<Device | null>(null);
@@ -42,24 +82,25 @@ export const DevicesPage: React.FC = () => {
     updates: Partial<Device>;
   } | null>(null);
 
-  // Create form state
+  // Single form state
   const [formData, setFormData] = useState<{
     name: string;
     hostname: string;
     port: number;
     deviceType: DeviceType;
-    authType: 'password' | 'key' | 'secret_arn';
     username: string;
-    tags: string;
+    password: string;
+    connectionType: 'ssh' | 'telnet';
   }>({
     name: '',
     hostname: '',
     port: 22,
     deviceType: 'cisco_xe',
-    authType: 'password',
     username: 'admin',
-    tags: 'Core, Datacenter',
+    password: '',
+    connectionType: 'ssh',
   });
+  const [showPassword, setShowPassword] = useState(false);
 
   // Edit form state
   const [editFormData, setEditFormData] = useState<{
@@ -80,6 +121,104 @@ export const DevicesPage: React.FC = () => {
     tags: '',
   });
 
+  const handleConnectionTypeChange = (type: 'ssh' | 'telnet') => {
+    setFormData((prev) => ({
+      ...prev,
+      connectionType: type,
+      port: type === 'ssh' ? 22 : 23,
+    }));
+  };
+
+  // Parse bulk input matching exact headers: hostname, ip address, device type, username, password, connection type
+  const parsedBulkDevices = useMemo<ParsedBulkDevice[]>(() => {
+    const rawLines = bulkText.split('\n');
+
+    const parsed: ParsedBulkDevice[] = [];
+
+    rawLines.forEach((line, idx) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+
+      const parts = trimmed.split(',').map((p) => p.trim());
+      const hostname = parts[0] || '';
+      const ipAddress = parts[1] || '';
+      const deviceType = parts[2] || '';
+      const username = parts[3] || '';
+      const password = parts[4] || '';
+      const rawConnectionType = parts[5] || '';
+
+      // 1. Live IP Syntax Validator
+      const ipValidation = validateIpAddress(ipAddress);
+
+      // 2. Live Device Type Availability Validator
+      const driverValidation = validateDeviceType(deviceType);
+
+      // 3. Live Connection Type Validator (ssh vs telnet)
+      const connValidation = validateConnectionType(rawConnectionType);
+
+      // Determine overall validity
+      let isValid = true;
+      const errors: string[] = [];
+
+      if (!hostname) {
+        isValid = false;
+        errors.push('Missing hostname');
+      }
+
+      if (!ipValidation.isValid) {
+        isValid = false;
+        errors.push(ipValidation.error || 'Invalid IP syntax');
+      }
+
+      if (!driverValidation.isValid) {
+        isValid = false;
+        errors.push(driverValidation.error || 'Unsupported device type');
+      }
+
+      if (!username) {
+        isValid = false;
+        errors.push('Missing username');
+      }
+
+      if (!password) {
+        isValid = false;
+        errors.push('Missing password');
+      }
+
+      if (!connValidation.isValid) {
+        isValid = false;
+        errors.push(connValidation.error || 'Invalid connection type');
+      }
+
+      parsed.push({
+        rawLineNumber: idx + 1,
+        hostname,
+        ipAddress,
+        deviceType,
+        normalizedDriver: driverValidation.deviceType,
+        driverLabel: driverValidation.label,
+        username,
+        password,
+        connectionType: rawConnectionType,
+        normalizedConnType: connValidation.connectionType,
+        resolvedPort: connValidation.defaultPort,
+        isIpValid: ipValidation.isValid,
+        ipError: ipValidation.error,
+        ipVersion: ipValidation.version,
+        isDriverValid: driverValidation.isValid,
+        driverError: driverValidation.error,
+        isConnValid: connValidation.isValid,
+        connError: connValidation.error,
+        isValid,
+        validationSummary: errors.length > 0 ? errors.join(' • ') : 'Verified',
+      });
+    });
+
+    return parsed;
+  }, [bulkText]);
+
+  const validBulkCount = parsedBulkDevices.filter((d) => d.isValid).length;
+
   const handleTestConnection = async (deviceId: string) => {
     setTestingId(deviceId);
     try {
@@ -89,7 +228,7 @@ export const DevicesPage: React.FC = () => {
     }
   };
 
-  const handleCreateDevice = (e: React.FormEvent) => {
+  const handleCreateSingleDevice = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.hostname) return;
 
@@ -98,13 +237,12 @@ export const DevicesPage: React.FC = () => {
       hostname: formData.hostname.trim(),
       port: formData.port,
       deviceType: formData.deviceType,
-      authType: formData.authType,
+      authType: 'password',
       username: formData.username.trim(),
+      password: formData.password,
+      connectionType: formData.connectionType,
       status: 'untested',
-      tags: formData.tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0),
+      tags: [],
     });
 
     setIsAddModalOpen(false);
@@ -113,10 +251,36 @@ export const DevicesPage: React.FC = () => {
       hostname: '',
       port: 22,
       deviceType: 'cisco_xe',
-      authType: 'password',
       username: 'admin',
-      tags: 'Core, Datacenter',
+      password: '',
+      connectionType: 'ssh',
     });
+    setShowPassword(false);
+  };
+
+  const handleCreateBulkDevices = () => {
+    const validItems = parsedBulkDevices.filter(
+      (d) => d.isValid && d.normalizedDriver && d.normalizedConnType
+    );
+    if (validItems.length === 0) return;
+
+    addDevices(
+      validItems.map((d) => ({
+        name: d.hostname,
+        hostname: d.ipAddress,
+        port: d.resolvedPort,
+        deviceType: d.normalizedDriver as DeviceType,
+        authType: 'password',
+        username: d.username,
+        password: d.password,
+        connectionType: d.normalizedConnType as 'ssh' | 'telnet',
+        status: 'untested',
+        tags: [],
+      }))
+    );
+
+    setIsAddModalOpen(false);
+    setBulkText(SAMPLE_CSV);
   };
 
   const handleStartEdit = (device: Device) => {
@@ -323,7 +487,14 @@ export const DevicesPage: React.FC = () => {
                         )}
                       </td>
                       <td className="px-5 py-3.5 font-mono text-zinc-300">
-                        {device.hostname}:{device.port}
+                        <div className="flex items-center gap-1.5">
+                          <span>{device.hostname}:{device.port}</span>
+                          {device.connectionType && (
+                            <span className="text-[9px] uppercase px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/60 font-mono font-semibold">
+                              {device.connectionType}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-3.5 font-mono text-zinc-300">
                         {device.deviceType}
@@ -396,140 +567,365 @@ export const DevicesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Register Device Modal */}
+      {/* Register Device Modal with Single and Bulk Tabs */}
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         title="Register Network Device"
-        description="Configure target Cisco router, switch, or firewall for automated verification."
+        description="Configure single or multiple Cisco routers, switches, or firewalls for automated verification."
+        maxWidth={registerMode === 'bulk' ? '4xl' : 'lg'}
       >
-        <form onSubmit={handleCreateDevice} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">
-              Device Name / Host Label
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. CORE-SW-01"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                IP Address or FQDN
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="10.200.1.1"
-                value={formData.hostname}
-                onChange={(e) => setFormData({ ...formData, hostname: e.target.value })}
-                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">SSH Port</label>
-              <input
-                type="number"
-                required
-                value={formData.port}
-                onChange={(e) => setFormData({ ...formData, port: Number(e.target.value) })}
-                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">Device Driver</label>
-              <select
-                value={formData.deviceType}
-                onChange={(e) =>
-                  setFormData({ ...formData, deviceType: e.target.value as DeviceType })
-                }
-                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
-              >
-                {CISCO_DEVICE_PLATFORMS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">Auth Type</label>
-              <select
-                value={formData.authType}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    authType: e.target.value as 'password' | 'key' | 'secret_arn',
-                  })
-                }
-                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
-              >
-                <option value="password">Password (KMS Encrypted)</option>
-                <option value="key">SSH Private Key</option>
-                <option value="secret_arn">Secrets Manager ARN</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">Username</label>
-              <input
-                type="text"
-                required
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                Password / Secret
-              </label>
-              <input
-                type="password"
-                placeholder="••••••••••••"
-                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">
-              Tags (Comma separated)
-            </label>
-            <input
-              type="text"
-              placeholder="Edge, BGP-WAN, DC-East"
-              value={formData.tags}
-              onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-              className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
-            <Button
+        <div className="space-y-4 font-sans">
+          {/* Tabs Selector */}
+          <div className="flex items-center gap-1.5 p-1 bg-zinc-950 border border-zinc-800 rounded-xl w-fit">
+            <button
               type="button"
-              variant="secondary"
-              onClick={() => setIsAddModalOpen(false)}
+              onClick={() => setRegisterMode('single')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                registerMode === 'single'
+                  ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
             >
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary">
-              Register
-            </Button>
+              Single Device
+            </button>
+            <button
+              type="button"
+              onClick={() => setRegisterMode('bulk')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                registerMode === 'bulk'
+                  ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <FileArrowUp className="w-3.5 h-3.5" />
+              <span>Bulk Import</span>
+            </button>
           </div>
-        </form>
+
+          {registerMode === 'single' ? (
+            <form onSubmit={handleCreateSingleDevice} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Device Name / Host Label
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. CORE-SW-01"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                    IP Address or FQDN
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="10.200.1.1"
+                    value={formData.hostname}
+                    onChange={(e) => setFormData({ ...formData, hostname: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-1">Device Driver</label>
+                  <select
+                    value={formData.deviceType}
+                    onChange={(e) =>
+                      setFormData({ ...formData, deviceType: e.target.value as DeviceType })
+                    }
+                    className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+                  >
+                    {CISCO_DEVICE_PLATFORMS.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-1">Username</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="admin"
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                    Password / Secret
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Enter device password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full pl-3.5 pr-9 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <EyeSlash className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                    Connection Type
+                  </label>
+                  <select
+                    value={formData.connectionType}
+                    onChange={(e) =>
+                      handleConnectionTypeChange(e.target.value as 'ssh' | 'telnet')
+                    }
+                    className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+                  >
+                    <option value="ssh">SSH (Port 22 default)</option>
+                    <option value="telnet">Telnet (Port 23 default)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                    Port (Derived / Custom)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={formData.port}
+                    onChange={(e) => setFormData({ ...formData, port: Number(e.target.value) || 22 })}
+                    className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsAddModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary">
+                  Register
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-4">
+              {/* Exact Headers Instruction & Format Bar */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-semibold text-zinc-300">
+                    Required CSV Headers Format:
+                  </div>
+                  <div className="font-mono text-[11px] text-[#c8ff00] font-bold">
+                    hostname, ip address, device type, username, password, connection type
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBulkText(SAMPLE_CSV)}
+                  className="text-xs text-[#c8ff00] font-semibold hover:underline cursor-pointer"
+                >
+                  Insert template
+                </button>
+              </div>
+
+              <textarea
+                rows={5}
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder="CORE-SW-01, 10.200.1.1, cisco_xe, admin, Cisco123!, ssh"
+                className="w-full font-mono text-xs px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+              />
+
+              {/* Live Preview Table Matching Exact Headers */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-zinc-300">
+                    Live Batch Preview ({validBulkCount} of {parsedBulkDevices.length} ready)
+                  </span>
+                  <span className="text-[11px] text-zinc-500 font-mono">
+                    Supported: cisco_xe, cisco_ios, cisco_nxos, cisco_xr, cisco_asa | ssh, telnet
+                  </span>
+                </div>
+
+                <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950/60 max-h-56 overflow-y-auto">
+                  <table className="w-full text-left text-xs text-zinc-300">
+                    <thead className="bg-zinc-900/95 text-zinc-400 uppercase font-mono text-[10px] border-b border-zinc-800 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2.5">Hostname</th>
+                        <th className="px-3 py-2.5">IP Address</th>
+                        <th className="px-3 py-2.5">Device Type</th>
+                        <th className="px-3 py-2.5">Username</th>
+                        <th className="px-3 py-2.5">Password</th>
+                        <th className="px-3 py-2.5">Connection Type</th>
+                        <th className="px-3 py-2.5 text-right">Validation</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60 font-sans">
+                      {parsedBulkDevices.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
+                            No devices parsed. Enter CSV lines above.
+                          </td>
+                        </tr>
+                      ) : (
+                        parsedBulkDevices.map((d, idx) => (
+                          <tr key={idx} className="hover:bg-zinc-900/40 transition-colors">
+                            {/* 1. Hostname */}
+                            <td className="px-3 py-2 font-bold text-zinc-200">
+                              {d.hostname || <span className="text-rose-400 italic">Empty</span>}
+                            </td>
+
+                            {/* 2. IP Address with Live IP Syntax Validator */}
+                            <td className="px-3 py-2 font-mono">
+                              <div className="flex items-center gap-1.5">
+                                <span className={d.isIpValid ? 'text-zinc-200' : 'text-rose-400 font-bold'}>
+                                  {d.ipAddress || '—'}
+                                </span>
+                                {d.isIpValid ? (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-[#c8ff00]/10 text-[#c8ff00] font-mono border border-[#c8ff00]/20">
+                                    {d.ipVersion}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="text-[9px] px-1 py-0.5 rounded bg-rose-500/10 text-rose-400 font-mono border border-rose-500/30"
+                                    title={d.ipError}
+                                  >
+                                    Malformed
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* 3. Device Type with Live Availability Validator */}
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className={d.isDriverValid ? 'text-zinc-300 font-mono' : 'text-rose-400 font-mono'}>
+                                  {d.deviceType || '—'}
+                                </span>
+                                {d.isDriverValid ? (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-[#c8ff00]/10 text-[#c8ff00] font-sans border border-[#c8ff00]/20">
+                                    Available
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="text-[9px] px-1 py-0.5 rounded bg-rose-500/10 text-rose-400 font-sans border border-rose-500/30"
+                                    title={d.driverError}
+                                  >
+                                    Unavailable
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* 4. Username */}
+                            <td className="px-3 py-2 font-mono text-zinc-300">
+                              {d.username || <span className="text-rose-400 italic">Missing</span>}
+                            </td>
+
+                            {/* 5. Password (shown in plain text as requested) */}
+                            <td className="px-3 py-2 font-mono text-zinc-300">
+                              {d.password || <span className="text-rose-400 italic">Missing</span>}
+                            </td>
+
+                            {/* 6. Connection Type with Live Protocol & Port Badge */}
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className={d.isConnValid ? 'text-zinc-300 font-mono text-[11px]' : 'text-rose-400 font-mono text-[11px]'}>
+                                  {d.connectionType || '—'}
+                                </span>
+                                {d.isConnValid ? (
+                                  <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-[#c8ff00]/10 text-[#c8ff00] font-mono border border-[#c8ff00]/20 font-bold">
+                                    {d.normalizedConnType?.toUpperCase()} ({d.resolvedPort})
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="text-[9px] px-1 py-0.5 rounded bg-rose-500/10 text-rose-400 font-sans border border-rose-500/30"
+                                    title={d.connError}
+                                  >
+                                    Invalid
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Row Validation Status */}
+                            <td className="px-3 py-2 text-right">
+                              {d.isValid ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-[#c8ff00] font-semibold">
+                                  <CheckCircle className="w-3.5 h-3.5" weight="fill" />
+                                  Ready
+                                </span>
+                              ) : (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10px] text-rose-400 font-semibold"
+                                  title={d.validationSummary}
+                                >
+                                  <Warning className="w-3.5 h-3.5" weight="fill" />
+                                  Invalid
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
+                <span className="text-xs text-zinc-400">
+                  Ready to register {validBulkCount} devices into inventory
+                </span>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setIsAddModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    disabled={validBulkCount === 0}
+                    onClick={handleCreateBulkDevices}
+                  >
+                    Register
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
 
       {/* Edit Device Modal */}
@@ -609,9 +1005,9 @@ export const DevicesPage: React.FC = () => {
                   }
                   className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
                 >
-                  <option value="password">Password (KMS Encrypted)</option>
+                  <option value="password">Password (Encrypted)</option>
                   <option value="key">SSH Private Key</option>
-                  <option value="secret_arn">Secrets Manager ARN</option>
+                  <option value="secret_arn">Secret Vault Reference</option>
                 </select>
               </div>
             </div>

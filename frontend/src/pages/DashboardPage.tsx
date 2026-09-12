@@ -113,7 +113,7 @@ export const DashboardPage: React.FC = () => {
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-extrabold text-white">{baselineCoveragePct}%</span>
               <span className="text-xs text-zinc-400 font-mono">
-                {snapshots.length} in S3
+                {snapshots.length} archived
               </span>
             </div>
             {/* Coverage bar */}

@@ -207,7 +207,7 @@ export const RegisterPage: React.FC = () => {
           {/* Micro Security Notice */}
           <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-400 pt-2">
             <ShieldCheck className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Encrypted SSH credentials with AWS KMS envelope protection</span>
+            <span>Encrypted SSH credentials with hardware-grade envelope protection</span>
           </div>
         </div>
       </div>

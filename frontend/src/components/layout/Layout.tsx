@@ -90,9 +90,9 @@ export const Layout: React.FC = () => {
           <div className="flex items-center justify-between text-xs text-zinc-400">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#c8ff00]" />
-              AWS us-east-1
+              Primary Region (Active)
             </span>
-            <span className="text-[10px] font-mono text-zinc-400">Step Functions</span>
+            <span className="text-[10px] font-mono text-zinc-400">Parallel Engine</span>
           </div>
 
           <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-between gap-2">

@@ -77,7 +77,7 @@ export const UI_COPY = {
       }),
       deleteSnapshot: (id: string) => ({
         title: `Delete ${id}`,
-        message: `Delete snapshot ${id}? The associated S3 archive record will be unlinked. This action cannot be undone.`,
+        message: `Delete snapshot ${id}? The associated archive record will be unlinked. This action cannot be undone.`,
         confirmText: 'Delete',
         cancelText: 'Cancel',
       }),

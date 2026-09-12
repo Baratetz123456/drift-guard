@@ -17,6 +17,8 @@ export interface Device {
   deviceType: DeviceType;
   authType: 'password' | 'key' | 'secret_arn';
   username: string;
+  password?: string;
+  connectionType?: 'ssh' | 'telnet';
   status: 'online' | 'offline' | 'untested';
   lastTestedAt?: string;
   tags?: string[];

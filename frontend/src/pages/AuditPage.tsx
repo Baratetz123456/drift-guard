@@ -71,7 +71,7 @@ export const AuditPage: React.FC = () => {
             <span>Audit Trail</span>
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Immutable audit records written asynchronously to DynamoDB with AWS 90-day TTL expiration.
+            Immutable audit records written asynchronously to persistent datastore with 90-day retention expiration.
           </p>
         </div>
 

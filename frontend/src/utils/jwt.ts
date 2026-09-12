@@ -1,7 +1,7 @@
 /**
  * JWT Utility Module for DriftGuard
  * Implements RFC 7519 Base64URL encoding/decoding and emulates
- * AWS Cognito User Pool ID token schema.
+ * enterprise cryptographic user token schema.
  */
 
 export interface CognitoJwtPayload {
@@ -110,7 +110,7 @@ export function getJwtRemainingSeconds(token: string | null | undefined): number
 }
 
 /**
- * Generates an emulated AWS Cognito User Pool ID token.
+ * Generates an emulated cryptographically structured ID token.
  * Default lifespan: 30 minutes (1800 seconds).
  */
 export function generateCognitoJwt(
@@ -140,10 +140,10 @@ export function generateCognitoJwt(
     'cognito:groups': [role.replace(/\s+/g, '')],
     token_use: 'id',
     email_verified: true,
-    iss: 'https://cognito-idp.us-east-1.amazonaws.com/deltanet-user-pool',
+    iss: 'https://auth.driftguard.internal/oauth2/token',
     iat,
     exp,
-    client_id: 'deltanet-web-client',
+    client_id: 'driftguard-web-client',
   };
 
   const encodedHeader = base64UrlEncode(JSON.stringify(header));

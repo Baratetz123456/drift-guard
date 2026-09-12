@@ -58,7 +58,7 @@ export const SessionTimeoutModal: React.FC<SessionTimeoutModalProps> = ({
         <div className="text-[11px] text-zinc-400 space-y-1 bg-zinc-900/30 p-3 rounded-lg border border-zinc-800/50">
           <span className="font-semibold text-zinc-300 block">Security policy</span>
           <span>
-            DriftGuard enforces session limits on read-only SSH transport and AWS KMS envelope cryptographic sessions.
+            DriftGuard enforces session limits on read-only SSH transport and cryptographic envelope sessions.
           </span>
         </div>
 

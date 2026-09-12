@@ -61,7 +61,7 @@ export const AuthVisualShowcase: React.FC = () => {
               <span>Immutable snapshots</span>
             </div>
             <p className="text-[11px] text-slate-400 leading-normal">
-              Dual-phase CLI states archived immutably to AWS S3.
+              Dual-phase CLI states archived immutably to encrypted vault.
             </p>
           </div>
 

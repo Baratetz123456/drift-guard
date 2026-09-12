@@ -67,7 +67,7 @@ export const SnapshotsPage: React.FC = () => {
             <span>Snapshots</span>
           </h1>
           <p className="text-xs text-zinc-400 mt-1">
-            Browse and inspect immutable Cisco show command outputs stored in Amazon S3.
+            Browse and inspect immutable Cisco show command outputs stored in snapshot archive vault.
           </p>
         </div>
 
@@ -283,7 +283,7 @@ export const SnapshotsPage: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-zinc-800 text-xs text-zinc-400">
-              <span className="font-mono text-[11px]">S3: {selectedSnapshot.s3Key}</span>
+              <span className="font-mono text-[11px]">Archive URI: {selectedSnapshot.s3Key}</span>
               <Button
                 variant="primary"
                 size="sm"

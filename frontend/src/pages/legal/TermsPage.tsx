@@ -172,10 +172,10 @@ export const TermsPage: React.FC = () => {
               Credential custody and access security
             </h2>
             <p>
-              Operators are responsible for maintaining the confidentiality of their Cognito authentication credentials and configured SSH service accounts. We strongly recommend configuring dedicated read-only TACACS+ or RADIUS privilege levels (e.g. Cisco Privilege Level 1 or read-only view) for all DriftGuard collection targets.
+              Operators are responsible for maintaining the confidentiality of their operator authentication credentials and configured SSH service accounts. We strongly recommend configuring dedicated read-only TACACS+ or RADIUS privilege levels (e.g. Cisco Privilege Level 1 or read-only view) for all DriftGuard collection targets.
             </p>
             <p>
-              DriftGuard guarantees that credentials submitted to the platform are protected using AWS KMS envelope encryption.
+              DriftGuard guarantees that credentials submitted to the platform are protected using cryptographic envelope encryption with hardware-grade security modules.
             </p>
           </section>
 
@@ -186,12 +186,12 @@ export const TermsPage: React.FC = () => {
               Service availability and thresholds
             </h2>
             <p>
-              DriftGuard operates on an AWS serverless architecture engineered for 99.9% uptime. Automated snapshots are processed through AWS Step Functions and asynchronous Lambda workers subject to the following default thresholds:
+              DriftGuard operates on a high-availability cloud-native architecture engineered for 99.9% uptime. Automated snapshots are processed through parallel orchestration workers subject to the following default thresholds:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-zinc-400">
               <li>Default SSH execution timeout: 30 seconds per command</li>
               <li>Maximum concurrent collection targets: 50 devices per batch</li>
-              <li>S3 snapshot object retention: In accordance with customer lifecycle settings</li>
+              <li>Snapshot vault retention: In accordance with configured lifecycle settings</li>
             </ul>
           </section>
 
@@ -216,7 +216,7 @@ export const TermsPage: React.FC = () => {
               Termination and inventory purging
             </h2>
             <p>
-              An operator or organization may terminate access to DriftGuard at any time. Upon account retirement, all registered devices, encrypted credential records, and snapshot metadata in DynamoDB are deleted, and associated S3 snapshot archives are permanently purged.
+              An operator or organization may terminate access to DriftGuard at any time. Upon account retirement, all registered devices, encrypted credential records, and snapshot metadata in persistent datastores are deleted, and associated snapshot vault archives are permanently purged.
             </p>
           </section>
         </div>

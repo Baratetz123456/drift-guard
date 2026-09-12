@@ -56,6 +56,7 @@ interface AppState {
 
   // Device actions
   addDevice: (device: Omit<Device, 'deviceId' | 'userId' | 'createdAt' | 'updatedAt'>) => Device;
+  addDevices: (devices: Omit<Device, 'deviceId' | 'userId' | 'createdAt' | 'updatedAt'>[]) => Device[];
   updateDevice: (deviceId: string, updates: Partial<Device>) => void;
   deleteDevice: (deviceId: string) => void;
   testDeviceConnection: (deviceId: string) => Promise<{ success: boolean; latencyMs?: number; error?: string }>;
@@ -237,6 +238,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({ devices: [newDevice, ...state.devices] }));
     get().addToast('success', UI_COPY.states.success.deviceAdded(newDevice.name));
     return newDevice;
+  },
+
+  addDevices: (devicesData) => {
+    const currentUserId = get().user?.id || 'user-default';
+    const now = new Date().toISOString();
+    const newDevices: Device[] = devicesData.map((d, index) => ({
+      ...d,
+      deviceId: `dev-${(Date.now() + index).toString(36)}`,
+      userId: currentUserId,
+      createdAt: now,
+      updatedAt: now,
+    }));
+    set((state) => ({ devices: [...newDevices, ...state.devices] }));
+    get().addToast('success', `${newDevices.length} network devices registered in inventory.`);
+    return newDevices;
   },
 
   updateDevice: (deviceId, updates) => {
