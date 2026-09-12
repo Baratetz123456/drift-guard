@@ -116,6 +116,31 @@ const initialSettings: UserSettings = {
   normalizeDynamicCounters: true,
 };
 
+const COMMAND_SETS_STORAGE_KEY = 'driftguard_command_sets';
+
+function getInitialCommandSets(): CommandSet[] {
+  try {
+    const raw = localStorage.getItem(COMMAND_SETS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load command sets from localStorage:', e);
+  }
+  return initialCommandSets;
+}
+
+function persistCommandSets(sets: CommandSet[]) {
+  try {
+    localStorage.setItem(COMMAND_SETS_STORAGE_KEY, JSON.stringify(sets));
+  } catch (e) {
+    console.error('Failed to persist command sets to localStorage:', e);
+  }
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   user: initialAuth.user,
   isAuthenticated: initialAuth.isAuthenticated,
@@ -181,7 +206,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   devices: initialDevices,
-  commandSets: initialCommandSets,
+  commandSets: getInitialCommandSets(),
   snapshots: initialSnapshots,
   comparisons: initialComparisons,
   analyses: initialAnalyses,
@@ -269,26 +294,28 @@ export const useAppStore = create<AppState>((set, get) => ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    set((state) => ({ commandSets: [...state.commandSets, newSet] }));
+    const updatedSets = [...get().commandSets, newSet];
+    persistCommandSets(updatedSets);
+    set({ commandSets: updatedSets });
     get().addToast('success', UI_COPY.states.success.commandSetSaved(newSet.name));
     return newSet;
   },
 
   updateCommandSet: (setId, updates) => {
-    set((state) => ({
-      commandSets: state.commandSets.map((s) =>
-        s.setId === setId
-          ? { ...s, ...updates, updatedAt: new Date().toISOString() }
-          : s
-      ),
-    }));
+    const updatedSets = get().commandSets.map((s) =>
+      s.setId === setId
+        ? { ...s, ...updates, updatedAt: new Date().toISOString() }
+        : s
+    );
+    persistCommandSets(updatedSets);
+    set({ commandSets: updatedSets });
     get().addToast('info', 'Command set configuration updated.');
   },
 
   deleteCommandSet: (setId) => {
-    set((state) => ({
-      commandSets: state.commandSets.filter((s) => s.setId !== setId),
-    }));
+    const updatedSets = get().commandSets.filter((s) => s.setId !== setId);
+    persistCommandSets(updatedSets);
+    set({ commandSets: updatedSets });
     get().addToast('info', 'Command set removed from registry.');
   },
 

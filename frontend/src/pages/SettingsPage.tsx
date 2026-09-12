@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import {
   Gear,
   Key,
@@ -28,6 +29,7 @@ const POPULAR_MODELS = [
 export const SettingsPage: React.FC = () => {
   const { settings, updateSettings, user, logout } = useAppStore();
   const [activeTab, setActiveTab] = useState<'ai' | 'ssh' | 'diff' | 'account'>('ai');
+  const [isConfirmingSave, setIsConfirmingSave] = useState(false);
 
   // AI Tab form state
   const [baseUrl, setBaseUrl] = useState(settings.aiBaseUrl || 'https://openrouter.ai/api/v1');
@@ -43,8 +45,12 @@ export const SettingsPage: React.FC = () => {
   const [maskSecrets, setMaskSecrets] = useState(settings.maskSecretsInDiffs);
   const [normalizeCounters, setNormalizeCounters] = useState(settings.normalizeDynamicCounters);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsConfirmingSave(true);
+  };
+
+  const handleConfirmSave = () => {
     updateSettings({
       aiBaseUrl: baseUrl.trim(),
       defaultModel: model.trim(),
@@ -54,6 +60,7 @@ export const SettingsPage: React.FC = () => {
       ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
     });
     setApiKey('');
+    setIsConfirmingSave(false);
   };
 
   const tabs = [
@@ -102,7 +109,7 @@ export const SettingsPage: React.FC = () => {
         })}
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
+      <form onSubmit={handleFormSubmit} className="space-y-6">
         {/* TAB 1: AI Model */}
         {activeTab === 'ai' && (
           <div className="space-y-5">
@@ -352,6 +359,18 @@ export const SettingsPage: React.FC = () => {
           </div>
         )}
       </form>
+
+      {/* Save Settings Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmingSave}
+        onClose={() => setIsConfirmingSave(false)}
+        onConfirm={handleConfirmSave}
+        title="Update System Settings"
+        message="Apply modified API endpoints, AI models, SSH timeout thresholds, and diff normalization policies? Active and future automated collections will use these parameters."
+        confirmText="Save"
+        cancelText="Cancel"
+        variant="warning"
+      />
     </div>
   );
 };

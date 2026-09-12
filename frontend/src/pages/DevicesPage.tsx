@@ -4,7 +4,9 @@ import { Device, DeviceType } from '../types';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
 import {
   HardDrives,
   Plus,
@@ -12,13 +14,14 @@ import {
   WifiHigh,
   WifiSlash,
   Trash,
+  PencilSimple,
   Tag,
   Key,
   Funnel,
 } from '@phosphor-icons/react';
 
 export const DevicesPage: React.FC = () => {
-  const { devices, addDevice, deleteDevice, testDeviceConnection } = useAppStore();
+  const { devices, addDevice, updateDevice, deleteDevice, testDeviceConnection } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [driverFilter, setDriverFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -26,8 +29,20 @@ export const DevicesPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(5);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
 
+  // Delete confirmation state
+  const [deletingDevice, setDeletingDevice] = useState<Device | null>(null);
+
+  // Update confirmation state
+  const [pendingUpdateData, setPendingUpdateData] = useState<{
+    deviceId: string;
+    name: string;
+    updates: Partial<Device>;
+  } | null>(null);
+
+  // Create form state
   const [formData, setFormData] = useState<{
     name: string;
     hostname: string;
@@ -46,6 +61,25 @@ export const DevicesPage: React.FC = () => {
     tags: 'Core, Datacenter',
   });
 
+  // Edit form state
+  const [editFormData, setEditFormData] = useState<{
+    name: string;
+    hostname: string;
+    port: number;
+    deviceType: DeviceType;
+    authType: 'password' | 'key' | 'secret_arn';
+    username: string;
+    tags: string;
+  }>({
+    name: '',
+    hostname: '',
+    port: 22,
+    deviceType: 'cisco_xe',
+    authType: 'password',
+    username: 'admin',
+    tags: '',
+  });
+
   const handleTestConnection = async (deviceId: string) => {
     setTestingId(deviceId);
     try {
@@ -60,14 +94,17 @@ export const DevicesPage: React.FC = () => {
     if (!formData.name || !formData.hostname) return;
 
     addDevice({
-      name: formData.name,
-      hostname: formData.hostname,
-      port: Number(formData.port),
+      name: formData.name.trim(),
+      hostname: formData.hostname.trim(),
+      port: formData.port,
       deviceType: formData.deviceType,
       authType: formData.authType,
-      username: formData.username,
+      username: formData.username.trim(),
       status: 'untested',
-      tags: formData.tags.split(',').map((t: string) => t.trim()).filter(Boolean),
+      tags: formData.tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0),
     });
 
     setIsAddModalOpen(false);
@@ -78,16 +115,64 @@ export const DevicesPage: React.FC = () => {
       deviceType: 'cisco_xe',
       authType: 'password',
       username: 'admin',
-      tags: '',
+      tags: 'Core, Datacenter',
     });
+  };
+
+  const handleStartEdit = (device: Device) => {
+    setEditingDevice(device);
+    setEditFormData({
+      name: device.name,
+      hostname: device.hostname,
+      port: device.port,
+      deviceType: device.deviceType,
+      authType: device.authType,
+      username: device.username,
+      tags: (device.tags || []).join(', '),
+    });
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDevice || !editFormData.name || !editFormData.hostname) return;
+
+    setPendingUpdateData({
+      deviceId: editingDevice.deviceId,
+      name: editFormData.name.trim(),
+      updates: {
+        name: editFormData.name.trim(),
+        hostname: editFormData.hostname.trim(),
+        port: editFormData.port,
+        deviceType: editFormData.deviceType,
+        authType: editFormData.authType,
+        username: editFormData.username.trim(),
+        tags: editFormData.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0),
+      },
+    });
+  };
+
+  const handleConfirmUpdate = () => {
+    if (!pendingUpdateData) return;
+    updateDevice(pendingUpdateData.deviceId, pendingUpdateData.updates);
+    setPendingUpdateData(null);
+    setEditingDevice(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deletingDevice) return;
+    deleteDevice(deletingDevice.deviceId);
+    setDeletingDevice(null);
   };
 
   const filteredDevices = useMemo(() => {
     return devices.filter((d: Device) => {
       const matchesSearch =
         d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.hostname.includes(searchTerm) ||
-        d.tags?.some((t: string) => t.toLowerCase().includes(searchTerm.toLowerCase()));
+        d.hostname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (d.tags && d.tags.some((t) => t.toLowerCase().includes(searchTerm.toLowerCase())));
 
       const matchesDriver = driverFilter === 'ALL' || d.deviceType === driverFilter;
       const matchesStatus = statusFilter === 'ALL' || d.status === statusFilter;
@@ -96,7 +181,7 @@ export const DevicesPage: React.FC = () => {
     });
   }, [devices, searchTerm, driverFilter, statusFilter]);
 
-  const totalPages = Math.ceil(filteredDevices.length / pageSize);
+  const totalPages = Math.ceil(filteredDevices.length / pageSize) || 1;
   const paginatedDevices = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredDevices.slice(start, start + pageSize);
@@ -104,15 +189,14 @@ export const DevicesPage: React.FC = () => {
 
   return (
     <div className="space-y-6 font-sans">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
             <HardDrives className="w-6 h-6 text-zinc-400" weight="duotone" />
-            <span>Devices</span>
+            <span>Target Inventory</span>
           </h1>
           <p className="text-xs text-zinc-400 mt-1">
-            Cisco switch and router inventory, SSH parameters, and real-time connectivity status.
+            Managed Cisco network nodes configured for automated baseline snapshots and diff audits.
           </p>
         </div>
 
@@ -125,13 +209,13 @@ export const DevicesPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Filter and Search Bar */}
+      {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
           <MagnifyingGlass className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
           <input
             type="text"
-            placeholder="Search hostname, IP address, or tags..."
+            placeholder="Search devices by hostname, IP, or tag..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -142,6 +226,7 @@ export const DevicesPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Driver Filter */}
           <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
             <Funnel className="w-3.5 h-3.5 text-zinc-500" />
             <select
@@ -153,14 +238,16 @@ export const DevicesPage: React.FC = () => {
               className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
             >
               <option value="ALL">All Drivers</option>
-              <option value="cisco_xe">Cisco IOS-XE</option>
-              <option value="cisco_xr">Cisco IOS-XR</option>
-              <option value="cisco_nxos">Cisco NX-OS</option>
-              <option value="cisco_ios">Cisco Classic IOS</option>
+              {CISCO_DEVICE_PLATFORMS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
+          {/* Status Filter */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
             <select
               value={statusFilter}
               onChange={(e) => {
@@ -178,7 +265,7 @@ export const DevicesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Flat Data Table */}
+      {/* Flat Table Layout */}
       <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900/30">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-zinc-300">
@@ -187,7 +274,7 @@ export const DevicesPage: React.FC = () => {
                 <th className="px-5 py-3">Device Name</th>
                 <th className="px-5 py-3">Endpoint</th>
                 <th className="px-5 py-3">Driver</th>
-                <th className="px-5 py-3">Auth</th>
+                <th className="px-5 py-3">Auth Mode</th>
                 <th className="px-5 py-3">Status</th>
                 <th className="px-5 py-3">Last Probed</th>
                 <th className="px-5 py-3 text-right">Actions</th>
@@ -196,8 +283,21 @@ export const DevicesPage: React.FC = () => {
             <tbody className="divide-y divide-zinc-800/60 font-sans">
               {paginatedDevices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-8 text-center text-zinc-500 italic">
-                    No devices match the active search and filter criteria.
+                  <td colSpan={7} className="px-5 py-12 text-center text-zinc-400">
+                    <HardDrives className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                    <p className="font-semibold text-zinc-300 text-xs">No matching devices</p>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">Try clearing search or filters</p>
+                    <button
+                      onClick={() => {
+                        setSearchTerm('');
+                        setDriverFilter('ALL');
+                        setStatusFilter('ALL');
+                        setCurrentPage(1);
+                      }}
+                      className="mt-3 text-xs text-[#c8ff00] font-bold hover:underline cursor-pointer"
+                    >
+                      Reset filters
+                    </button>
                   </td>
                 </tr>
               ) : (
@@ -206,15 +306,17 @@ export const DevicesPage: React.FC = () => {
                   return (
                     <tr key={device.deviceId} className="hover:bg-zinc-900/50 transition-colors">
                       <td className="px-5 py-3.5">
-                        <div className="font-bold text-zinc-100">{device.name}</div>
+                        <div className="font-bold text-zinc-100 flex items-center gap-2">
+                          {device.name}
+                        </div>
                         {device.tags && device.tags.length > 0 && (
-                          <div className="flex gap-1 mt-1">
-                            {device.tags.map((t: string, i: number) => (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {device.tags.map((tag: string, idx: number) => (
                               <span
-                                key={i}
-                                className="px-1.5 py-0.2 rounded text-[10px] bg-zinc-800 text-zinc-400"
+                                key={idx}
+                                className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-400 border border-zinc-700/50"
                               >
-                                {t}
+                                {tag}
                               </span>
                             ))}
                           </div>
@@ -223,11 +325,11 @@ export const DevicesPage: React.FC = () => {
                       <td className="px-5 py-3.5 font-mono text-zinc-300">
                         {device.hostname}:{device.port}
                       </td>
-                      <td className="px-5 py-3.5 font-mono text-zinc-400">
+                      <td className="px-5 py-3.5 font-mono text-zinc-300">
                         {device.deviceType}
                       </td>
                       <td className="px-5 py-3.5 text-zinc-400">
-                        {device.authType} ({device.username})
+                        <span className="capitalize">{device.authType}</span>
                       </td>
                       <td className="px-5 py-3.5">
                         <Badge
@@ -259,7 +361,14 @@ export const DevicesPage: React.FC = () => {
                             {isTesting ? 'Probing' : 'Test'}
                           </Button>
                           <button
-                            onClick={() => deleteDevice(device.deviceId)}
+                            onClick={() => handleStartEdit(device)}
+                            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                            title="Edit"
+                          >
+                            <PencilSimple className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeletingDevice(device)}
                             className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
                             title="Delete"
                           >
@@ -275,7 +384,6 @@ export const DevicesPage: React.FC = () => {
           </table>
         </div>
 
-        {/* Pagination Toolbar */}
         <div className="px-4">
           <PaginationToolbar
             currentPage={currentPage}
@@ -288,12 +396,12 @@ export const DevicesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Add Device Modal */}
+      {/* Register Device Modal */}
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title="Register Device"
-        description="Configure target credentials for automated Netmiko SSH collection."
+        title="Register Network Device"
+        description="Configure target Cisco router, switch, or firewall for automated verification."
       >
         <form onSubmit={handleCreateDevice} className="space-y-4">
           <div>
@@ -346,10 +454,11 @@ export const DevicesPage: React.FC = () => {
                 }
                 className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
               >
-                <option value="cisco_xe">Cisco IOS-XE</option>
-                <option value="cisco_ios">Cisco Classic IOS</option>
-                <option value="cisco_xr">Cisco IOS-XR</option>
-                <option value="cisco_nxos">Cisco NX-OS</option>
+                {CISCO_DEVICE_PLATFORMS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -422,6 +531,169 @@ export const DevicesPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Edit Device Modal */}
+      {editingDevice && (
+        <Modal
+          isOpen={Boolean(editingDevice)}
+          onClose={() => setEditingDevice(null)}
+          title={`Edit Device: ${editingDevice.name}`}
+          description="Update endpoint connection parameters and driver configuration."
+        >
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                Device Name / Host Label
+              </label>
+              <input
+                type="text"
+                required
+                value={editFormData.name}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  IP Address or FQDN
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.hostname}
+                  onChange={(e) => setEditFormData({ ...editFormData, hostname: e.target.value })}
+                  className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">SSH Port</label>
+                <input
+                  type="number"
+                  required
+                  value={editFormData.port}
+                  onChange={(e) => setEditFormData({ ...editFormData, port: Number(e.target.value) })}
+                  className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">Device Driver</label>
+                <select
+                  value={editFormData.deviceType}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, deviceType: e.target.value as DeviceType })
+                  }
+                  className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+                >
+                  {CISCO_DEVICE_PLATFORMS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">Auth Type</label>
+                <select
+                  value={editFormData.authType}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      authType: e.target.value as 'password' | 'key' | 'secret_arn',
+                    })
+                  }
+                  className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+                >
+                  <option value="password">Password (KMS Encrypted)</option>
+                  <option value="key">SSH Private Key</option>
+                  <option value="secret_arn">Secrets Manager ARN</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">Username</label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.username}
+                  onChange={(e) => setEditFormData({ ...editFormData, username: e.target.value })}
+                  className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Password / Secret
+                </label>
+                <input
+                  type="password"
+                  placeholder="Leave blank to keep existing"
+                  className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                Tags (Comma separated)
+              </label>
+              <input
+                type="text"
+                value={editFormData.tags}
+                onChange={(e) => setEditFormData({ ...editFormData, tags: e.target.value })}
+                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setEditingDevice(null)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary">
+                Update
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deletingDevice && (
+        <ConfirmDialog
+          isOpen={Boolean(deletingDevice)}
+          onClose={() => setDeletingDevice(null)}
+          onConfirm={handleConfirmDelete}
+          title={`Delete ${deletingDevice.name}`}
+          message={`Delete device "${deletingDevice.name}" (${deletingDevice.hostname})? This action removes all associated SSH credentials and historical records from inventory. This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+        />
+      )}
+
+      {/* Update Confirmation Dialog */}
+      {pendingUpdateData && (
+        <ConfirmDialog
+          isOpen={Boolean(pendingUpdateData)}
+          onClose={() => setPendingUpdateData(null)}
+          onConfirm={handleConfirmUpdate}
+          title={`Update ${pendingUpdateData.name}`}
+          message={`Save updates to device "${pendingUpdateData.name}"? Historical snapshot associations will be retained.`}
+          confirmText="Update"
+          cancelText="Cancel"
+          variant="warning"
+        />
+      )}
     </div>
   );
 };

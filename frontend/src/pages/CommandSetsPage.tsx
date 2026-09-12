@@ -4,81 +4,99 @@ import { CommandSet, DeviceType } from '../types';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import {
+  validateCiscoCommandSuite,
+  CISCO_DEVICE_PLATFORMS,
+} from '../utils/ciscoSyntaxValidator';
 import {
   TerminalWindow,
   Plus,
   Trash,
+  PencilSimple,
   CheckCircle,
   Warning,
-  Code,
   ShieldCheck,
   MagnifyingGlass,
   Funnel,
+  Sparkle,
 } from '@phosphor-icons/react';
 
-const DANGEROUS_PATTERNS = [
-  'reload',
-  'config',
-  'erase',
-  'format',
-  'delete',
-  'boot',
-  'crypto key generate',
-  'write erase',
-];
-
 export const CommandSetsPage: React.FC = () => {
-  const { commandSets, addCommandSet, deleteCommandSet } = useAppStore();
+  const { commandSets, addCommandSet, updateCommandSet, deleteCommandSet } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [driverFilter, setDriverFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Modals state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingSet, setEditingSet] = useState<CommandSet | null>(null);
   const [inspectingSet, setInspectingSet] = useState<CommandSet | null>(null);
-  const [safetyNotice, setSafetyNotice] = useState<string | null>(null);
 
+  // Delete confirmation state
+  const [deletingSet, setDeletingSet] = useState<CommandSet | null>(null);
+
+  // Update confirmation state
+  const [pendingUpdateData, setPendingUpdateData] = useState<{
+    setId: string;
+    updates: Partial<CommandSet>;
+    name: string;
+  } | null>(null);
+
+  // Create form state
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     deviceType: 'cisco_xe' as DeviceType,
-    commandsText: 'show version\nshow ip interface brief\nshow ip route summary\nshow running-config',
+    commandsText: 'show version\nshow ip interface brief\nshow ip route summary',
     isDefault: false,
   });
 
-  const handleCommandsChange = (val: string) => {
-    setFormData({ ...formData, commandsText: val });
-    const lines = val.toLowerCase().split('\n');
-    const danger = lines.find((line) =>
-      DANGEROUS_PATTERNS.some((pattern) => line.trim().startsWith(pattern))
-    );
+  // Edit form state
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    description: '',
+    deviceType: 'cisco_xe' as DeviceType,
+    commandsText: '',
+    isDefault: false,
+  });
 
-    if (danger) {
-      setSafetyNotice(`Command "${danger.trim()}" is non-read-only. DriftGuard enforces show commands only.`);
-    } else {
-      setSafetyNotice(null);
-    }
+  // Real-time syntax verification for create form
+  const createSyntaxAnalysis = useMemo(() => {
+    return validateCiscoCommandSuite(formData.commandsText, formData.deviceType);
+  }, [formData.commandsText, formData.deviceType]);
+
+  // Real-time syntax verification for edit form
+  const editSyntaxAnalysis = useMemo(() => {
+    return validateCiscoCommandSuite(editFormData.commandsText, editFormData.deviceType);
+  }, [editFormData.commandsText, editFormData.deviceType]);
+
+  const handleStartEdit = (set: CommandSet) => {
+    setEditingSet(set);
+    setEditFormData({
+      name: set.name,
+      description: set.description || '',
+      deviceType: set.deviceType,
+      commandsText: set.commands.join('\n'),
+      isDefault: set.isDefault,
+    });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (safetyNotice) return;
-
-    const commands = formData.commandsText
-      .split('\n')
-      .map((c) => c.trim())
-      .filter((c) => c.length > 0);
+    if (createSyntaxAnalysis.hasErrors) return;
 
     addCommandSet({
-      name: formData.name,
-      description: formData.description,
+      name: formData.name.trim(),
+      description: formData.description.trim(),
       deviceType: formData.deviceType,
-      commands,
+      commands: createSyntaxAnalysis.validCommands,
       isDefault: formData.isDefault,
     });
 
-    setIsModalOpen(false);
+    setIsCreateModalOpen(false);
     setFormData({
       name: '',
       description: '',
@@ -86,6 +104,37 @@ export const CommandSetsPage: React.FC = () => {
       commandsText: 'show version\nshow ip interface brief\nshow ip route summary',
       isDefault: false,
     });
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSet || editSyntaxAnalysis.hasErrors) return;
+
+    // Trigger update confirmation dialog
+    setPendingUpdateData({
+      setId: editingSet.setId,
+      name: editFormData.name.trim(),
+      updates: {
+        name: editFormData.name.trim(),
+        description: editFormData.description.trim(),
+        deviceType: editFormData.deviceType,
+        commands: editSyntaxAnalysis.validCommands,
+        isDefault: editFormData.isDefault,
+      },
+    });
+  };
+
+  const handleConfirmUpdate = () => {
+    if (!pendingUpdateData) return;
+    updateCommandSet(pendingUpdateData.setId, pendingUpdateData.updates);
+    setPendingUpdateData(null);
+    setEditingSet(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deletingSet) return;
+    deleteCommandSet(deletingSet.setId);
+    setDeletingSet(null);
   };
 
   const filteredSets = useMemo(() => {
@@ -100,7 +149,7 @@ export const CommandSetsPage: React.FC = () => {
     });
   }, [commandSets, searchTerm, driverFilter]);
 
-  const totalPages = Math.ceil(filteredSets.length / pageSize);
+  const totalPages = Math.ceil(filteredSets.length / pageSize) || 1;
   const paginatedSets = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredSets.slice(start, start + pageSize);
@@ -122,7 +171,7 @@ export const CommandSetsPage: React.FC = () => {
         <Button
           variant="primary"
           leftIcon={<Plus className="w-4 h-4" weight="bold" />}
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => setIsCreateModalOpen(true)}
         >
           Create
         </Button>
@@ -156,10 +205,11 @@ export const CommandSetsPage: React.FC = () => {
               className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
             >
               <option value="ALL">All Drivers</option>
-              <option value="cisco_xe">Cisco IOS-XE</option>
-              <option value="cisco_xr">Cisco IOS-XR</option>
-              <option value="cisco_nxos">Cisco NX-OS</option>
-              <option value="cisco_ios">Cisco Classic IOS</option>
+              {CISCO_DEVICE_PLATFORMS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -250,9 +300,16 @@ export const CommandSetsPage: React.FC = () => {
                         >
                           Inspect
                         </Button>
+                        <button
+                          onClick={() => handleStartEdit(set)}
+                          className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                          title="Edit"
+                        >
+                          <PencilSimple className="w-4 h-4" />
+                        </button>
                         {!set.isDefault && (
                           <button
-                            onClick={() => deleteCommandSet(set.setId)}
+                            onClick={() => setDeletingSet(set)}
                             className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
                             title="Delete"
                           >
@@ -280,13 +337,15 @@ export const CommandSetsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Create Command Set Modal */}
       <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
         title="Create Command Set"
         description="Specify read-only show commands to execute during collection."
+        maxWidth="2xl"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleCreateSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-zinc-300 mb-1">Set Name</label>
             <input
@@ -319,10 +378,11 @@ export const CommandSetsPage: React.FC = () => {
               }
               className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
             >
-              <option value="cisco_xe">Cisco IOS-XE</option>
-              <option value="cisco_ios">Cisco Classic IOS</option>
-              <option value="cisco_xr">Cisco IOS-XR</option>
-              <option value="cisco_nxos">Cisco NX-OS</option>
+              {CISCO_DEVICE_PLATFORMS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -331,33 +391,183 @@ export const CommandSetsPage: React.FC = () => {
               <label className="text-xs font-semibold text-zinc-300">
                 Commands (One command per line)
               </label>
-              <span className="text-[11px] text-zinc-500 font-mono">show commands only</span>
+              <span className="text-[11px] text-[#c8ff00] font-mono">Real-time syntax verified</span>
             </div>
             <textarea
               rows={5}
               required
               value={formData.commandsText}
-              onChange={(e) => handleCommandsChange(e.target.value)}
-              className="w-full font-mono text-xs px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+              onChange={(e) => setFormData({ ...formData, commandsText: e.target.value })}
+              className={`w-full font-mono text-xs px-3.5 py-2 bg-zinc-900 border rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none ${
+                createSyntaxAnalysis.hasErrors
+                  ? 'border-rose-500 focus:border-rose-500'
+                  : 'border-zinc-800 focus:border-zinc-500'
+              }`}
             />
-            {safetyNotice && (
+
+            {/* Inline Syntax Verification Preview */}
+            <div className="mt-2.5 space-y-1 max-h-36 overflow-y-auto pr-1">
+              {createSyntaxAnalysis.results.map((res, i) => (
+                <div
+                  key={i}
+                  className={`flex items-center justify-between text-[11px] px-2.5 py-1 rounded border ${
+                    res.status === 'error'
+                      ? 'bg-rose-950/30 border-rose-800/50 text-rose-300'
+                      : res.status === 'warning'
+                        ? 'bg-amber-950/30 border-amber-800/50 text-amber-300'
+                        : 'bg-zinc-950/50 border-zinc-800/80 text-zinc-300'
+                  }`}
+                >
+                  <span className="font-mono truncate mr-2">{res.command}</span>
+                  <span
+                    className={`font-semibold shrink-0 ${
+                      res.status === 'error'
+                        ? 'text-rose-400'
+                        : res.status === 'warning'
+                          ? 'text-amber-400'
+                          : 'text-[#c8ff00]'
+                    }`}
+                  >
+                    {res.status === 'error' ? 'Blocked' : res.status === 'warning' ? 'Custom Show' : 'Verified'}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {createSyntaxAnalysis.errorMessage && (
               <div className="mt-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
                 <Warning className="w-4 h-4 shrink-0 text-rose-400" weight="fill" />
-                <span>{safetyNotice}</span>
+                <span>{createSyntaxAnalysis.errorMessage}</span>
               </div>
             )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
-            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
+            <Button type="button" variant="secondary" onClick={() => setIsCreateModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={Boolean(safetyNotice)}>
+            <Button type="submit" variant="primary" disabled={createSyntaxAnalysis.hasErrors}>
               Save
             </Button>
           </div>
         </form>
       </Modal>
+
+      {/* Edit Command Set Modal */}
+      {editingSet && (
+        <Modal
+          isOpen={Boolean(editingSet)}
+          onClose={() => setEditingSet(null)}
+          title={`Edit Command Set: ${editingSet.name}`}
+          description="Update show command profile parameters and verify syntax."
+          maxWidth="2xl"
+        >
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">Set Name</label>
+              <input
+                type="text"
+                required
+                value={editFormData.name}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">Description</label>
+              <textarea
+                rows={2}
+                value={editFormData.description}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">Device Driver</label>
+              <select
+                value={editFormData.deviceType}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, deviceType: e.target.value as DeviceType })
+                }
+                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+              >
+                {CISCO_DEVICE_PLATFORMS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-zinc-300">
+                  Commands (One command per line)
+                </label>
+                <span className="text-[11px] text-[#c8ff00] font-mono">Real-time syntax verified</span>
+              </div>
+              <textarea
+                rows={5}
+                required
+                value={editFormData.commandsText}
+                onChange={(e) => setEditFormData({ ...editFormData, commandsText: e.target.value })}
+                className={`w-full font-mono text-xs px-3.5 py-2 bg-zinc-900 border rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none ${
+                  editSyntaxAnalysis.hasErrors
+                    ? 'border-rose-500 focus:border-rose-500'
+                    : 'border-zinc-800 focus:border-zinc-500'
+                }`}
+              />
+
+              {/* Inline Syntax Verification Preview */}
+              <div className="mt-2.5 space-y-1 max-h-36 overflow-y-auto pr-1">
+                {editSyntaxAnalysis.results.map((res, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between text-[11px] px-2.5 py-1 rounded border ${
+                      res.status === 'error'
+                        ? 'bg-rose-950/30 border-rose-800/50 text-rose-300'
+                        : res.status === 'warning'
+                          ? 'bg-amber-950/30 border-amber-800/50 text-amber-300'
+                          : 'bg-zinc-950/50 border-zinc-800/80 text-zinc-300'
+                    }`}
+                  >
+                    <span className="font-mono truncate mr-2">{res.command}</span>
+                    <span
+                      className={`font-semibold shrink-0 ${
+                        res.status === 'error'
+                          ? 'text-rose-400'
+                          : res.status === 'warning'
+                            ? 'text-amber-400'
+                            : 'text-[#c8ff00]'
+                      }`}
+                    >
+                      {res.status === 'error' ? 'Blocked' : res.status === 'warning' ? 'Custom Show' : 'Verified'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {editSyntaxAnalysis.errorMessage && (
+                <div className="mt-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                  <Warning className="w-4 h-4 shrink-0 text-rose-400" weight="fill" />
+                  <span>{editSyntaxAnalysis.errorMessage}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+              <Button type="button" variant="secondary" onClick={() => setEditingSet(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" disabled={editSyntaxAnalysis.hasErrors}>
+                Update
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* Inspect Command Set Profile Modal */}
       {inspectingSet && (
@@ -404,6 +614,34 @@ export const CommandSetsPage: React.FC = () => {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deletingSet && (
+        <ConfirmDialog
+          isOpen={Boolean(deletingSet)}
+          onClose={() => setDeletingSet(null)}
+          onConfirm={handleConfirmDelete}
+          title={`Delete ${deletingSet.name}`}
+          message={`Delete command set "${deletingSet.name}"? Devices referencing this set will require an alternate suite for collections. This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+        />
+      )}
+
+      {/* Update Confirmation Dialog */}
+      {pendingUpdateData && (
+        <ConfirmDialog
+          isOpen={Boolean(pendingUpdateData)}
+          onClose={() => setPendingUpdateData(null)}
+          onConfirm={handleConfirmUpdate}
+          title={`Update ${pendingUpdateData.name}`}
+          message={`Save updates to command set "${pendingUpdateData.name}"? Active device collection jobs referencing this set will execute the revised command sequence.`}
+          confirmText="Update"
+          cancelText="Cancel"
+          variant="warning"
+        />
       )}
     </div>
   );

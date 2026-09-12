@@ -45,12 +45,16 @@ export const api = {
     request<{ success: boolean; latencyMs?: number; error?: string }>(`/devices/${id}/test`, {
       method: 'POST',
     }),
+  updateDevice: (id: string, data: Partial<Device>) =>
+    request<Device>(`/devices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteDevice: (id: string) => request(`/devices/${id}`, { method: 'DELETE' }),
 
   // Command Sets
   getCommandSets: () => request<{ commandSets: CommandSet[] }>('/commands'),
   createCommandSet: (data: Partial<CommandSet>) =>
     request<CommandSet>('/commands', { method: 'POST', body: JSON.stringify(data) }),
+  updateCommandSet: (id: string, data: Partial<CommandSet>) =>
+    request<CommandSet>(`/commands/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteCommandSet: (id: string) => request(`/commands/${id}`, { method: 'DELETE' }),
 
   // Snapshots

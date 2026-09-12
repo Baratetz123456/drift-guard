@@ -1,4 +1,4 @@
-export type DeviceType = 'cisco_ios' | 'cisco_xe' | 'cisco_xr' | 'cisco_nxos';
+export type DeviceType = 'cisco_ios' | 'cisco_xe' | 'cisco_xr' | 'cisco_nxos' | 'cisco_asa';
 
 export interface User {
   id: string;

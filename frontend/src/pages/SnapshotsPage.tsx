@@ -5,6 +5,7 @@ import { Snapshot, SnapshotType } from '../types';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
 import {
   Database,
@@ -25,6 +26,7 @@ export const SnapshotsPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(5);
 
   const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
+  const [deletingSnapshot, setDeletingSnapshot] = useState<Snapshot | null>(null);
   const [activeCommandTab, setActiveCommandTab] = useState<string>('');
 
   const uniqueDevices = useMemo(() => {
@@ -200,7 +202,7 @@ export const SnapshotsPage: React.FC = () => {
                           Compare
                         </Button>
                         <button
-                          onClick={() => deleteSnapshot(snap.snapshotId)}
+                          onClick={() => setDeletingSnapshot(snap)}
                           className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
                           title="Delete"
                         >
@@ -226,6 +228,23 @@ export const SnapshotsPage: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deletingSnapshot && (
+        <ConfirmDialog
+          isOpen={Boolean(deletingSnapshot)}
+          onClose={() => setDeletingSnapshot(null)}
+          onConfirm={() => {
+            deleteSnapshot(deletingSnapshot.snapshotId);
+            setDeletingSnapshot(null);
+          }}
+          title={`Delete Snapshot ${deletingSnapshot.snapshotId}`}
+          message={`Delete snapshot "${deletingSnapshot.snapshotId}" from ${deletingSnapshot.deviceName}? The associated S3 archive record will be permanently unlinked. This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+        />
+      )}
 
       {selectedSnapshot && (
         <Modal
