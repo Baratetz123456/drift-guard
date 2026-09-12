@@ -158,14 +158,14 @@ export const LoginPage: React.FC = () => {
           </form>
 
           {/* Footer Link to Register & Legal Pages */}
-          <div className="pt-4 border-t border-zinc-900 space-y-2 text-center text-xs text-zinc-400">
+          <div className="pt-4 border-t border-zinc-900 space-y-2 text-center text-sm text-zinc-400">
             <div>
               <span>Don't have an operator account? </span>
               <Link to="/register" className="text-[#c8ff00] font-bold hover:underline">
                 Register
               </Link>
             </div>
-            <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-400">
+            <div className="flex items-center justify-center gap-3 text-xs text-zinc-400">
               <Link to="/terms" className="hover:text-zinc-200 transition-colors">
                 Terms of service
               </Link>
@@ -177,8 +177,8 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {/* Micro Security Notice */}
-          <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-400 pt-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-zinc-400" />
+          <div className="flex items-center justify-center gap-2 text-xs text-zinc-400 pt-1">
+            <ShieldCheck className="w-4 h-4 text-zinc-400" />
             <span>Encrypted SSH credentials with hardware-grade envelope protection</span>
           </div>
         </div>

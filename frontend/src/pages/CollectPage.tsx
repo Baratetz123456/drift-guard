@@ -487,8 +487,8 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
             )}
           </div>
           <div className="truncate">
-            <div className="text-xs font-bold leading-tight text-white">1. Select Target</div>
-            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+            <div className="text-sm font-bold leading-tight text-white">1. Select Target</div>
+            <div className="text-xs text-zinc-400 truncate mt-1">
               {collectScope === 'single'
                 ? selectedDevice
                   ? `${selectedDevice.name} (${selectedDevice.hostname})`
@@ -523,14 +523,14 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
             }`}
           >
             {selectedSet && activeStep > 2 ? (
-              <Check className="w-4 h-4" weight="bold" />
+              <Check className="w-4 h-4 weight-bold" />
             ) : (
               '2'
             )}
           </div>
           <div className="truncate">
-            <div className="text-xs font-bold leading-tight text-white">2. Command Set & Parameters</div>
-            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+            <div className="text-sm font-bold leading-tight text-white">2. Command Set & Parameters</div>
+            <div className="text-xs text-zinc-400 truncate mt-1">
               {selectedSet
                 ? `${selectedSet.name} • ${
                     snapshotType === 'pre_change'
@@ -565,14 +565,14 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
             }`}
           >
             {completedSnapshotIds.length > 0 ? (
-              <Check className="w-4 h-4" weight="bold" />
+              <Check className="w-4 h-4 weight-bold" />
             ) : (
               '3'
             )}
           </div>
           <div className="truncate">
-            <div className="text-xs font-bold leading-tight text-white">3. Pre-flight & Run Collection</div>
-            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+            <div className="text-sm font-bold leading-tight text-white">3. Pre-flight & Run Collection</div>
+            <div className="text-xs text-zinc-400 truncate mt-1">
               {compatibility.isCompatible ? 'Driver aligned • Ready' : 'Incompatible driver profile'}
             </div>
           </div>
@@ -694,8 +694,8 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
               {/* 100-Device Paginated Table with Chevron */}
               <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900/30">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-zinc-300">
-                    <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-[11px] border-b border-zinc-800">
+                  <table className="w-full text-left text-sm text-zinc-300">
+                    <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-xs font-semibold border-b border-zinc-800">
                       <tr>
                         <th className="px-5 py-3">Device Name</th>
                         <th className="px-5 py-3">Hostname / IP</th>
@@ -710,8 +710,8 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                         <tr>
                           <td colSpan={6} className="px-5 py-12 text-center text-zinc-400">
                             <HardDrives className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                            <p className="font-semibold text-zinc-300 text-xs">No matching devices found</p>
-                            <p className="text-[11px] text-zinc-500 mt-0.5">Try clearing filters or search criteria.</p>
+                            <p className="font-semibold text-zinc-300 text-sm">No matching devices found</p>
+                            <p className="text-xs text-zinc-500 mt-1">Try clearing filters or search criteria.</p>
                           </td>
                         </tr>
                       ) : (
@@ -733,7 +733,7 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                                 <div className="font-bold text-zinc-100 group-hover:text-white transition-colors">
                                   {dev.name}
                                 </div>
-                                <div className="text-[10px] text-zinc-500 font-mono">{dev.deviceId}</div>
+                                <div className="text-xs text-zinc-500 font-mono">{dev.deviceId}</div>
                               </td>
 
                               <td className="px-5 py-3.5 font-mono text-zinc-300">
@@ -845,8 +845,8 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                           className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono flex items-center gap-2"
                         >
                           <span className="font-bold text-white">{d.name}</span>
-                          <span className="text-zinc-500 text-[10px]">{d.hostname}</span>
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400">{d.deviceType}</span>
+                          <span className="text-zinc-400 text-xs">{d.hostname}</span>
+                          <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">{d.deviceType}</span>
                         </div>
                       ))}
                     </div>
@@ -941,10 +941,10 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                         />
                         <div className="truncate">
                           <span className="font-bold text-zinc-200">{dev.name}</span>
-                          <span className="text-zinc-500 font-mono text-[11px] ml-2">({dev.hostname})</span>
+                          <span className="text-zinc-400 font-mono text-xs ml-2">({dev.hostname})</span>
                         </div>
                       </div>
-                      <span className="text-[10px] font-mono text-zinc-400 shrink-0">
+                      <span className="text-xs font-mono text-zinc-400 shrink-0">
                         {dev.deviceType}
                       </span>
                     </label>
@@ -1041,9 +1041,9 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                 <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-zinc-300">Commands to Execute ({selectedSet.commands.length}):</span>
-                    <span className="text-zinc-500 font-mono text-[11px]">Read-only safe</span>
+                    <span className="text-zinc-400 font-mono text-xs">Read-only safe</span>
                   </div>
-                  <div className="space-y-1 font-mono text-xs text-zinc-300">
+                  <div className="space-y-1 font-mono text-sm text-zinc-300">
                     {selectedSet.commands.map((cmd, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-zinc-300">
                         <span className="text-zinc-600 select-none">›</span>
@@ -1084,7 +1084,7 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                         ? 'Post-Change Verification'
                         : 'Ad-Hoc Inspection'}
                     </span>
-                    <span className="text-[10px] text-zinc-500 font-normal">
+                    <span className="text-xs text-zinc-400 font-normal">
                       {type === 'pre_change'
                         ? 'Establish stable reference baseline'
                         : type === 'post_change'
@@ -1219,7 +1219,7 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span
-                          className={`text-xs font-bold ${
+                          className={`text-sm font-bold ${
                             compatibility.isCompatible ? 'text-[#c8ff00]' : 'text-rose-400'
                           }`}
                         >
@@ -1227,17 +1227,17 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                             ? 'Driver Alignment Verified'
                             : 'Driver Compatibility Mismatch — Blocked'}
                         </span>
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-900/80 border border-zinc-700/60">
+                        <span className="text-xs font-mono px-2 py-0.5 rounded bg-zinc-900/80 border border-zinc-700/60">
                           {selectedSet?.deviceType}
                         </span>
                       </div>
 
-                      <p className="text-[11px] leading-relaxed text-zinc-300">
+                      <p className="text-xs leading-relaxed text-zinc-300">
                         {compatibility.summary}
                       </p>
 
                       {!compatibility.isCompatible && (
-                        <div className="space-y-2 pt-2 border-t border-rose-900/40 text-[11px]">
+                        <div className="space-y-2 pt-2 border-t border-rose-900/40 text-xs">
                           <div>
                             <span className="font-semibold text-rose-300">Operational Impact: </span>
                             <span className="text-zinc-400">{compatibility.impact}</span>
@@ -1249,14 +1249,14 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
 
                           {compatibility.incompatibleDevices.length > 0 && (
                             <div className="pt-1">
-                              <span className="text-[10px] uppercase font-mono text-zinc-400 block mb-1">
+                              <span className="text-xs uppercase font-mono text-zinc-400 block mb-1">
                                 Incompatible Target Nodes ({compatibility.incompatibleDevices.length}):
                               </span>
                               <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
                                 {compatibility.incompatibleDevices.map((dev) => (
                                   <span
                                     key={dev.deviceId}
-                                    className="px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-[10px] font-mono text-rose-200"
+                                    className="px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-xs font-mono text-rose-200"
                                   >
                                     {dev.name} ({dev.deviceType})
                                   </span>
@@ -1357,7 +1357,7 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                       ].map((s) => (
                         <div
                           key={s.step}
-                          className={`p-2 rounded-lg text-center text-xs font-medium border transition-colors ${
+                          className={`p-2.5 rounded-lg text-center text-xs font-medium border transition-colors ${
                             currentStep > s.step
                               ? 'bg-[#c8ff00]/15 text-[#c8ff00] border-[#c8ff00]/30 font-semibold'
                               : currentStep === s.step
@@ -1365,27 +1365,27 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                               : 'bg-zinc-950/60 text-zinc-500 border-zinc-800/60'
                           }`}
                         >
-                          <div className="text-[10px] font-mono font-bold">STEP {s.step}</div>
-                          <div className="truncate text-[11px]">{s.label}</div>
+                          <div className="text-xs font-mono font-bold">STEP {s.step}</div>
+                          <div className="truncate text-xs text-zinc-300">{s.label}</div>
                         </div>
                       ))}
                     </div>
                   ) : (
                     /* Parallel Worker Matrix (Batch Mode) */
                     <div className="space-y-2 mb-4">
-                      <div className="text-[11px] font-semibold text-zinc-400 flex items-center justify-between">
+                      <div className="text-xs font-semibold text-zinc-300 flex items-center justify-between">
                         <span>Parallel Workers Status</span>
                         <span>{Object.values(parallelProgress).filter((p) => p.status === 'completed').length} of {activeTargetDevices.length} done</span>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto">
                         {Object.values(parallelProgress).map((worker) => (
                           <div
                             key={worker.deviceId}
-                            className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs flex items-center justify-between"
+                            className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-sm flex items-center justify-between"
                           >
                             <div className="min-w-0 mr-2">
-                              <div className="font-bold text-zinc-200 truncate">{worker.deviceName}</div>
-                              <div className="text-[10px] text-zinc-500 font-mono">
+                              <div className="font-bold text-zinc-100 truncate">{worker.deviceName}</div>
+                              <div className="text-xs text-zinc-400 font-mono">
                                 {worker.status === 'executing'
                                   ? `Cmd ${worker.currentCmdIndex}/${worker.totalCmds}`
                                   : worker.latencyMs ? `${worker.latencyMs}ms` : worker.deviceHostname}
@@ -1413,9 +1413,9 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                   )}
 
                   {/* Streaming Terminal Log */}
-                  <div className="bg-zinc-950 rounded-xl p-3.5 border border-zinc-800 font-mono text-xs text-zinc-300 min-h-[220px] max-h-[260px] overflow-y-auto space-y-1.5">
+                  <div className="bg-zinc-950 rounded-xl p-4 border border-zinc-800 font-mono text-sm leading-relaxed text-zinc-200 min-h-[240px] max-h-[300px] overflow-y-auto space-y-2">
                     {terminalLogs.length === 0 ? (
-                      <div className="text-zinc-600 italic">
+                      <div className="text-zinc-500 italic">
                         Ready to initiate collection. Click "Run collection" to stream Netmiko SSH events.
                       </div>
                     ) : (
@@ -1451,7 +1451,7 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                             : `${completedSnapshotIds.length} snapshots captured successfully`}
                         </span>
                       </div>
-                      <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                      <div className="text-xs text-zinc-400 font-mono mt-0.5">
                         {completedSnapshotIds.length === 1
                           ? completedSnapshotIds[0]
                           : 'Committed to immutable snapshot vault'}
@@ -1533,7 +1533,7 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
                       setNewGroupDeviceIds(devices.map((d) => d.deviceId));
                     }
                   }}
-                  className="text-[11px] text-[#c8ff00] hover:underline cursor-pointer"
+                  className="text-xs text-[#c8ff00] hover:underline cursor-pointer"
                 >
                   {newGroupDeviceIds.length === devices.length ? 'Deselect all' : 'Select all'}
                 </button>

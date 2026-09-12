@@ -221,8 +221,8 @@ export const CommandSetsPage: React.FC = () => {
       {/* Flat Table Layout for Command Sets */}
       <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900/30">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-zinc-300">
-            <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-[11px] border-b border-zinc-800">
+          <table className="w-full text-left text-sm text-zinc-300">
+            <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-xs font-semibold border-b border-zinc-800">
               <tr>
                 <th className="px-5 py-3">Set Name</th>
                 <th className="px-5 py-3">Target Driver</th>
@@ -236,15 +236,15 @@ export const CommandSetsPage: React.FC = () => {
                 <tr>
                   <td colSpan={5} className="px-5 py-12 text-center text-zinc-400">
                     <TerminalWindow className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                    <p className="font-semibold text-zinc-300 text-xs">No matching command sets</p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">Try clearing search or driver filters</p>
+                    <p className="font-semibold text-zinc-300 text-sm">No matching command sets</p>
+                    <p className="text-xs text-zinc-500 mt-1">Try clearing search or driver filters</p>
                     <button
                       onClick={() => {
                         setSearchTerm('');
                         setDriverFilter('ALL');
                         setCurrentPage(1);
                       }}
-                      className="mt-3 text-xs text-[#c8ff00] font-bold hover:underline cursor-pointer"
+                      className="mt-3 text-sm text-[#c8ff00] font-bold hover:underline cursor-pointer"
                     >
                       Reset filters
                     </button>
@@ -266,7 +266,7 @@ export const CommandSetsPage: React.FC = () => {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">{set.description}</p>
+                      <p className="text-xs text-zinc-400 mt-1 line-clamp-1">{set.description}</p>
                     </td>
                     <td className="px-5 py-3.5 font-mono text-zinc-300">
                       {set.deviceType}
@@ -276,20 +276,20 @@ export const CommandSetsPage: React.FC = () => {
                         {set.commands.slice(0, 3).map((cmd: string, idx: number) => (
                           <span
                             key={idx}
-                            className="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700/60"
+                            className="px-2 py-0.5 rounded text-xs font-mono bg-zinc-800 text-zinc-300 border border-zinc-700/60"
                           >
                             {cmd}
                           </span>
                         ))}
                         {set.commands.length > 3 && (
-                          <span className="text-[10px] font-mono text-[#c8ff00] font-semibold self-center">
+                          <span className="text-xs font-mono text-[#c8ff00] font-semibold self-center">
                             +{set.commands.length - 3} more
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className="inline-flex items-center gap-1 text-[11px] text-[#c8ff00] font-medium">
+                      <span className="inline-flex items-center gap-1 text-xs text-[#c8ff00] font-semibold">
                         <ShieldCheck className="w-3.5 h-3.5" weight="fill" />
                         Read-Only Verified
                       </span>
@@ -370,14 +370,14 @@ export const CommandSetsPage: React.FC = () => {
               <label className="text-xs font-semibold text-zinc-300">
                 Commands (One command per line)
               </label>
-              <span className="text-[11px] text-[#c8ff00] font-mono">Real-time syntax verified</span>
+              <span className="text-xs text-[#c8ff00] font-mono">Real-time syntax verified</span>
             </div>
             <textarea
               rows={5}
               required
               value={formData.commandsText}
               onChange={(e) => setFormData({ ...formData, commandsText: e.target.value })}
-              className={`w-full font-mono text-xs px-3.5 py-2 bg-zinc-900 border rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none ${
+              className={`w-full font-mono text-sm px-3.5 py-2 bg-zinc-900 border rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none ${
                 createSyntaxAnalysis.hasErrors
                   ? 'border-rose-500 focus:border-rose-500'
                   : 'border-zinc-800 focus:border-zinc-500'
@@ -389,7 +389,7 @@ export const CommandSetsPage: React.FC = () => {
               {createSyntaxAnalysis.results.map((res, i) => (
                 <div
                   key={i}
-                  className={`flex items-center justify-between text-[11px] px-2.5 py-1 rounded border ${
+                  className={`flex items-center justify-between text-xs px-2.5 py-1 rounded border ${
                     res.status === 'error'
                       ? 'bg-rose-950/30 border-rose-800/50 text-rose-300'
                       : res.status === 'warning'
@@ -485,14 +485,14 @@ export const CommandSetsPage: React.FC = () => {
                 <label className="text-xs font-semibold text-zinc-300">
                   Commands (One command per line)
                 </label>
-                <span className="text-[11px] text-[#c8ff00] font-mono">Real-time syntax verified</span>
+                <span className="text-xs text-[#c8ff00] font-mono">Real-time syntax verified</span>
               </div>
               <textarea
                 rows={5}
                 required
                 value={editFormData.commandsText}
                 onChange={(e) => setEditFormData({ ...editFormData, commandsText: e.target.value })}
-                className={`w-full font-mono text-xs px-3.5 py-2 bg-zinc-900 border rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none ${
+                className={`w-full font-mono text-sm px-3.5 py-2 bg-zinc-900 border rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none ${
                   editSyntaxAnalysis.hasErrors
                     ? 'border-rose-500 focus:border-rose-500'
                     : 'border-zinc-800 focus:border-zinc-500'
@@ -504,7 +504,7 @@ export const CommandSetsPage: React.FC = () => {
                 {editSyntaxAnalysis.results.map((res, i) => (
                   <div
                     key={i}
-                    className={`flex items-center justify-between text-[11px] px-2.5 py-1 rounded border ${
+                    className={`flex items-center justify-between text-xs px-2.5 py-1 rounded border ${
                       res.status === 'error'
                         ? 'bg-rose-950/30 border-rose-800/50 text-rose-300'
                         : res.status === 'warning'
@@ -568,13 +568,13 @@ export const CommandSetsPage: React.FC = () => {
             <div>
               <div className="text-xs font-semibold text-zinc-300 mb-2 flex items-center justify-between">
                 <span>Show Command Sequence ({inspectingSet.commands.length})</span>
-                <span className="text-[11px] text-[#c8ff00] font-mono font-normal">Cisco Read-Only Safe</span>
+                <span className="text-xs text-[#c8ff00] font-mono font-normal">Cisco Read-Only Safe</span>
               </div>
-              <div className="bg-zinc-950 rounded-xl p-3 border border-zinc-800 font-mono text-xs text-zinc-200 divide-y divide-zinc-800/60 max-h-[300px] overflow-y-auto">
+              <div className="bg-zinc-950 rounded-xl p-3 border border-zinc-800 font-mono text-sm text-zinc-200 divide-y divide-zinc-800/60 max-h-[300px] overflow-y-auto">
                 {inspectingSet.commands.map((cmd: string, i: number) => (
                   <div key={i} className="py-2 flex items-center justify-between gap-2">
                     <span className="text-zinc-200"># {cmd}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#c8ff00]/10 text-[#c8ff00] border border-[#c8ff00]/20 font-sans">
+                    <span className="text-xs px-2 py-0.5 rounded bg-[#c8ff00]/10 text-[#c8ff00] border border-[#c8ff00]/20 font-sans font-semibold">
                       Verified
                     </span>
                   </div>

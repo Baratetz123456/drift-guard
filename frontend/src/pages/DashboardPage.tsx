@@ -1,23 +1,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppStore } from '../store/useAppStore';
-import { Card } from '../components/common/Card';
-import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
-import { Device, Snapshot, AuditLogEntry, AnalysisFinding } from '../types';
 import {
   HardDrives,
   Camera,
   GitDiff,
   Sparkle,
-  Warning,
-  CheckCircle,
-  Clock,
-  ArrowRight,
-  ShieldWarning,
   ShieldCheck,
-  Pulse,
+  ShieldWarning,
   Lightning,
+  ArrowRight,
+  TerminalWindow,
+  LockKey,
+  CheckCircle,
+  ClockCounterClockwise,
+  SlidersHorizontal,
+  Compass,
 } from '@phosphor-icons/react';
 import { usePageMetadata } from '../hooks/usePageMetadata';
 
@@ -30,407 +28,408 @@ export const DashboardPage: React.FC = () => {
     robots: 'noindex, nofollow',
   });
 
-  const { devices, snapshots, comparisons, analyses, auditLogs } = useAppStore();
-
-  const onlineDevices = devices.filter((d: Device) => d.status === 'online').length;
-  const connectivityPct = Math.round((onlineDevices / (devices.length || 1)) * 100);
-
-  const devicesWithBaseline = devices.filter((d: Device) =>
-    snapshots.some((s: Snapshot) => s.deviceId === d.deviceId && s.snapshotType === 'pre_change')
-  ).length;
-  const baselineCoveragePct = Math.round((devicesWithBaseline / (devices.length || 1)) * 100);
-
-  const totalAdditions = comparisons.reduce((acc, c) => acc + c.diffSummary.totalAdditions, 0);
-  const totalDeletions = comparisons.reduce((acc, c) => acc + c.diffSummary.totalDeletions, 0);
-  const totalDiffCommands = comparisons.reduce((acc, c) => acc + c.diffSummary.changedCommands, 0);
-
-  const recentSnapshots = snapshots.slice(0, 4);
-  const latestAnalysis = analyses[0];
-
   return (
-    <div className="space-y-6 font-sans">
-      {/* Top Welcome & Operational Header */}
-      <div className="border-b border-zinc-800/80 pb-4">
-        <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
-          <span>Network operations overview</span>
-          <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30">
-            Live serverless
-          </span>
+    <div className="space-y-12 font-sans w-full max-w-6xl pb-16">
+      {/* ========================================================================= */}
+      {/* 1. EDITORIAL HERO & ABOUT DRIFTGUARD                                      */}
+      {/* ========================================================================= */}
+      <div className="space-y-4 border-b border-zinc-800/80 pb-8">
+        {/* Brand Tagline Pill Badge */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#c8ff00]/10 border border-[#c8ff00]/30 text-xs font-mono font-bold text-[#c8ff00]">
+          <span className="w-2 h-2 rounded-full bg-[#c8ff00] animate-pulse" />
+          <span>Before. After. Understood.</span>
+        </div>
+
+        {/* Operational Headline in Sentence Case */}
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+          Automated change verification for enterprise Cisco networks
         </h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          Live snapshot collection, line-by-line diffing, and automated risk analysis across your Cisco fleet.
+
+        <p className="text-sm sm:text-base text-zinc-200 leading-relaxed max-w-4xl">
+          DriftGuard is a purpose-built desktop verification instrument that validates Cisco router and switch configurations before and after maintenance windows. By comparing cryptographic state snapshots, DriftGuard isolates syntactic divergences, eliminates configuration drift, and generates advisory AI risk interpretations before production traffic is impacted.
         </p>
+
+        {/* Safety & Compliance Assurance Row */}
+        <div className="flex flex-wrap items-center gap-4 pt-2 text-sm font-mono text-zinc-300">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#c8ff00]" weight="fill" />
+            <span className="text-white font-semibold">Read-Only Safety</span>
+            <span className="text-zinc-400">• show commands only</span>
+          </div>
+          <span className="text-zinc-700">|</span>
+          <div className="flex items-center gap-2">
+            <LockKey className="w-4 h-4 text-[#c8ff00]" weight="fill" />
+            <span className="text-white font-semibold">KMS Envelope Encryption</span>
+            <span className="text-zinc-400">• zero plaintext secrets</span>
+          </div>
+          <span className="text-zinc-700">|</span>
+          <div className="flex items-center gap-2">
+            <TerminalWindow className="w-4 h-4 text-[#c8ff00]" weight="fill" />
+            <span className="text-white font-semibold">Multi-Driver Support</span>
+            <span className="text-zinc-400">• IOS-XE, IOS-XR, NX-OS, ASA</span>
+          </div>
+        </div>
       </div>
 
-      {/* Enhanced Telemetry KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Fleet Connectivity */}
-        <Card className="p-5 relative overflow-hidden border-zinc-800 bg-zinc-900/60 hover:border-zinc-700 transition-colors flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Fleet Connectivity</span>
-              <div className="p-2 rounded-xl bg-zinc-800 text-zinc-300">
-                <HardDrives className="w-4 h-4" weight="duotone" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-white">{connectivityPct}%</span>
-              <span className="text-xs text-[#c8ff00] font-semibold font-mono">
-                {onlineDevices}/{devices.length} Online
-              </span>
-            </div>
-            {/* Health bar */}
-            <div className="w-full bg-zinc-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div
-                className="h-full bg-[#c8ff00] rounded-full transition-all duration-500"
-                style={{ width: `${connectivityPct}%` }}
-              />
-            </div>
-          </div>
-          <div className="mt-3.5 flex items-center justify-between text-[11px] text-zinc-400 border-t border-zinc-800/80 pt-2.5">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#c8ff00]" />
-              SSH Read-Only Active
-            </span>
-            <button
-              onClick={() => navigate('/setup?tab=devices')}
-              className="text-zinc-300 hover:text-white font-semibold cursor-pointer"
-            >
-              Manage &rarr;
-            </button>
-          </div>
-        </Card>
+      {/* ========================================================================= */}
+      {/* 2. DIRECT MODULE QUICK-JUMP BAR                                           */}
+      {/* ========================================================================= */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-mono uppercase tracking-wider text-zinc-300 font-semibold flex items-center gap-2">
+            <Compass className="w-4 h-4 text-[#c8ff00]" weight="bold" />
+            <span>Workflow Modules</span>
+          </span>
+          <span className="text-xs text-zinc-400 font-mono">Direct navigation</span>
+        </div>
 
-        {/* KPI 2: Baseline Snapshot Coverage */}
-        <Card className="p-5 relative overflow-hidden border-zinc-800 bg-zinc-900/60 hover:border-zinc-700 transition-colors flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Baseline Coverage</span>
-              <div className="p-2 rounded-xl bg-zinc-800 text-zinc-300">
-                <Camera className="w-4 h-4" weight="duotone" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-white">{baselineCoveragePct}%</span>
-              <span className="text-xs text-zinc-400 font-mono">
-                {snapshots.length} archived
-              </span>
-            </div>
-            {/* Coverage bar */}
-            <div className="w-full bg-zinc-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div
-                className="h-full bg-[#c8ff00] rounded-full transition-all duration-500"
-                style={{ width: `${baselineCoveragePct}%` }}
-              />
-            </div>
-          </div>
-          <div className="mt-3.5 flex items-center justify-between text-[11px] text-zinc-400 border-t border-zinc-800/80 pt-2.5">
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-3 h-3 text-zinc-500" />
-              Latest: {new Date(snapshots[0]?.timestamp || Date.now()).toLocaleTimeString()}
-            </span>
-            <button
-              onClick={() => navigate('/operations?tab=snapshots')}
-              className="text-zinc-300 hover:text-white font-semibold cursor-pointer"
-            >
-              View &rarr;
-            </button>
-          </div>
-        </Card>
-
-        {/* KPI 3: Configuration & Routing Drift */}
-        <Card className="p-5 relative overflow-hidden border-zinc-800 bg-zinc-900/60 hover:border-zinc-700 transition-colors flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Detected Drift</span>
-              <div className="p-2 rounded-xl bg-zinc-800 text-zinc-300">
-                <GitDiff className="w-4 h-4" weight="duotone" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-white">{totalDiffCommands}</span>
-              <span className="text-xs text-amber-400 font-semibold font-mono">
-                Changed Commands
-              </span>
-            </div>
-            <div className="flex items-center gap-3 mt-3 text-xs font-mono">
-              <span className="text-[#c8ff00] font-semibold">+{totalAdditions} lines</span>
-              <span className="text-rose-400 font-semibold">-{totalDeletions} lines</span>
-            </div>
-          </div>
-          <div className="mt-3.5 flex items-center justify-between text-[11px] text-zinc-400 border-t border-zinc-800/80 pt-2.5">
-            <span className="flex items-center gap-1.5">
-              <Pulse className="w-3 h-3 text-zinc-400" />
-              {comparisons.length} active diff sets
-            </span>
-            <button
-              onClick={() => navigate('/analysis?tab=compare')}
-              className="text-zinc-300 hover:text-white font-semibold cursor-pointer"
-            >
-              Compare &rarr;
-            </button>
-          </div>
-        </Card>
-
-        {/* KPI 4: AI Risk Posture */}
-        <Card className="p-5 relative overflow-hidden border-zinc-800 bg-zinc-900/60 hover:border-zinc-700 transition-colors flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">AI risk posture</span>
-              <div className="p-2 rounded-xl bg-zinc-800 text-zinc-300">
-                <Sparkle className="w-4 h-4" weight="fill" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <Badge severity={latestAnalysis?.overallRisk || 'Informational'} size="md">
-                {latestAnalysis?.overallRisk || 'Informational'}
-              </Badge>
-              <span className="text-xs text-zinc-400 font-mono">
-                Score {latestAnalysis?.riskScore || 0}/100
-              </span>
-            </div>
-            <div className="w-full bg-zinc-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  (latestAnalysis?.riskScore || 0) > 70
-                    ? 'bg-rose-500'
-                    : (latestAnalysis?.riskScore || 0) > 40
-                    ? 'bg-amber-500'
-                    : 'bg-sky-400'
-                }`}
-                style={{ width: `${Math.max(latestAnalysis?.riskScore || 5, 8)}%` }}
-              />
-            </div>
-          </div>
-          <div className="mt-3.5 flex items-center justify-between text-[11px] text-zinc-400 border-t border-zinc-800/80 pt-2.5">
-            <span className="text-zinc-400 truncate max-w-[140px]">
-              {latestAnalysis?.findings.length || 0} findings detected
-            </span>
-            <button
-              onClick={() => navigate('/analysis?tab=report')}
-              className="text-zinc-300 hover:text-white font-semibold cursor-pointer"
-            >
-              Inspect &rarr;
-            </button>
-          </div>
-        </Card>
-      </div>
-
-      {/* Quick-Actions Workflow Bar */}
-      <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-900/40 flex flex-wrap items-center justify-between gap-3">
-        <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-          <Lightning className="w-4 h-4 text-[#c8ff00]" weight="fill" />
-          Quick Actions:
-        </span>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => navigate('/operations?tab=capture')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors cursor-pointer"
-          >
-            <Camera className="w-3.5 h-3.5" />
-            <span>Capture</span>
-          </button>
-          <button
-            onClick={() => navigate('/analysis?tab=compare')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors cursor-pointer"
-          >
-            <GitDiff className="w-3.5 h-3.5" />
-            <span>Compare</span>
-          </button>
-          <button
-            onClick={() => navigate('/analysis?tab=report')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors cursor-pointer"
-          >
-            <Sparkle className="w-3.5 h-3.5" />
-            <span>Inspect</span>
-          </button>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <button
             onClick={() => navigate('/setup?tab=devices')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors cursor-pointer"
+            className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800/60 hover:border-zinc-700 text-left transition-all cursor-pointer group"
           >
-            <HardDrives className="w-3.5 h-3.5" />
-            <span>Devices</span>
+            <div className="flex items-center justify-between text-zinc-400 group-hover:text-white mb-2.5">
+              <HardDrives className="w-5 h-5 text-[#c8ff00]" />
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+            <div className="text-sm font-bold text-white">1. Setup Inventory</div>
+            <div className="text-xs text-zinc-400 mt-1">Devices & command sets</div>
+          </button>
+
+          <button
+            onClick={() => navigate('/operations?tab=capture')}
+            className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800/60 hover:border-zinc-700 text-left transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between text-zinc-400 group-hover:text-white mb-2.5">
+              <Camera className="w-5 h-5 text-sky-400" />
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+            <div className="text-sm font-bold text-white">2. Run Collection</div>
+            <div className="text-xs text-zinc-400 mt-1">3-step snapshot capture</div>
+          </button>
+
+          <button
+            onClick={() => navigate('/analysis?tab=compare')}
+            className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800/60 hover:border-zinc-700 text-left transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between text-zinc-400 group-hover:text-white mb-2.5">
+              <GitDiff className="w-5 h-5 text-[#c8ff00]" />
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+            <div className="text-sm font-bold text-white">3. Compare Diffs</div>
+            <div className="text-xs text-zinc-400 mt-1">Line-by-line CLI inspector</div>
+          </button>
+
+          <button
+            onClick={() => navigate('/analysis?tab=report')}
+            className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800/60 hover:border-zinc-700 text-left transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between text-zinc-400 group-hover:text-white mb-2.5">
+              <Sparkle className="w-5 h-5 text-amber-400" weight="fill" />
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+            <div className="text-sm font-bold text-white">4. AI Analysis</div>
+            <div className="text-xs text-zinc-400 mt-1">Advisory risk evaluation</div>
           </button>
         </div>
       </div>
 
-      {/* Featured Banner: Latest AI Analysis Spotlight */}
-      {latestAnalysis && (
-        <Card className="p-6 border-zinc-800 bg-zinc-900/60 relative overflow-hidden">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2 max-w-3xl">
+      {/* ========================================================================= */}
+      {/* 3. CONTINUOUS TIMELINE STREAM: HOW TO USE EFFICIENTLY                    */}
+      {/* ========================================================================= */}
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">
+            How to use DriftGuard efficiently
+          </h2>
+          <p className="text-sm text-zinc-300 mt-1">
+            Follow this 4-stage operational lifecycle to maintain full configuration visibility throughout maintenance windows.
+          </p>
+        </div>
+
+        {/* Continuous Connected Vertical Line Container */}
+        <div className="relative pl-8 sm:pl-10 space-y-12 before:absolute before:left-3 sm:before:left-3.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-zinc-800">
+
+          {/* STAGE 1 */}
+          <div className="relative space-y-3.5">
+            {/* Numbered Voltage Node */}
+            <div className="absolute -left-8 sm:-left-10 top-0 w-7 h-7 rounded-full bg-zinc-900 border border-[#c8ff00]/60 ring-2 ring-zinc-950 flex items-center justify-center text-sm font-mono font-bold text-[#c8ff00] shadow-sm">
+              1
+            </div>
+
+            <div className="space-y-1.5">
               <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
-                  <Sparkle className="w-3.5 h-3.5 text-zinc-300" weight="fill" />
-                  Latest AI advisory synthesis: CORE-SW-01
-                </span>
-                <Badge severity={latestAnalysis.overallRisk} size="sm">
-                  {latestAnalysis.overallRisk}
-                </Badge>
-                <span className="text-xs text-zinc-400 font-mono">
-                  Ticket CHG-998214
+                <h3 className="text-lg font-bold text-white">
+                  Stage 1: Register Inventory & Command Profiles
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
+                  /setup
                 </span>
               </div>
-
-              <h3 className="text-lg font-bold text-white">
-                {latestAnalysis.summary}
-              </h3>
-
-              <p className="text-xs text-zinc-300 line-clamp-2 leading-relaxed">
-                {latestAnalysis.executiveSummary}
+              <p className="text-sm text-zinc-300 leading-relaxed">
+                Add target Cisco routers and switches via single device registration or bulk CSV import. Assign devices to logical clusters such as <code className="text-[#c8ff00] bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800 font-mono text-xs">Core Backbone</code> or <code className="text-[#c8ff00] bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800 font-mono text-xs">DC Fabric</code>, and associate driver-compatible command sets.
               </p>
+            </div>
 
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {latestAnalysis.findings.slice(0, 3).map((f: AnalysisFinding, i: number) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-800 border border-zinc-700 text-xs text-zinc-300"
-                  >
-                    <ShieldWarning
-                      className={`w-3.5 h-3.5 ${
-                        f.severity === 'Critical' || f.severity === 'CRITICAL'
-                          ? 'text-rose-400'
-                          : f.severity === 'High' || f.severity === 'HIGH'
-                          ? 'text-orange-400'
-                          : 'text-sky-400'
-                      }`}
-                      weight="duotone"
-                    />
-                    {f.title}
-                  </span>
-                ))}
+            {/* Flat Inline Technical Code Tokens */}
+            <div className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800/80 font-mono text-sm space-y-2">
+              <div className="text-xs text-zinc-400 uppercase font-semibold">Standard Telemetry Command Sets</div>
+              <div className="text-zinc-200 flex items-center gap-2.5">
+                <span className="text-zinc-500">›</span>
+                <span className="text-sky-400 font-semibold">show ip interface brief</span>
+                <span className="text-zinc-400 text-xs">— Port IP addressing and line protocol status</span>
+              </div>
+              <div className="text-zinc-200 flex items-center gap-2.5">
+                <span className="text-zinc-500">›</span>
+                <span className="text-sky-400 font-semibold">show ip bgp summary</span>
+                <span className="text-zinc-400 text-xs">— Autonomous system peer session uptime and prefix counts</span>
+              </div>
+              <div className="text-zinc-200 flex items-center gap-2.5">
+                <span className="text-zinc-500">›</span>
+                <span className="text-sky-400 font-semibold">show ip route summary</span>
+                <span className="text-zinc-400 text-xs">— Routing table RIB size, protocol breakdown, and path counts</span>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
-              <Button
-                variant="primary"
-                size="sm"
-                rightIcon={<ArrowRight className="w-4 h-4" weight="bold" />}
-                onClick={() => navigate('/analysis?tab=report')}
-              >
-                Inspect
-              </Button>
+            {/* Senior Engineer Efficiency Pro-Tip */}
+            <div className="p-3.5 rounded-lg border-l-2 border-[#c8ff00] bg-zinc-900/40 text-sm text-zinc-200 space-y-1">
+              <span className="font-bold text-[#c8ff00]">Efficiency Pro-Tip: </span>
+              <span>
+                Pre-group nodes by maintenance scope before scheduled change windows. Grouping allows 1-click concurrent collection across all nodes in the window, eliminating the need to poll devices individually.
+              </span>
+            </div>
+
+            <div className="pt-1">
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => navigate('/analysis?tab=compare')}
+                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                onClick={() => navigate('/setup?tab=devices')}
               >
-                Compare
+                Go to Inventory Setup
               </Button>
             </div>
           </div>
-        </Card>
-      )}
 
-      {/* Two Column Layout: Recent Snapshots & Audit Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Snapshots Card */}
-        <Card className="p-6 border-zinc-800 bg-zinc-900/60">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <Camera className="w-5 h-5 text-zinc-400" weight="duotone" />
-              <h3 className="font-bold text-sm text-zinc-100">Recent Snapshots</h3>
+          {/* STAGE 2 */}
+          <div className="relative space-y-3.5">
+            {/* Numbered Voltage Node */}
+            <div className="absolute -left-8 sm:-left-10 top-0 w-7 h-7 rounded-full bg-zinc-900 border border-sky-500/60 ring-2 ring-zinc-950 flex items-center justify-center text-sm font-mono font-bold text-sky-400 shadow-sm">
+              2
             </div>
-            <button
-              onClick={() => navigate('/operations?tab=snapshots')}
-              className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 font-semibold cursor-pointer transition-colors"
-            >
-              <span>View all</span>
-              <ArrowRight className="w-3.5 h-3.5" weight="bold" />
-            </button>
-          </div>
 
-          <div className="space-y-3">
-            {recentSnapshots.map((snap: Snapshot) => (
-              <div
-                key={snap.snapshotId}
-                className="p-3.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80 hover:border-zinc-700 transition-colors flex items-center justify-between"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-zinc-800 text-zinc-300">
-                    <HardDrives className="w-4 h-4" weight="duotone" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-zinc-200">{snap.deviceName}</span>
-                      <span
-                        className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full border ${
-                          snap.snapshotType === 'pre_change'
-                            ? 'bg-zinc-800 text-zinc-300 border-zinc-700'
-                            : 'bg-[#c8ff00]/15 text-[#c8ff00] border-[#c8ff00]/30'
-                        }`}
-                      >
-                        {snap.snapshotType === 'pre_change' ? 'BASELINE' : 'VERIFIED'}
-                      </span>
-                    </div>
-                    <div className="text-xs text-zinc-400 mt-1 flex items-center gap-3 font-mono">
-                      <span>{snap.deviceHostname}</span>
-                      <span>•</span>
-                      <span>{snap.commands.length} cmds</span>
-                      <span>•</span>
-                      <span>{new Date(snap.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate('/analysis?tab=compare')}
-                >
-                  Compare
-                </Button>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-bold text-white">
+                  Stage 2: Capture Pre-Change Baseline Snapshots
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
+                  /operations
+                </span>
               </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Audit Trail Activity Card */}
-        <Card className="p-6 border-zinc-800 bg-zinc-900/60">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <ShieldCheck className="w-5 h-5 text-zinc-400" weight="duotone" />
-              <h3 className="font-bold text-sm text-zinc-100">Audit Trail Activity</h3>
+              <p className="text-sm text-zinc-300 leading-relaxed">
+                Before making any configuration changes or executing cutovers, initiate a <span className="text-sky-400 font-semibold">Pre-Change Baseline</span> capture. DriftGuard uses non-interactive Netmiko SSH sessions to archive immutable configuration state directly to the vault with the maintenance ticket number bound.
+              </p>
             </div>
-            <button
-              onClick={() => navigate('/operations?tab=audit')}
-              className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 font-semibold cursor-pointer transition-colors"
-            >
-              <span>Audit Log</span>
-              <ArrowRight className="w-3.5 h-3.5" weight="bold" />
-            </button>
-          </div>
 
-          <div className="space-y-3">
-            {auditLogs.slice(0, 4).map((log: AuditLogEntry) => (
-              <div
-                key={log.auditId}
-                className="p-3.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-zinc-800 text-[#c8ff00]">
-                    <CheckCircle className="w-4 h-4" weight="fill" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-zinc-200">
-                      {log.action.replace('_', ' ')}
-                    </div>
-                    <div className="text-xs text-zinc-400 mt-0.5 flex items-center gap-2">
-                      <span className="font-mono text-zinc-300">{log.resourceId}</span>
-                      <span>•</span>
-                      <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <Badge variant="outline" size="sm">
-                  {log.status}
-                </Badge>
+            {/* 3-Step Flow Inline Callout */}
+            <div className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800/80 text-sm text-zinc-200 font-mono space-y-1.5">
+              <div className="text-xs text-zinc-400 uppercase font-semibold">Snapshot Collector Guided Flow</div>
+              <div className="flex items-center gap-2 text-zinc-300">
+                <span className="text-[#c8ff00] font-bold">1. Select Target</span>
+                <span className="text-zinc-500">→</span>
+                <span className="text-sky-400 font-bold">2. Set Command Profile & Ticket</span>
+                <span className="text-zinc-500">→</span>
+                <span className="text-white font-bold">3. Pre-flight Verification & Run</span>
               </div>
-            ))}
+            </div>
+
+            {/* Senior Engineer Efficiency Pro-Tip */}
+            <div className="p-3.5 rounded-lg border-l-2 border-[#c8ff00] bg-zinc-900/40 text-sm text-zinc-200 space-y-1">
+              <span className="font-bold text-[#c8ff00]">Efficiency Pro-Tip: </span>
+              <span>
+                Always supply the operational change ticket number (e.g. <code className="font-mono text-[#c8ff00]">CHG-998214</code>). When post-change collection runs under the same ticket, the comparison engine automatically suggests the matching baseline pair.
+              </span>
+            </div>
+
+            <div className="pt-1">
+              <Button
+                variant="secondary"
+                size="sm"
+                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                onClick={() => navigate('/operations?tab=capture')}
+              >
+                Go to Snapshot Collector
+              </Button>
+            </div>
           </div>
-        </Card>
+
+          {/* STAGE 3 */}
+          <div className="relative space-y-3.5">
+            {/* Numbered Voltage Node */}
+            <div className="absolute -left-8 sm:-left-10 top-0 w-7 h-7 rounded-full bg-zinc-900 border border-[#c8ff00]/60 ring-2 ring-zinc-950 flex items-center justify-center text-sm font-mono font-bold text-[#c8ff00] shadow-sm">
+              3
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-bold text-white">
+                  Stage 3: Run Post-Change Capture & Timeline Diff Comparison
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
+                  /analysis
+                </span>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">
+                Immediately after deploying routing modifications or interface alterations, execute a <span className="text-[#c8ff00] font-semibold">Post-Change Verification</span> capture. DriftGuard automatically compiles line-by-line syntactic diffs between the baseline and post-change outputs.
+              </p>
+            </div>
+
+            {/* Diff Syntax Visual Guide */}
+            <div className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800/80 font-mono text-sm space-y-2">
+              <div className="text-xs text-zinc-400 uppercase font-semibold">Syntactic Diff Inspector Legend</div>
+              <div className="flex items-center gap-2.5 text-[#c8ff00]">
+                <span className="bg-[#c8ff00]/15 px-2 py-0.5 rounded font-bold">+</span>
+                <span className="text-zinc-200">Added state: Newly established BGP sessions, active routes, or interfaces</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-rose-400">
+                <span className="bg-rose-950 px-2 py-0.5 rounded font-bold">-</span>
+                <span className="text-zinc-200">Removed state: Withdrawn prefixes, downed neighbor relationships, or dropped subnets</span>
+              </div>
+            </div>
+
+            {/* Senior Engineer Efficiency Pro-Tip */}
+            <div className="p-3.5 rounded-lg border-l-2 border-[#c8ff00] bg-zinc-900/40 text-sm text-zinc-200 space-y-1">
+              <span className="font-bold text-[#c8ff00]">Efficiency Pro-Tip: </span>
+              <span>
+                Use the <span className="font-semibold text-white">Auto-pair Latest</span> action in the comparison timeline. It instantaneously selects the newest baseline and verification snapshot pair for the target device without manual date matching.
+              </span>
+            </div>
+
+            <div className="pt-1">
+              <Button
+                variant="secondary"
+                size="sm"
+                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                onClick={() => navigate('/analysis?tab=compare')}
+              >
+                Go to Diff Comparison
+              </Button>
+            </div>
+          </div>
+
+          {/* STAGE 4 */}
+          <div className="relative space-y-3.5">
+            {/* Numbered Voltage Node */}
+            <div className="absolute -left-8 sm:-left-10 top-0 w-7 h-7 rounded-full bg-zinc-900 border border-amber-500/60 ring-2 ring-zinc-950 flex items-center justify-center text-sm font-mono font-bold text-amber-400 shadow-sm">
+              4
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-bold text-white">
+                  Stage 4: Review Advisory AI Risk Synthesis & Audit Trail
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
+                  /analysis?tab=report
+                </span>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">
+                Open the dedicated AI Analysis report for an automated architectural risk assessment. The model analyzes syntactic diffs for BGP neighbor flapping, blackholed default routes, and MTU mismatches across dual peers.
+              </p>
+            </div>
+
+            {/* 3-Part Error & Diagnostic Pattern Callout */}
+            <div className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800/80 text-sm space-y-2.5">
+              <div className="text-xs font-mono font-semibold text-zinc-400 uppercase">
+                3-Part Engineering Diagnostic Pattern
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-zinc-200">
+                <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                  <span className="font-bold text-sky-400 block mb-1 font-mono text-xs uppercase">1. Observation</span>
+                  <span className="text-xs text-zinc-300 leading-relaxed">What happened: Exact CLI state divergence identified.</span>
+                </div>
+                <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                  <span className="font-bold text-amber-400 block mb-1 font-mono text-xs uppercase">2. Impact</span>
+                  <span className="text-xs text-zinc-300 leading-relaxed">What it means: Routing blast radius and forwarding risk.</span>
+                </div>
+                <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                  <span className="font-bold text-[#c8ff00] block mb-1 font-mono text-xs uppercase">3. Next Step</span>
+                  <span className="text-xs text-zinc-300 leading-relaxed">Action required: Remediation or rollback show command.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Advisory Framing Disclaimer */}
+            <div className="p-3.5 rounded-lg border-l-2 border-amber-500 bg-zinc-900/40 text-sm text-zinc-200 space-y-1">
+              <span className="font-bold text-amber-400">Advisory Engineering Protocol: </span>
+              <span>
+                DriftGuard AI evaluations are strictly advisory interpretations. The licensed network engineer retains complete operational authority and responsibility before approving change sign-offs.
+              </span>
+            </div>
+
+            <div className="pt-1">
+              <Button
+                variant="secondary"
+                size="sm"
+                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                onClick={() => navigate('/analysis?tab=report')}
+              >
+                Go to AI Risk Analysis
+              </Button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 4. TECHNICAL SPECIFICATIONS & READ-ONLY WHITELIST REFERENCE               */}
+      {/* ========================================================================= */}
+      <div className="border-t border-zinc-800/80 pt-8 space-y-4">
+        <div>
+          <h3 className="text-base font-bold text-white uppercase tracking-wider font-mono">
+            Platform Specifications & Operational Guarantees
+          </h3>
+          <p className="text-sm text-zinc-400 mt-0.5">
+            Architecture and safety constraints enforced across all sessions and automated collectors.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-zinc-300">
+          {/* Col 1 */}
+          <div className="space-y-2 p-5 rounded-xl border border-zinc-800 bg-zinc-900/30">
+            <div className="flex items-center gap-2 font-bold text-white text-sm">
+              <ShieldCheck className="w-5 h-5 text-[#c8ff00]" weight="fill" />
+              <span>Read-Only Whitelist Enforcement</span>
+            </div>
+            <p className="text-zinc-300 text-xs leading-relaxed">
+              DriftGuard strictly executes read-only <code className="font-mono text-zinc-100">show</code> commands. Mutating Cisco CLI directives (<code className="font-mono text-rose-400">reload</code>, <code className="font-mono text-rose-400">write erase</code>, <code className="font-mono text-rose-400">configure terminal</code>) are rejected by the AST parser before transmission.
+            </p>
+          </div>
+
+          {/* Col 2 */}
+          <div className="space-y-2 p-5 rounded-xl border border-zinc-800 bg-zinc-900/30">
+            <div className="flex items-center gap-2 font-bold text-white text-sm">
+              <LockKey className="w-5 h-5 text-[#c8ff00]" weight="fill" />
+              <span>Zero-Plaintext Secret Architecture</span>
+            </div>
+            <p className="text-zinc-300 text-xs leading-relaxed">
+              All SSH credentials, passphrases, and vendor API tokens are encrypted via AWS KMS customer master keys prior to DynamoDB persistence. Authentication tokens are bound to ephemeral browser session storage with 30-minute inactivity timeouts.
+            </p>
+          </div>
+
+          {/* Col 3 */}
+          <div className="space-y-2 p-5 rounded-xl border border-zinc-800 bg-zinc-900/30">
+            <div className="flex items-center gap-2 font-bold text-white text-sm">
+              <ClockCounterClockwise className="w-5 h-5 text-[#c8ff00]" weight="fill" />
+              <span>Immutable Snapshot Vault</span>
+            </div>
+            <p className="text-zinc-300 text-xs leading-relaxed">
+              Every snapshot captured is timestamped and written to an immutable archive. Historical states cannot be modified or rewritten, preserving a complete audit record for compliance and post-mortem analysis.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -182,8 +182,8 @@ export const HistoryPage: React.FC = () => {
       {/* Flat Data Table */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-zinc-300">
-            <thead className="bg-zinc-900/70 text-zinc-400 uppercase font-mono text-[11px] border-b border-zinc-800">
+          <table className="w-full text-left text-sm text-zinc-300">
+            <thead className="bg-zinc-900/70 text-zinc-400 uppercase font-mono text-xs font-semibold border-b border-zinc-800">
               <tr>
                 <th className="px-5 py-3">Compiled</th>
                 <th className="px-5 py-3">Device</th>
@@ -198,8 +198,8 @@ export const HistoryPage: React.FC = () => {
                 <tr>
                   <td colSpan={6} className="px-5 py-12 text-center text-zinc-500">
                     <ClockCounterClockwise className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                    <p className="font-semibold text-zinc-300 text-xs">No matching timeline comparisons found</p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">Try adjusting date range or filters</p>
+                    <p className="font-semibold text-zinc-300 text-sm">No matching timeline comparisons found</p>
+                    <p className="text-xs text-zinc-500 mt-1">Try adjusting date range or filters</p>
                     <button
                       onClick={() => {
                         setSearchTerm('');
@@ -209,7 +209,7 @@ export const HistoryPage: React.FC = () => {
                         setDateRange({ preset: 'ALL' });
                         setCurrentPage(1);
                       }}
-                      className="mt-3 text-xs text-[#c8ff00] font-bold hover:underline cursor-pointer"
+                      className="mt-3 text-sm text-[#c8ff00] font-bold hover:underline cursor-pointer"
                     >
                       Reset all filters
                     </button>
@@ -238,17 +238,17 @@ export const HistoryPage: React.FC = () => {
                             <span className="font-semibold text-zinc-100 group-hover:text-white transition-colors">
                               {cmp.deviceName}
                             </span>
-                            <div className="font-mono text-[10px] text-zinc-500">{cmp.comparisonId}</div>
+                            <div className="font-mono text-xs text-zinc-500">{cmp.comparisonId}</div>
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-5 py-3.5 font-mono text-[11px] text-zinc-400">
+                      <td className="px-5 py-3.5 font-mono text-xs text-zinc-400">
                         <div>
-                          Pre: <span className="text-zinc-200">{cmp.preSnapshotId}</span>
+                          Pre: <span className="text-zinc-200 font-semibold">{cmp.preSnapshotId}</span>
                         </div>
                         <div>
-                          Post: <span className="text-zinc-200">{cmp.postSnapshotId}</span>
+                          Post: <span className="text-zinc-200 font-semibold">{cmp.postSnapshotId}</span>
                         </div>
                       </td>
 
@@ -266,7 +266,7 @@ export const HistoryPage: React.FC = () => {
                             {matchingAnalysis.overallRisk}
                           </Badge>
                         ) : (
-                          <span className="text-zinc-500 font-mono text-[11px]">Pending</span>
+                          <span className="text-zinc-400 font-mono text-xs">Pending</span>
                         )}
                       </td>
 

@@ -1,6 +1,5 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAppStore } from '../store/useAppStore';
 import { CollectPage } from './CollectPage';
 import { SnapshotsPage } from './SnapshotsPage';
 import { AuditPage } from './AuditPage';
@@ -11,7 +10,6 @@ type OperationsTab = 'capture' | 'snapshots' | 'audit';
 
 export const OperationsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { snapshots, auditLogs } = useAppStore();
 
   const activeTab = (searchParams.get('tab') as OperationsTab) || 'capture';
 
@@ -40,13 +38,11 @@ export const OperationsPage: React.FC = () => {
       id: 'snapshots' as OperationsTab,
       label: 'Snapshots',
       icon: Database,
-      badge: snapshots.length,
     },
     {
       id: 'audit' as OperationsTab,
       label: 'Audit Trail',
       icon: ShieldCheck,
-      badge: auditLogs.length,
     },
   ];
 
@@ -62,7 +58,7 @@ export const OperationsPage: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   isActive
                     ? 'bg-[#c8ff00] text-zinc-950 font-bold shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
@@ -70,15 +66,6 @@ export const OperationsPage: React.FC = () => {
               >
                 <Icon className="w-4 h-4" weight={isActive ? 'fill' : 'regular'} />
                 <span>{tab.label}</span>
-                {tab.badge !== undefined && (
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                      isActive ? 'bg-zinc-950/20 text-zinc-950 font-bold' : 'bg-zinc-800 text-zinc-500'
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
               </button>
             );
           })}

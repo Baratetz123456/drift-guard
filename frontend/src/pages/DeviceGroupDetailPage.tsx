@@ -132,7 +132,7 @@ export const DeviceGroupDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 font-sans max-w-5xl mx-auto">
+    <div className="space-y-6 font-sans w-full">
       {/* Breadcrumb Navigation */}
       <div className="flex items-center gap-2 text-xs text-zinc-400">
         <Link
@@ -151,9 +151,6 @@ export const DeviceGroupDetailPage: React.FC = () => {
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight text-white">{group.name}</h1>
-            <span className="px-2 py-0.5 text-xs font-mono rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
-              {group.deviceIds.length} Nodes
-            </span>
           </div>
           <p className="text-xs text-zinc-400">
             {group.description || 'No description configured for this device group cluster.'}
@@ -168,7 +165,7 @@ export const DeviceGroupDetailPage: React.FC = () => {
             leftIcon={<Play className="w-4 h-4" weight="fill" />}
             onClick={() => navigate(`/collect?groupId=${group.groupId}`)}
           >
-            Run Collection
+            Run collection
           </Button>
           <Button
             type="button"
@@ -238,11 +235,11 @@ export const DeviceGroupDetailPage: React.FC = () => {
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-bold text-zinc-200 flex items-center gap-2">
+            <h3 className="text-base font-bold text-zinc-200 flex items-center gap-2">
               <HardDrives className="w-4 h-4 text-zinc-400" weight="duotone" />
               <span>Member Nodes ({memberDevices.length})</span>
             </h3>
-            <p className="text-[11px] text-zinc-400 mt-0.5">
+            <p className="text-xs text-zinc-400 mt-1">
               Network infrastructure nodes participating in parallel snapshot dispatches for this group.
             </p>
           </div>
@@ -255,7 +252,7 @@ export const DeviceGroupDetailPage: React.FC = () => {
                 value={memberSearchTerm}
                 onChange={(e) => setMemberSearchTerm(e.target.value)}
                 placeholder="Filter group nodes..."
-                className="w-full pl-9 pr-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+                className="w-full pl-9 pr-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
               />
             </div>
             <Button
@@ -273,9 +270,9 @@ export const DeviceGroupDetailPage: React.FC = () => {
         {/* Member Nodes Table */}
         <div className="border border-zinc-800 rounded-2xl bg-zinc-900/40 backdrop-blur-sm overflow-hidden shadow-xl">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-zinc-800/80 text-zinc-400 font-semibold bg-zinc-950/40">
+                <tr className="border-b border-zinc-800/80 text-zinc-400 font-semibold bg-zinc-950/40 text-xs">
                   <th className="px-5 py-3.5">Node Name</th>
                   <th className="px-5 py-3.5">Endpoint</th>
                   <th className="px-5 py-3.5">Driver</th>
@@ -289,8 +286,8 @@ export const DeviceGroupDetailPage: React.FC = () => {
                   <tr>
                     <td colSpan={6} className="px-5 py-10 text-center text-zinc-400">
                       <HardDrives className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                      <p className="font-semibold text-zinc-300 text-xs">No member nodes found</p>
-                      <p className="text-[11px] text-zinc-500 mt-0.5">
+                      <p className="font-semibold text-zinc-300 text-sm">No member nodes found</p>
+                      <p className="text-xs text-zinc-500 mt-1">
                         {memberDevices.length === 0
                           ? 'Click "Add Nodes" to assign network devices to this group.'
                           : 'No nodes match your search query.'}
@@ -330,7 +327,7 @@ export const DeviceGroupDetailPage: React.FC = () => {
                           {dev.status.toUpperCase()}
                         </Badge>
                       </td>
-                      <td className="px-5 py-3.5 text-zinc-400 font-mono text-[11px]">
+                      <td className="px-5 py-3.5 text-zinc-400 font-mono text-xs">
                         {dev.lastTestedAt
                           ? new Date(dev.lastTestedAt).toLocaleTimeString()
                           : 'Never'}
@@ -339,7 +336,7 @@ export const DeviceGroupDetailPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleRemoveNode(dev.deviceId)}
-                          className="text-xs text-zinc-400 hover:text-rose-400 transition-colors inline-flex items-center gap-1 cursor-pointer font-medium"
+                          className="text-sm text-zinc-400 hover:text-rose-400 transition-colors inline-flex items-center gap-1 cursor-pointer font-medium"
                           title="Remove from group"
                         >
                           <MinusCircle className="w-4 h-4 text-rose-400" />
@@ -360,7 +357,7 @@ export const DeviceGroupDetailPage: React.FC = () => {
         <Modal
           isOpen={isAddNodesModalOpen}
           onClose={() => setIsAddNodesModalOpen(false)}
-          title={`Add Nodes to ${group.name}`}
+          title={`Assign Member Nodes to ${group.name}`}
           description="Select available network devices to assign to this maintenance group cluster."
         >
           <div className="space-y-4">
@@ -371,8 +368,8 @@ export const DeviceGroupDetailPage: React.FC = () => {
                   type="text"
                   value={addSearchTerm}
                   onChange={(e) => setAddSearchTerm(e.target.value)}
-                  placeholder="Search available devices..."
-                  className="w-full pl-9 pr-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+                  placeholder="Search candidate nodes by name or IP..."
+                  className="w-full pl-9 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
                 />
               </div>
               <button
@@ -394,8 +391,8 @@ export const DeviceGroupDetailPage: React.FC = () => {
 
             <div className="border border-zinc-800 rounded-xl bg-zinc-950 max-h-60 overflow-y-auto divide-y divide-zinc-800/60">
               {filteredAvailableDevices.length === 0 ? (
-                <div className="p-6 text-center text-xs text-zinc-500">
-                  No additional devices available to add.
+                <div className="p-8 text-center text-xs text-zinc-500 italic">
+                  All available registered devices are already members of this group.
                 </div>
               ) : (
                 filteredAvailableDevices.map((dev) => {
@@ -403,9 +400,9 @@ export const DeviceGroupDetailPage: React.FC = () => {
                   return (
                     <label
                       key={dev.deviceId}
-                      className="flex items-center justify-between px-3.5 py-2.5 hover:bg-zinc-900/50 cursor-pointer text-xs transition-colors"
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-zinc-900/50 cursor-pointer text-sm transition-colors"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0">
                         <input
                           type="checkbox"
                           checked={isChecked}
@@ -419,7 +416,7 @@ export const DeviceGroupDetailPage: React.FC = () => {
                           className="rounded bg-zinc-900 border-zinc-700 text-[#c8ff00] focus:ring-0 cursor-pointer"
                         />
                         <span className="font-bold text-zinc-200">{dev.name}</span>
-                        <span className="text-zinc-500 font-mono text-[11px]">({dev.hostname})</span>
+                        <span className="text-zinc-400 font-mono text-xs">({dev.hostname})</span>
                       </div>
                       <Badge variant="outline" size="sm">
                         {dev.deviceType.replace('cisco_', '').toUpperCase()}

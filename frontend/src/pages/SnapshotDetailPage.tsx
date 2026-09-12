@@ -37,7 +37,7 @@ export const SnapshotDetailPage: React.FC = () => {
 
   if (!snapshot) {
     return (
-      <div className="space-y-6 font-sans max-w-4xl mx-auto">
+      <div className="space-y-6 font-sans w-full">
         <div className="p-8 text-center border border-zinc-800 rounded-2xl bg-zinc-900/40">
           <Database className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
           <h2 className="text-base font-bold text-zinc-200">Snapshot Not Found</h2>
@@ -69,7 +69,7 @@ export const SnapshotDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 font-sans max-w-5xl mx-auto">
+    <div className="space-y-6 font-sans w-full">
       {/* Breadcrumb Navigation */}
       <div className="flex items-center gap-2 text-xs text-zinc-400">
         <Link
@@ -104,13 +104,13 @@ export const SnapshotDetailPage: React.FC = () => {
                 ? 'POST-CHANGE'
                 : 'AD-HOC'}
             </Badge>
-            <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+            <span className="px-2.5 py-0.5 text-xs font-mono rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
               {snapshot.deviceType}
             </span>
           </div>
-          <p className="text-xs text-zinc-400 flex items-center gap-2">
-            <HardDrives className="w-3.5 h-3.5 text-zinc-500" />
-            <span className="font-semibold text-zinc-200">{snapshot.deviceName}</span>
+          <p className="text-sm text-zinc-300 flex items-center gap-2">
+            <HardDrives className="w-4 h-4 text-zinc-400" />
+            <span className="font-semibold text-zinc-100">{snapshot.deviceName}</span>
             <span>•</span>
             <span className="font-mono">{new Date(snapshot.timestamp).toLocaleString()}</span>
           </p>
@@ -141,32 +141,32 @@ export const SnapshotDetailPage: React.FC = () => {
       {/* Snapshot Metadata Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="p-4 border-zinc-800 bg-zinc-900/60">
-          <div className="text-[11px] text-zinc-500 uppercase font-mono mb-1">Target Network Device</div>
-          <div className="font-bold text-zinc-100 text-sm flex items-center gap-2">
+          <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider mb-1">Target Network Device</div>
+          <div className="font-bold text-zinc-100 text-base flex items-center gap-2">
             <HardDrives className="w-4 h-4 text-[#c8ff00]" />
             <span>{snapshot.deviceName}</span>
           </div>
-          <div className="text-xs text-zinc-400 font-mono mt-0.5">{snapshot.deviceHostname}</div>
+          <div className="text-sm text-zinc-400 font-mono mt-0.5">{snapshot.deviceHostname}</div>
         </Card>
 
         <Card className="p-4 border-zinc-800 bg-zinc-900/60">
-          <div className="text-[11px] text-zinc-500 uppercase font-mono mb-1">Change Governance</div>
-          <div className="font-bold text-zinc-100 text-sm flex items-center gap-2">
+          <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider mb-1">Change Governance</div>
+          <div className="font-bold text-zinc-100 text-base flex items-center gap-2">
             <Ticket className="w-4 h-4 text-sky-400" />
             <span className="font-mono">{snapshot.changeTicket || 'N/A'}</span>
           </div>
-          <div className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
+          <div className="text-sm text-zinc-400 mt-0.5 line-clamp-1">
             {snapshot.notes || 'No change window notes provided.'}
           </div>
         </Card>
 
         <Card className="p-4 border-zinc-800 bg-zinc-900/60">
-          <div className="text-[11px] text-zinc-500 uppercase font-mono mb-1">Show Command Suite</div>
-          <div className="font-bold text-zinc-100 text-sm flex items-center gap-2">
+          <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider mb-1">Show Command Suite</div>
+          <div className="font-bold text-zinc-100 text-base flex items-center gap-2">
             <TerminalWindow className="w-4 h-4 text-amber-400" />
             <span>{snapshot.commands.length} Commands</span>
           </div>
-          <div className="text-xs text-zinc-400 mt-0.5">Immutable payload committed</div>
+          <div className="text-sm text-zinc-400 mt-0.5">Immutable payload committed</div>
         </Card>
       </div>
 
@@ -175,24 +175,24 @@ export const SnapshotDetailPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3">
           <div className="flex items-center gap-2">
             <TerminalWindow className="w-4 h-4 text-zinc-400" />
-            <h3 className="font-bold text-sm text-zinc-200">CLI Show Output Vault</h3>
+            <h3 className="font-bold text-base text-zinc-200">CLI Show Output Vault</h3>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleCopyOutput}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm transition-colors cursor-pointer"
             >
               {copied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-[#c8ff00]" />
+                  <Check className="w-4 h-4 text-[#c8ff00]" />
                   <span className="text-[#c8ff00] font-semibold">Copied</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copy output</span>
+                  <Copy className="w-4 h-4" />
+                  <span className="font-medium">Copy output</span>
                 </>
               )}
             </button>
@@ -200,13 +200,13 @@ export const SnapshotDetailPage: React.FC = () => {
         </div>
 
         {/* Command Selector Tabs */}
-        <div className="flex flex-wrap gap-1.5 p-1 bg-zinc-950 border border-zinc-800 rounded-xl">
+        <div className="flex flex-wrap gap-1.5 p-1.5 bg-zinc-950 border border-zinc-800 rounded-xl">
           {snapshot.commands.map((cmd) => (
             <button
               key={cmd}
               type="button"
               onClick={() => setActiveCommand(cmd)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-mono transition-all cursor-pointer ${
                 activeCommand === cmd
                   ? 'bg-zinc-800 text-white font-bold border border-zinc-700 shadow-sm'
                   : 'text-zinc-400 hover:text-zinc-200'
@@ -218,7 +218,7 @@ export const SnapshotDetailPage: React.FC = () => {
         </div>
 
         {/* Terminal Screen */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-xs text-zinc-200 overflow-x-auto min-h-[300px] leading-relaxed whitespace-pre selection:bg-[#c8ff00] selection:text-zinc-950">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-sm text-zinc-200 overflow-x-auto min-h-[300px] leading-relaxed whitespace-pre selection:bg-[#c8ff00] selection:text-zinc-950">
           {snapshot.outputs[activeCommand] || (
             <span className="text-zinc-600 italic">No output captured for this command.</span>
           )}

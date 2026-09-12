@@ -166,7 +166,7 @@ export const AIAnalysisPage: React.FC = () => {
 
           {/* Risk Gauge */}
           <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800 shrink-0 min-w-[170px]">
-            <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+            <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">
               Risk Score
             </div>
             <div className="text-4xl font-extrabold text-white">
@@ -190,7 +190,7 @@ export const AIAnalysisPage: React.FC = () => {
       </Card>
 
       {/* Advisory Operational Disclaimer Banner */}
-      <div className="p-3 px-4 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-300 flex items-center gap-2.5">
+      <div className="p-3.5 px-4 rounded-xl bg-zinc-900/80 border border-zinc-800 text-sm text-zinc-300 flex items-center gap-2.5">
         <ShieldCheck className="w-4 h-4 text-[#c8ff00] shrink-0" weight="duotone" />
         <span>Advisory analysis only. All findings and remediation runbooks require senior engineer verification prior to change execution.</span>
       </div>
@@ -199,9 +199,9 @@ export const AIAnalysisPage: React.FC = () => {
       <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/30">
         <div className="flex items-center gap-2 mb-2">
           <Brain className="w-4 h-4 text-zinc-300" weight="duotone" />
-          <h3 className="font-bold text-sm text-zinc-200">Executive summary (CAB report)</h3>
+          <h3 className="font-bold text-base text-zinc-200">Executive summary (CAB report)</h3>
         </div>
-        <p className="text-xs text-zinc-300 leading-relaxed">
+        <p className="text-sm text-zinc-300 leading-relaxed">
           {activeAnalysis.executiveSummary}
         </p>
       </div>
@@ -220,18 +220,18 @@ export const AIAnalysisPage: React.FC = () => {
             <Card key={idx} className="p-5 flex flex-col justify-between border-zinc-800 bg-zinc-900/40">
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-2">
-                  <h4 className="font-bold text-sm text-zinc-200 flex-1">{finding.title}</h4>
+                  <h4 className="font-bold text-base text-zinc-200 flex-1">{finding.title}</h4>
                   <Badge severity={finding.severity} size="sm">
                     {finding.severity}
                   </Badge>
                 </div>
 
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-400 font-mono uppercase font-bold">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs bg-zinc-800 text-zinc-300 font-mono uppercase font-bold">
                   Category: {finding.category}
                 </div>
 
                 {/* 3-Part Diagnostic Pattern */}
-                <div className="p-3.5 rounded-lg bg-zinc-950/80 border border-zinc-800 space-y-2 text-xs">
+                <div className="p-3.5 rounded-lg bg-zinc-950/80 border border-zinc-800 space-y-2 text-sm">
                   <div>
                     <span className="font-semibold text-zinc-300">Observation: </span>
                     <span className="text-zinc-400">{finding.description}</span>

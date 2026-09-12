@@ -117,8 +117,8 @@ export const SettingsPage: React.FC = () => {
           <div className="space-y-5">
             <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 flex items-center justify-between">
               <div>
-                <h3 className="text-xs font-bold text-zinc-200">OpenAI-Compatible API Format</h3>
-                <p className="text-[11px] text-zinc-400 mt-0.5">
+                <h3 className="text-sm font-bold text-zinc-200">OpenAI-Compatible API Format</h3>
+                <p className="text-xs text-zinc-400 mt-1">
                   Point to any endpoint supporting OpenAI chat completions (OpenRouter, OpenAI, vLLM, Ollama).
                 </p>
               </div>
@@ -140,9 +140,9 @@ export const SettingsPage: React.FC = () => {
                     value={baseUrl}
                     onChange={(e) => setBaseUrl(e.target.value)}
                     placeholder="https://openrouter.ai/api/v1 or https://api.openai.com/v1"
-                    className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono focus:outline-none focus:border-zinc-500"
+                    className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 font-mono focus:outline-none focus:border-zinc-500"
                   />
-                  <p className="text-[10px] text-zinc-500 mt-1 font-mono">
+                  <p className="text-xs text-zinc-400 mt-1 font-mono">
                     Default: https://openrouter.ai/api/v1 (or https://api.openai.com/v1)
                   </p>
                 </div>
@@ -158,7 +158,7 @@ export const SettingsPage: React.FC = () => {
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
                       placeholder={settings.apiKeyPreview || 'sk-... (leave blank to retain current)'}
-                      className="w-full pl-3.5 pr-10 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                      className="w-full pl-3.5 pr-10 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
                     />
                     <button
                       type="button"
@@ -182,18 +182,18 @@ export const SettingsPage: React.FC = () => {
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   placeholder="e.g. anthropic/claude-3.5-sonnet, openai/gpt-4o, deepseek/deepseek-r1"
-                  className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono focus:outline-none focus:border-zinc-500"
+                  className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 font-mono focus:outline-none focus:border-zinc-500"
                 />
 
                 {/* Popular model pill shortcuts */}
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  <span className="text-[11px] text-zinc-500 self-center mr-1">Presets:</span>
+                  <span className="text-xs text-zinc-400 self-center mr-1">Presets:</span>
                   {POPULAR_MODELS.map((m) => (
                     <button
                       key={m.id}
                       type="button"
                       onClick={() => setModel(m.id)}
-                      className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
+                      className={`px-2.5 py-1 rounded text-xs font-mono border transition-colors cursor-pointer ${
                         model === m.id
                           ? 'bg-[#c8ff00] text-zinc-950 border-[#c8ff00] font-bold shadow-sm'
                           : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
@@ -212,8 +212,8 @@ export const SettingsPage: React.FC = () => {
         {activeTab === 'ssh' && (
           <div className="space-y-5">
             <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40">
-              <h3 className="text-xs font-bold text-zinc-200">Netmiko SSH Transport Settings</h3>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
+              <h3 className="text-sm font-bold text-zinc-200">Netmiko SSH Transport Settings</h3>
+              <p className="text-xs text-zinc-400 mt-1">
                 Configure timing constraints for SSH handshakes and long CLI commands on enterprise Cisco gear.
               </p>
             </div>
@@ -233,7 +233,7 @@ export const SettingsPage: React.FC = () => {
                   onChange={(e) => setTimeoutVal(Number(e.target.value))}
                   className="w-full accent-[#c8ff00] bg-zinc-800 rounded-lg cursor-pointer"
                 />
-                <div className="flex justify-between text-[10px] text-zinc-500 font-mono mt-1">
+                <div className="flex justify-between text-xs text-zinc-400 font-mono mt-1">
                   <span>10s (Fast health check)</span>
                   <span>30s (Default)</span>
                   <span>120s (Large Running-Configs)</span>
@@ -247,8 +247,8 @@ export const SettingsPage: React.FC = () => {
         {activeTab === 'diff' && (
           <div className="space-y-5">
             <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40">
-              <h3 className="text-xs font-bold text-zinc-200">Diff Engine & Sanitization Policies</h3>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
+              <h3 className="text-sm font-bold text-zinc-200">Diff Engine & Sanitization Policies</h3>
+              <p className="text-xs text-zinc-400 mt-1">
                 Prevent false-positive diff highlights and keep sensitive network credentials masked.
               </p>
             </div>
@@ -262,10 +262,10 @@ export const SettingsPage: React.FC = () => {
                   className="mt-0.5 rounded bg-zinc-950 border-zinc-700 text-white focus:ring-0"
                 />
                 <div>
-                  <div className="text-xs font-semibold text-zinc-200">
+                  <div className="text-sm font-semibold text-zinc-200">
                     Mask Secrets & Password Hashes in Diffs
                   </div>
-                  <div className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                  <div className="text-xs text-zinc-300 mt-1 leading-relaxed">
                     Replaces Cisco type 7/5/8 password hashes, BGP MD5 secrets, and SNMP community strings with `[REDACTED_SECRET]` before sending to the AI model.
                   </div>
                 </div>
@@ -279,10 +279,10 @@ export const SettingsPage: React.FC = () => {
                   className="mt-0.5 rounded bg-zinc-950 border-zinc-700 text-white focus:ring-0"
                 />
                 <div>
-                  <div className="text-xs font-semibold text-zinc-200">
+                  <div className="text-sm font-semibold text-zinc-200">
                     Normalize Dynamic Timers & Packet Counters
                   </div>
-                  <div className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                  <div className="text-xs text-zinc-300 mt-1 leading-relaxed">
                     Filters out benign timestamp shifts, BGP uptime tickers, and interface packet counters to prevent unnecessary diff noise.
                   </div>
                 </div>
@@ -295,13 +295,13 @@ export const SettingsPage: React.FC = () => {
         {activeTab === 'account' && (
           <div className="space-y-5">
             <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40">
-              <h3 className="text-xs font-bold text-zinc-200">Operator Profile</h3>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
+              <h3 className="text-sm font-bold text-zinc-200">Operator Profile</h3>
+              <p className="text-xs text-zinc-400 mt-1">
                 Authenticated session details and access permissions.
               </p>
             </div>
 
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/20 space-y-3 text-xs">
+            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/20 space-y-3 text-sm">
               <div className="flex justify-between py-1.5 border-b border-zinc-800">
                 <span className="text-zinc-400">Name</span>
                 <span className="text-zinc-200 font-semibold">{user?.name || 'Lead Architect'}</span>
@@ -324,8 +324,8 @@ export const SettingsPage: React.FC = () => {
             <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs font-bold text-zinc-200">Regional Localization & Telemetry</h3>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">
+                  <h3 className="text-sm font-bold text-zinc-200">Regional Localization & Telemetry</h3>
+                  <p className="text-xs text-zinc-400 mt-1">
                     Automatically detected from browser client environment.
                   </p>
                 </div>
@@ -334,7 +334,7 @@ export const SettingsPage: React.FC = () => {
                 </Badge>
               </div>
 
-              <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-900/20 space-y-2.5 text-xs">
+              <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-900/20 space-y-2.5 text-sm">
                 <div className="flex justify-between items-center py-1 border-b border-zinc-800">
                   <span className="text-zinc-400">Operational Region</span>
                   <span className="text-zinc-200 font-semibold">{geoInfo.region} ({geoInfo.regionCode})</span>
@@ -348,11 +348,11 @@ export const SettingsPage: React.FC = () => {
 
             {/* Legal & Compliance Reference */}
             <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 space-y-2">
-              <h3 className="text-xs font-bold text-zinc-200">Legal & compliance</h3>
-              <p className="text-[11px] text-zinc-400">
+              <h3 className="text-sm font-bold text-zinc-200">Legal & compliance</h3>
+              <p className="text-xs text-zinc-400">
                 Review data collection standards, KMS envelope encryption architecture, and advisory AI terms.
               </p>
-              <div className="flex items-center gap-4 pt-1 text-xs">
+              <div className="flex items-center gap-4 pt-1 text-sm">
                 <Link to="/terms" className="text-[#c8ff00] hover:underline font-semibold flex items-center gap-1">
                   <span>Terms of service</span> &rarr;
                 </Link>

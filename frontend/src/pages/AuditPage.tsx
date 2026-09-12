@@ -140,8 +140,8 @@ export const AuditPage: React.FC = () => {
       {/* Flat Data Table */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-zinc-300">
-            <thead className="bg-zinc-900/70 text-zinc-400 uppercase font-mono text-[11px] border-b border-zinc-800">
+          <table className="w-full text-left text-sm text-zinc-300">
+            <thead className="bg-zinc-900/70 text-zinc-400 uppercase font-mono text-xs font-semibold border-b border-zinc-800">
               <tr>
                 <th className="px-5 py-3">Timestamp</th>
                 <th className="px-5 py-3">Action</th>
@@ -156,8 +156,8 @@ export const AuditPage: React.FC = () => {
                 <tr>
                   <td colSpan={6} className="px-5 py-12 text-center text-zinc-400">
                     <ShieldCheck className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                    <p className="font-semibold text-zinc-300 text-xs">No matching audit records</p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">Try adjusting search term or status/action filters</p>
+                    <p className="font-semibold text-zinc-300 text-sm">No matching audit records</p>
+                    <p className="text-xs text-zinc-500 mt-1">Try adjusting search term or status/action filters</p>
                     <button
                       onClick={() => {
                         setSearchTerm('');
@@ -165,7 +165,7 @@ export const AuditPage: React.FC = () => {
                         setActionFilter('ALL');
                         setCurrentPage(1);
                       }}
-                      className="mt-3 text-xs text-[#c8ff00] font-bold hover:underline cursor-pointer"
+                      className="mt-3 text-sm text-[#c8ff00] font-bold hover:underline cursor-pointer"
                     >
                       Reset filters
                     </button>

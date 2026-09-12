@@ -88,22 +88,22 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
       {showCustomInputs && (
         <div className="flex items-center gap-2 p-2.5 bg-zinc-950/80 border border-zinc-800 rounded-xl max-w-lg">
           <div className="flex items-center gap-1.5 flex-1">
-            <label className="text-[11px] text-zinc-500 font-mono">From:</label>
+            <label className="text-xs text-zinc-400 font-mono">From:</label>
             <input
               type="date"
               value={value.startDate || ''}
               onChange={(e) => handleCustomDateChange('startDate', e.target.value)}
-              className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 font-mono w-full"
+              className="px-2.5 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-zinc-500 font-mono w-full"
             />
           </div>
-          <span className="text-zinc-600 text-xs">—</span>
+          <span className="text-zinc-600 text-sm">—</span>
           <div className="flex items-center gap-1.5 flex-1">
-            <label className="text-[11px] text-zinc-500 font-mono">To:</label>
+            <label className="text-xs text-zinc-400 font-mono">To:</label>
             <input
               type="date"
               value={value.endDate || ''}
               onChange={(e) => handleCustomDateChange('endDate', e.target.value)}
-              className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 font-mono w-full"
+              className="px-2.5 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-zinc-500 font-mono w-full"
             />
           </div>
           <button

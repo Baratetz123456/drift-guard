@@ -26,7 +26,7 @@ export const AuditLogDetailPage: React.FC = () => {
 
   if (!log) {
     return (
-      <div className="space-y-6 font-sans max-w-4xl mx-auto">
+      <div className="space-y-6 font-sans w-full">
         <div className="p-8 text-center border border-zinc-800 rounded-2xl bg-zinc-900/40">
           <ShieldCheck className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
           <h2 className="text-base font-bold text-zinc-200">Audit Record Not Found</h2>
@@ -52,7 +52,7 @@ export const AuditLogDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 font-sans max-w-4xl mx-auto">
+    <div className="space-y-6 font-sans w-full">
       {/* Breadcrumb Navigation */}
       <div className="flex items-center gap-2 text-xs text-zinc-400">
         <Link
@@ -99,10 +99,10 @@ export const AuditLogDetailPage: React.FC = () => {
       {/* Structured Event Metadata */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card className="p-4 border-zinc-800 bg-zinc-900/60 space-y-3">
-          <div className="text-[11px] text-zinc-500 uppercase font-mono border-b border-zinc-800 pb-1.5">
+          <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider border-b border-zinc-800 pb-1.5">
             Operator Context
           </div>
-          <div className="space-y-2 text-xs">
+          <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-zinc-400">Actor Email:</span>
               <span className="font-semibold text-zinc-200">{log.userEmail}</span>
@@ -119,10 +119,10 @@ export const AuditLogDetailPage: React.FC = () => {
         </Card>
 
         <Card className="p-4 border-zinc-800 bg-zinc-900/60 space-y-3">
-          <div className="text-[11px] text-zinc-500 uppercase font-mono border-b border-zinc-800 pb-1.5">
+          <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider border-b border-zinc-800 pb-1.5">
             Target Resource
           </div>
-          <div className="space-y-2 text-xs">
+          <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-zinc-400">Resource Category:</span>
               <span className="font-mono text-zinc-200 font-bold">{log.resource}</span>
@@ -146,12 +146,12 @@ export const AuditLogDetailPage: React.FC = () => {
         <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
           <div className="flex items-center gap-2">
             <TerminalWindow className="w-4 h-4 text-zinc-400" />
-            <h3 className="font-bold text-sm text-zinc-200">Raw Immutable Audit Record</h3>
+            <h3 className="font-bold text-base text-zinc-200">Raw Immutable Audit Record</h3>
           </div>
-          <span className="text-[10px] font-mono text-zinc-500">JSON Payload</span>
+          <span className="text-xs font-mono text-zinc-400">JSON Payload</span>
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-xs text-zinc-200 overflow-x-auto leading-relaxed whitespace-pre">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-sm text-zinc-200 overflow-x-auto leading-relaxed whitespace-pre">
           {JSON.stringify(log, null, 2)}
         </div>
 

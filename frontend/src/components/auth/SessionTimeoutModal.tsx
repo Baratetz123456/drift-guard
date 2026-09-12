@@ -45,7 +45,7 @@ export const SessionTimeoutModal: React.FC<SessionTimeoutModalProps> = ({
 
         {/* Countdown Indicator */}
         <div className="flex items-center justify-between px-4 py-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
-          <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
+          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-300">
             <ClockCountdown className="w-4 h-4 text-[#c8ff00]" weight="bold" />
             <span>Automatic sign out in</span>
           </div>
@@ -55,7 +55,7 @@ export const SessionTimeoutModal: React.FC<SessionTimeoutModalProps> = ({
         </div>
 
         {/* Operational Rationale */}
-        <div className="text-[11px] text-zinc-400 space-y-1 bg-zinc-900/30 p-3 rounded-lg border border-zinc-800/50">
+        <div className="text-xs text-zinc-400 space-y-1 bg-zinc-900/30 p-3 rounded-lg border border-zinc-800/50">
           <span className="font-semibold text-zinc-300 block">Security policy</span>
           <span>
             DriftGuard enforces session limits on read-only SSH transport and cryptographic envelope sessions.
@@ -69,7 +69,7 @@ export const SessionTimeoutModal: React.FC<SessionTimeoutModalProps> = ({
             variant="secondary"
             onClick={onSignOut}
             leftIcon={<SignOut className="w-4 h-4" weight="bold" />}
-            className="w-full sm:w-auto text-xs"
+            className="w-full sm:w-auto text-sm"
           >
             Sign out
           </Button>

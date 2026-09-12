@@ -101,9 +101,9 @@ export const ComparisonDetailPage: React.FC = () => {
               </Badge>
             )}
           </div>
-          <p className="text-xs text-zinc-400 flex items-center gap-2">
-            <HardDrives className="w-3.5 h-3.5 text-zinc-500" />
-            <span className="font-semibold text-zinc-200">{comparison.deviceName}</span>
+          <p className="text-sm text-zinc-300 flex items-center gap-2">
+            <HardDrives className="w-4 h-4 text-zinc-400" />
+            <span className="font-semibold text-zinc-100">{comparison.deviceName}</span>
             <span>•</span>
             <span className="font-mono">{new Date(comparison.createdAt).toLocaleString()}</span>
           </p>
@@ -149,32 +149,32 @@ export const ComparisonDetailPage: React.FC = () => {
       {/* Diff Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card className="p-4 border-zinc-800 bg-zinc-900/60">
-          <div className="text-[11px] text-zinc-500 uppercase font-mono mb-1">Changed Commands</div>
+          <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider mb-1">Changed Commands</div>
           <div className="font-bold text-zinc-100 text-lg font-mono">
             {comparison.diffSummary.changedCommands} of {comparison.diffSummary.totalCommands}
           </div>
-          <div className="text-xs text-zinc-400 mt-0.5">Profiles compared</div>
+          <div className="text-sm text-zinc-400 mt-0.5">Profiles compared</div>
         </Card>
 
         <Card className="p-4 border-zinc-800 bg-zinc-900/60">
-          <div className="text-[11px] text-zinc-500 uppercase font-mono mb-1">Additions</div>
+          <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider mb-1">Additions</div>
           <div className="font-bold text-[#c8ff00] text-lg font-mono">
             +{comparison.diffSummary.totalAdditions} lines
           </div>
-          <div className="text-xs text-zinc-400 mt-0.5">Syntactic insertions</div>
+          <div className="text-sm text-zinc-400 mt-0.5">Syntactic insertions</div>
         </Card>
 
         <Card className="p-4 border-zinc-800 bg-zinc-900/60">
-          <div className="text-[11px] text-zinc-500 uppercase font-mono mb-1">Deletions</div>
+          <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider mb-1">Deletions</div>
           <div className="font-bold text-rose-400 text-lg font-mono">
             -{comparison.diffSummary.totalDeletions} lines
           </div>
-          <div className="text-xs text-zinc-400 mt-0.5">Syntactic removals</div>
+          <div className="text-sm text-zinc-400 mt-0.5">Syntactic removals</div>
         </Card>
 
         <Card className="p-4 border-zinc-800 bg-zinc-900/60">
-          <div className="text-[11px] text-zinc-500 uppercase font-mono mb-1">Baseline Comparison</div>
-          <div className="text-xs font-mono space-y-0.5">
+          <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider mb-1">Baseline Comparison</div>
+          <div className="text-sm font-mono space-y-1">
             <div className="truncate text-zinc-400">Pre: <span className="text-zinc-200 font-semibold">{comparison.preSnapshotId}</span></div>
             <div className="truncate text-zinc-400">Post: <span className="text-zinc-200 font-semibold">{comparison.postSnapshotId}</span></div>
           </div>
@@ -186,16 +186,16 @@ export const ComparisonDetailPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3">
           <div className="flex items-center gap-2">
             <GitDiff className="w-4 h-4 text-zinc-400" />
-            <h3 className="font-bold text-sm text-zinc-200">CLI Syntax Diff Output</h3>
+            <h3 className="font-bold text-base text-zinc-200">CLI Syntax Diff Output</h3>
           </div>
-          <div className="text-xs font-mono text-zinc-400">
+          <div className="text-sm font-mono text-zinc-300">
             {diffList.length} command diffs recorded
           </div>
         </div>
 
         {/* Command Selector Tabs */}
         {diffList.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 p-1 bg-zinc-950 border border-zinc-800 rounded-xl">
+          <div className="flex flex-wrap gap-1.5 p-1.5 bg-zinc-950 border border-zinc-800 rounded-xl">
             {diffList.map((d) => {
               const isSelected = (activeDiffCommand || diffList[0]?.command) === d.command;
               return (
@@ -203,7 +203,7 @@ export const ComparisonDetailPage: React.FC = () => {
                   key={d.command}
                   type="button"
                   onClick={() => setActiveDiffCommand(d.command)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer flex items-center gap-2 ${
+                  className={`px-3 py-1.5 rounded-lg text-sm font-mono transition-all cursor-pointer flex items-center gap-2 ${
                     isSelected
                       ? 'bg-zinc-800 text-white font-bold border border-zinc-700 shadow-sm'
                       : 'text-zinc-400 hover:text-zinc-200'
@@ -211,11 +211,11 @@ export const ComparisonDetailPage: React.FC = () => {
                 >
                   <span>{d.command}</span>
                   {d.hasDiff ? (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#c8ff00]/10 text-[#c8ff00] font-bold font-mono">
+                    <span className="px-2 py-0.5 rounded text-xs bg-[#c8ff00]/10 text-[#c8ff00] font-bold font-mono">
                       +{d.additions} -{d.deletions}
                     </span>
                   ) : (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-500 font-mono">
+                    <span className="px-2 py-0.5 rounded text-xs bg-zinc-800 text-zinc-400 font-mono">
                       Identical
                     </span>
                   )}
@@ -233,7 +233,7 @@ export const ComparisonDetailPage: React.FC = () => {
             command={selectedDiff.command}
           />
         ) : (
-          <div className="text-zinc-500 italic p-8 text-center text-xs">
+          <div className="text-zinc-400 italic p-8 text-center text-sm">
             No command diff available.
           </div>
         )}

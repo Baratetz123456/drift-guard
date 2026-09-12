@@ -21,12 +21,14 @@ import {
   EyeSlash,
   Play,
   TerminalWindow,
+  Database,
+  UsersThree,
 } from '@phosphor-icons/react';
 
 export const DeviceDetailPage: React.FC = () => {
   const { deviceId } = useParams<{ deviceId: string }>();
   const navigate = useNavigate();
-  const { devices, updateDevice, deleteDevice, testDeviceConnection } = useAppStore();
+  const { devices, deviceGroups, snapshots, updateDevice, deleteDevice, testDeviceConnection } = useAppStore();
 
   const device = devices.find((d) => d.deviceId === deviceId);
 
@@ -151,13 +153,18 @@ export const DeviceDetailPage: React.FC = () => {
     setTimeout(() => setIsSaved(false), 3000);
   };
 
+  const memberGroups = deviceGroups.filter((g) => g.deviceIds.includes(device.deviceId));
+  const deviceSnapshots = snapshots.filter(
+    (s) => s.deviceId === device.deviceId || s.deviceName === device.name
+  );
+
   const handleConfirmDelete = () => {
     deleteDevice(device.deviceId);
     navigate('/setup?tab=devices');
   };
 
   return (
-    <div className="space-y-6 font-sans max-w-4xl mx-auto">
+    <div className="space-y-6 font-sans w-full">
       {/* Breadcrumb Navigation */}
       <div className="flex items-center gap-2 text-xs text-zinc-400">
         <Link
@@ -188,16 +195,25 @@ export const DeviceDetailPage: React.FC = () => {
             >
               {device.status.toUpperCase()}
             </Badge>
-            <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+            <span className="px-2.5 py-0.5 text-xs font-mono rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
               {device.deviceType}
             </span>
           </div>
-          <p className="text-xs text-zinc-400 font-mono">
+          <p className="text-sm text-zinc-300 font-mono">
             {device.connectionType?.toUpperCase() || 'SSH'} Endpoint: {device.hostname}:{device.port}
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            leftIcon={<Play className="w-4 h-4" weight="fill" />}
+            onClick={() => navigate(`/operations?tab=capture&deviceId=${device.deviceId}`)}
+          >
+            Run collection
+          </Button>
           <Button
             type="button"
             variant="secondary"
@@ -220,6 +236,114 @@ export const DeviceDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {/* 4 Summary Telemetry & Status Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Reachability & Probing Status */}
+        <Card className="p-4 border-zinc-800 bg-zinc-900/60 flex flex-col justify-between">
+          <div>
+            <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider mb-1 flex items-center justify-between">
+              <span>Reachability</span>
+              {device.status === 'online' ? (
+                <WifiHigh className="w-4 h-4 text-[#c8ff00]" weight="bold" />
+              ) : (
+                <WifiSlash className="w-4 h-4 text-rose-400" weight="bold" />
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge
+                variant={
+                  device.status === 'online'
+                    ? 'success'
+                    : device.status === 'offline'
+                    ? 'danger'
+                    : 'warning'
+                }
+                size="sm"
+              >
+                {device.status.toUpperCase()}
+              </Badge>
+              {device.lastTestedAt && (
+                <span className="text-xs text-zinc-400 font-mono">
+                  {new Date(device.lastTestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="text-xs text-zinc-500 font-mono mt-3 pt-2 border-t border-zinc-800/80">
+            {device.status === 'online' ? 'Socket handshake verified' : 'Socket unreachable'}
+          </div>
+        </Card>
+
+        {/* Card 2: Driver & Transport Endpoint */}
+        <Card className="p-4 border-zinc-800 bg-zinc-900/60 flex flex-col justify-between">
+          <div>
+            <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider mb-1 flex items-center justify-between">
+              <span>Driver & Transport</span>
+              <TerminalWindow className="w-4 h-4 text-sky-400" />
+            </div>
+            <div className="font-bold text-zinc-100 text-sm mt-1 truncate">
+              {CISCO_DEVICE_PLATFORMS.find((p) => p.id === device.deviceType)?.label || device.deviceType}
+            </div>
+          </div>
+          <div className="text-xs text-zinc-400 font-mono mt-3 pt-2 border-t border-zinc-800/80 flex items-center justify-between">
+            <span>{device.connectionType?.toUpperCase() || 'SSH'} Transport</span>
+            <span className="text-zinc-300">Port {device.port}</span>
+          </div>
+        </Card>
+
+        {/* Card 3: Topology & Group Memberships */}
+        <Card className="p-4 border-zinc-800 bg-zinc-900/60 flex flex-col justify-between">
+          <div>
+            <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider mb-1 flex items-center justify-between">
+              <span>Topology Groups</span>
+              <UsersThree className="w-4 h-4 text-purple-400" />
+            </div>
+            <div className="font-bold text-zinc-100 text-sm mt-1">
+              {memberGroups.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 max-h-12 overflow-y-auto">
+                  {memberGroups.map((g) => (
+                    <span
+                      key={g.groupId}
+                      className="px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 text-xs font-medium border border-zinc-700"
+                    >
+                      {g.name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-zinc-500 font-normal">Unassigned cluster</span>
+              )}
+            </div>
+          </div>
+          <div className="text-xs text-zinc-500 font-mono mt-3 pt-2 border-t border-zinc-800/80">
+            {device.tags && device.tags.length > 0 ? `${device.tags.length} metadata tags configured` : 'No metadata tags'}
+          </div>
+        </Card>
+
+        {/* Card 4: Snapshot Vault Activity */}
+        <Card className="p-4 border-zinc-800 bg-zinc-900/60 flex flex-col justify-between">
+          <div>
+            <div className="text-xs text-zinc-400 uppercase font-mono tracking-wider mb-1 flex items-center justify-between">
+              <span>Snapshot Vault</span>
+              <Database className="w-4 h-4 text-[#c8ff00]" />
+            </div>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="font-bold text-zinc-100 text-xl font-mono">{deviceSnapshots.length}</span>
+              <span className="text-xs text-zinc-400">captured</span>
+            </div>
+          </div>
+          <div className="mt-3 pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs">
+            <Link
+              to={`/operations?tab=snapshots&search=${encodeURIComponent(device.name)}`}
+              className="text-[#c8ff00] hover:underline font-medium inline-flex items-center gap-1"
+            >
+              <span>View in Vault</span>
+              <CaretRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </Card>
+      </div>
+
       {/* Test Connection Telemetry Banner */}
       {testResult && (
         <div
@@ -234,18 +358,18 @@ export const DeviceDetailPage: React.FC = () => {
           ) : (
             <Warning className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" weight="fill" />
           )}
-          <div className="space-y-1 text-xs">
+          <div className="space-y-1 text-sm">
             <div className="font-bold flex items-center gap-2">
               <span className={testResult.success ? 'text-[#c8ff00]' : 'text-rose-400'}>
                 {testResult.success ? 'Connection Successful' : 'Connection Failed'}
               </span>
               {testResult.latency && (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-700">
+                <span className="text-xs font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700">
                   {testResult.latency}ms latency
                 </span>
               )}
             </div>
-            <p className="text-zinc-300 font-mono text-[11px]">{testResult.message}</p>
+            <p className="text-zinc-200 font-mono text-xs leading-relaxed">{testResult.message}</p>
           </div>
         </div>
       )}

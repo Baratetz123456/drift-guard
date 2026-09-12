@@ -125,7 +125,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         </span>
         {showTagline && (
           <span
-            className="text-[11px] font-mono tracking-tight mt-0.5"
+            className="text-xs font-mono tracking-tight mt-0.5"
             style={{ color: taglineColor }}
           >
             Before. After. Understood.

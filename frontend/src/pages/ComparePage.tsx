@@ -217,7 +217,7 @@ export const ComparePage: React.FC = () => {
           }`}
         >
           <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
               selectedDevice && activeStep !== 1
                 ? 'bg-[#c8ff00] text-zinc-950'
                 : activeStep === 1
@@ -228,8 +228,8 @@ export const ComparePage: React.FC = () => {
             {selectedDevice && activeStep !== 1 ? <Check className="w-4 h-4" weight="bold" /> : '1'}
           </div>
           <div className="truncate">
-            <div className="text-xs font-bold leading-tight">1. Choose Device</div>
-            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+            <div className="text-sm font-bold leading-tight">1. Choose Device</div>
+            <div className="text-xs text-zinc-300 truncate mt-0.5">
               {selectedDevice ? selectedDevice.name : '100 nodes in inventory'}
             </div>
           </div>
@@ -251,7 +251,7 @@ export const ComparePage: React.FC = () => {
           }`}
         >
           <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
               preSnapshot && postSnapshot && activeStep !== 2
                 ? 'bg-[#c8ff00] text-zinc-950'
                 : activeStep === 2
@@ -266,8 +266,8 @@ export const ComparePage: React.FC = () => {
             )}
           </div>
           <div className="truncate">
-            <div className="text-xs font-bold leading-tight">2. Select Timeline</div>
-            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+            <div className="text-sm font-bold leading-tight">2. Select Timeline</div>
+            <div className="text-xs text-zinc-300 truncate mt-0.5">
               {preSnapshot && postSnapshot
                 ? 'Pre & Post points selected'
                 : selectedDevice
@@ -291,7 +291,7 @@ export const ComparePage: React.FC = () => {
           }`}
         >
           <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
               activeStep === 3
                 ? 'bg-[#c8ff00] text-zinc-950'
                 : preSnapshot && postSnapshot
@@ -302,8 +302,8 @@ export const ComparePage: React.FC = () => {
             3
           </div>
           <div className="truncate">
-            <div className="text-xs font-bold leading-tight">3. Review & Compare</div>
-            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+            <div className="text-sm font-bold leading-tight">3. Review & Compare</div>
+            <div className="text-xs text-zinc-300 truncate mt-0.5">
               {preSnapshot && postSnapshot ? 'Ready to compare diff' : 'Pending snapshot selection'}
             </div>
           </div>
@@ -318,7 +318,7 @@ export const ComparePage: React.FC = () => {
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
             {/* Search */}
             <div className="relative flex-1 max-w-md">
-              <MagnifyingGlass className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <MagnifyingGlass className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
               <input
                 type="text"
                 placeholder="Search device name, IP address, or ID..."
@@ -327,22 +327,22 @@ export const ComparePage: React.FC = () => {
                   setDeviceSearch(e.target.value);
                   setDevicePage(1);
                 }}
-                className="w-full pl-10 pr-4 py-2 bg-zinc-900/80 border border-zinc-800 rounded-lg text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 bg-zinc-900/80 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-zinc-500 transition-colors"
               />
             </div>
 
             {/* Filters */}
             <div className="flex items-center gap-2.5 flex-wrap">
               {/* Platform */}
-              <div className="flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5">
-                <Funnel className="w-3.5 h-3.5 text-zinc-500" />
+              <div className="flex items-center gap-2 text-sm text-zinc-300 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2">
+                <Funnel className="w-4 h-4 text-zinc-400" />
                 <select
                   value={devicePlatformFilter}
                   onChange={(e) => {
                     setDevicePlatformFilter(e.target.value);
                     setDevicePage(1);
                   }}
-                  className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
+                  className="bg-transparent border-none text-sm text-zinc-200 focus:outline-none cursor-pointer"
                 >
                   <option value="ALL">All Drivers</option>
                   {CISCO_DEVICE_PLATFORMS.map((p) => (
@@ -360,7 +360,7 @@ export const ComparePage: React.FC = () => {
                   setDeviceStatusFilter(e.target.value);
                   setDevicePage(1);
                 }}
-                className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 cursor-pointer"
+                className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-zinc-600 cursor-pointer"
               >
                 <option value="ALL">All Statuses</option>
                 <option value="ONLINE">Online Only</option>
@@ -372,15 +372,15 @@ export const ComparePage: React.FC = () => {
           {/* 100-Device Paginated Table */}
           <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900/30">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-zinc-300">
-                <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-[11px] border-b border-zinc-800">
+              <table className="w-full text-left text-sm text-zinc-200">
+                <thead className="bg-zinc-900/90 text-zinc-300 uppercase font-mono text-xs font-semibold border-b border-zinc-800">
                   <tr>
-                    <th className="px-5 py-3">Device Name</th>
-                    <th className="px-5 py-3">Hostname / IP</th>
-                    <th className="px-5 py-3">Driver</th>
-                    <th className="px-5 py-3">Status</th>
-                    <th className="px-5 py-3">Snapshots</th>
-                    <th className="w-10 px-5 py-3 text-right"></th>
+                    <th className="px-5 py-3.5">Device Name</th>
+                    <th className="px-5 py-3.5">Hostname / IP</th>
+                    <th className="px-5 py-3.5">Driver</th>
+                    <th className="px-5 py-3.5">Status</th>
+                    <th className="px-5 py-3.5">Snapshots</th>
+                    <th className="w-10 px-5 py-3.5 text-right"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60 font-sans">
@@ -388,8 +388,8 @@ export const ComparePage: React.FC = () => {
                     <tr>
                       <td colSpan={6} className="px-5 py-12 text-center text-zinc-400">
                         <HardDrives className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                        <p className="font-semibold text-zinc-300 text-xs">No matching devices found</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">Try clearing filters or search criteria.</p>
+                        <p className="font-semibold text-zinc-200 text-sm">No matching devices found</p>
+                        <p className="text-xs text-zinc-400 mt-1">Try clearing filters or search criteria.</p>
                       </td>
                     </tr>
                   ) : (
@@ -407,32 +407,32 @@ export const ComparePage: React.FC = () => {
                             isSelected ? 'bg-zinc-800/30 ring-1 ring-inset ring-[#c8ff00]/40' : ''
                           }`}
                         >
-                          <td className="px-5 py-3.5">
-                            <div className="font-bold text-zinc-100 group-hover:text-white transition-colors">
+                          <td className="px-5 py-4">
+                            <div className="font-bold text-white group-hover:text-[#c8ff00] transition-colors">
                               {dev.name}
                             </div>
-                            <div className="text-[10px] text-zinc-500 font-mono">{dev.deviceId}</div>
+                            <div className="text-xs text-zinc-400 font-mono mt-0.5">{dev.deviceId}</div>
                           </td>
 
-                          <td className="px-5 py-3.5 font-mono text-zinc-300">
+                          <td className="px-5 py-4 font-mono text-zinc-200">
                             {dev.hostname}
                           </td>
 
-                          <td className="px-5 py-3.5 font-mono text-zinc-400">
+                          <td className="px-5 py-4 font-mono text-zinc-300">
                             {dev.deviceType}
                           </td>
 
-                          <td className="px-5 py-3.5">
+                          <td className="px-5 py-4">
                             <Badge variant={dev.status === 'online' ? 'success' : 'danger'} size="sm">
                               {dev.status.toUpperCase()}
                             </Badge>
                           </td>
 
-                          <td className="px-5 py-3.5 font-mono text-zinc-300">
+                          <td className="px-5 py-4 font-mono text-zinc-200">
                             {snapCount} available
                           </td>
 
-                          <td className="px-5 py-3.5 text-right text-zinc-500 group-hover:text-zinc-200 transition-colors">
+                          <td className="px-5 py-4 text-right text-zinc-400 group-hover:text-white transition-colors">
                             <CaretRight className="w-4 h-4 ml-auto" />
                           </td>
                         </tr>
@@ -553,15 +553,15 @@ export const ComparePage: React.FC = () => {
           {/* Chronological Snapshot Table */}
           <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900/30">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-zinc-300">
-                <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-[11px] border-b border-zinc-800">
+              <table className="w-full text-left text-sm text-zinc-200">
+                <thead className="bg-zinc-900/90 text-zinc-300 uppercase font-mono text-xs font-semibold border-b border-zinc-800">
                   <tr>
-                    <th className="px-4 py-3 text-center w-28">Select</th>
-                    <th className="px-5 py-3">Snapshot ID</th>
-                    <th className="px-5 py-3">Stage</th>
-                    <th className="px-5 py-3">Ticket</th>
-                    <th className="px-5 py-3">Commands</th>
-                    <th className="px-5 py-3">Captured At</th>
+                    <th className="px-5 py-3.5 text-center w-32">Select</th>
+                    <th className="px-5 py-3.5">Snapshot ID</th>
+                    <th className="px-5 py-3.5">Stage</th>
+                    <th className="px-5 py-3.5">Ticket</th>
+                    <th className="px-5 py-3.5">Commands</th>
+                    <th className="px-5 py-3.5">Captured At</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60 font-sans">
@@ -569,8 +569,8 @@ export const ComparePage: React.FC = () => {
                     <tr>
                       <td colSpan={6} className="px-5 py-12 text-center text-zinc-400">
                         <Database className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                        <p className="font-semibold text-zinc-300 text-xs">No snapshots found for this device</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">Try widening the timeline date range.</p>
+                        <p className="font-semibold text-zinc-200 text-sm">No snapshots found for this device</p>
+                        <p className="text-xs text-zinc-400 mt-1">Try widening the timeline date range.</p>
                       </td>
                     </tr>
                   ) : (
@@ -590,15 +590,15 @@ export const ComparePage: React.FC = () => {
                           }`}
                         >
                           {/* Explicit PRE / POST Action Buttons */}
-                          <td className="px-4 py-3 text-center">
-                            <div className="inline-flex items-center gap-1.5">
+                          <td className="px-5 py-4 text-center">
+                            <div className="inline-flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => setPreSnapId(isPre ? '' : snap.snapshotId)}
-                                className={`px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                                className={`px-3 py-1.5 rounded-md text-xs font-mono font-bold transition-all cursor-pointer ${
                                   isPre
                                     ? 'bg-sky-500 text-zinc-950 ring-2 ring-sky-400'
-                                    : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                                    : 'bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700'
                                 }`}
                               >
                                 PRE
@@ -606,10 +606,10 @@ export const ComparePage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setPostSnapId(isPost ? '' : snap.snapshotId)}
-                                className={`px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                                className={`px-3 py-1.5 rounded-md text-xs font-mono font-bold transition-all cursor-pointer ${
                                   isPost
                                     ? 'bg-[#c8ff00] text-zinc-950 ring-2 ring-[#c8ff00]'
-                                    : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                                    : 'bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700'
                                 }`}
                               >
                                 POST
@@ -617,11 +617,11 @@ export const ComparePage: React.FC = () => {
                             </div>
                           </td>
 
-                          <td className="px-5 py-3.5 font-mono text-zinc-200">
+                          <td className="px-5 py-4 font-mono text-sm text-zinc-100 font-semibold">
                             {snap.snapshotId}
                           </td>
 
-                          <td className="px-5 py-3.5">
+                          <td className="px-5 py-4">
                             <Badge
                               variant={snap.snapshotType === 'pre_change' ? 'info' : 'success'}
                               size="sm"
@@ -630,15 +630,15 @@ export const ComparePage: React.FC = () => {
                             </Badge>
                           </td>
 
-                          <td className="px-5 py-3.5 font-mono text-zinc-400">
+                          <td className="px-5 py-4 font-mono text-sm text-zinc-200">
                             {snap.changeTicket || '—'}
                           </td>
 
-                          <td className="px-5 py-3.5 font-mono text-zinc-300">
+                          <td className="px-5 py-4 font-mono text-sm text-zinc-200">
                             {snap.commands.length} cmds
                           </td>
 
-                          <td className="px-5 py-3.5 text-zinc-400 font-mono whitespace-nowrap">
+                          <td className="px-5 py-4 text-zinc-300 font-mono text-sm whitespace-nowrap">
                             {new Date(snap.timestamp).toLocaleString()}
                           </td>
                         </tr>
@@ -666,18 +666,18 @@ export const ComparePage: React.FC = () => {
 
           {/* Sticky Bottom Progression Bar */}
           <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl">
-            <div className="flex items-center gap-4 text-xs font-mono">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-sky-400" />
+            <div className="flex items-center gap-4 text-sm font-mono">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-400" />
                 <span className="text-zinc-400">PRE:</span>
-                <span className={preSnapshot ? 'text-white font-bold' : 'text-zinc-600'}>
+                <span className={preSnapshot ? 'text-white font-bold' : 'text-zinc-500'}>
                   {preSnapshot ? preSnapshot.snapshotId : 'Not Selected'}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#c8ff00]" />
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#c8ff00]" />
                 <span className="text-zinc-400">POST:</span>
-                <span className={postSnapshot ? 'text-white font-bold' : 'text-zinc-600'}>
+                <span className={postSnapshot ? 'text-white font-bold' : 'text-zinc-500'}>
                   {postSnapshot ? postSnapshot.snapshotId : 'Not Selected'}
                 </span>
               </div>
@@ -706,14 +706,14 @@ export const ComparePage: React.FC = () => {
           <div className="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 shadow-2xl space-y-6">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
               <div>
-                <h2 className="text-lg font-bold text-white">Review Comparison Specifications</h2>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <h2 className="text-xl font-bold text-white">Review Comparison Specifications</h2>
+                <p className="text-sm text-zinc-300 mt-1">
                   Confirm the baseline and post-change capture parameters before compiling syntactic diffs.
                 </p>
               </div>
               {timeElapsedString && (
                 <Badge variant="default" size="md">
-                  <Clock className="w-3.5 h-3.5 mr-1" />
+                  <Clock className="w-4 h-4 mr-1.5" />
                   {timeElapsedString}
                 </Badge>
               )}
@@ -722,18 +722,18 @@ export const ComparePage: React.FC = () => {
             {/* Visual Dual Slots */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Baseline Pre Card */}
-              <div className="p-4 rounded-xl border border-sky-800/40 bg-sky-950/20 space-y-3">
+              <div className="p-5 rounded-xl border border-sky-800/40 bg-sky-950/20 space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                  <span className="px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-sky-500/20 text-sky-400 border border-sky-500/30">
                     BASELINE PRE-CHANGE
                   </span>
-                  <span className="text-xs font-mono text-zinc-400">{preSnapshot.snapshotId}</span>
+                  <span className="text-sm font-mono text-zinc-300 font-bold">{preSnapshot.snapshotId}</span>
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-white">{preSnapshot.deviceName}</div>
-                  <div className="text-xs text-zinc-400 font-mono">{preSnapshot.deviceHostname} • {preSnapshot.deviceType}</div>
+                  <div className="text-base font-bold text-white">{preSnapshot.deviceName}</div>
+                  <div className="text-sm text-zinc-300 font-mono mt-0.5">{preSnapshot.deviceHostname} • {preSnapshot.deviceType}</div>
                 </div>
-                <div className="pt-2 border-t border-sky-900/40 text-xs space-y-1 font-mono text-zinc-300">
+                <div className="pt-2.5 border-t border-sky-900/40 text-sm space-y-1.5 font-mono text-zinc-200">
                   <div>Captured: {new Date(preSnapshot.timestamp).toLocaleString()}</div>
                   <div>Ticket: {preSnapshot.changeTicket || '—'}</div>
                   <div>Commands: {preSnapshot.commands.length} show commands</div>
@@ -741,18 +741,18 @@ export const ComparePage: React.FC = () => {
               </div>
 
               {/* Verification Post Card */}
-              <div className="p-4 rounded-xl border border-[#c8ff00]/40 bg-[#c8ff00]/5 space-y-3">
+              <div className="p-5 rounded-xl border border-[#c8ff00]/40 bg-[#c8ff00]/5 space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-[#c8ff00]/20 text-[#c8ff00] border border-[#c8ff00]/30">
+                  <span className="px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-[#c8ff00]/20 text-[#c8ff00] border border-[#c8ff00]/30">
                     VERIFICATION POST-CHANGE
                   </span>
-                  <span className="text-xs font-mono text-zinc-400">{postSnapshot.snapshotId}</span>
+                  <span className="text-sm font-mono text-zinc-300 font-bold">{postSnapshot.snapshotId}</span>
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-white">{postSnapshot.deviceName}</div>
-                  <div className="text-xs text-zinc-400 font-mono">{postSnapshot.deviceHostname} • {postSnapshot.deviceType}</div>
+                  <div className="text-base font-bold text-white">{postSnapshot.deviceName}</div>
+                  <div className="text-sm text-zinc-300 font-mono mt-0.5">{postSnapshot.deviceHostname} • {postSnapshot.deviceType}</div>
                 </div>
-                <div className="pt-2 border-t border-zinc-800 text-xs space-y-1 font-mono text-zinc-300">
+                <div className="pt-2.5 border-t border-zinc-800 text-sm space-y-1.5 font-mono text-zinc-200">
                   <div>Captured: {new Date(postSnapshot.timestamp).toLocaleString()}</div>
                   <div>Ticket: {postSnapshot.changeTicket || '—'}</div>
                   <div>Commands: {postSnapshot.commands.length} show commands</div>
@@ -761,12 +761,12 @@ export const ComparePage: React.FC = () => {
             </div>
 
             {/* Read-Only Safety Pre-check Banner */}
-            <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950/80 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 text-zinc-300">
-                <ShieldCheck className="w-4 h-4 text-[#c8ff00]" weight="fill" />
+            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950/80 flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-zinc-200">
+                <ShieldCheck className="w-5 h-5 text-[#c8ff00]" weight="fill" />
                 <span>DriftGuard verified: Both snapshots contain read-only Cisco show telemetry.</span>
               </div>
-              <span className="font-mono text-[#c8ff00] font-bold">100% Safe</span>
+              <span className="font-mono text-[#c8ff00] font-bold text-sm">100% Safe</span>
             </div>
 
             {/* Navigation & Launch */}

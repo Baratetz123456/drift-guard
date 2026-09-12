@@ -77,3 +77,23 @@ The official DriftGuard mark is defined on a **24×24 coordinate grid** and cons
 - **Fonts**: Inter (UI / Headings / Subtitles) and JetBrains Mono (Code / Hostnames / Telemetry / Tagline pill).
 - **Sentence Case**: All headings, sub-headings, table headers, badges, and button labels MUST use sentence case.
 - **Senior Engineer Tone**: Calm, precise, directly technical, zero exclamation marks (`!`), zero emojis, and zero operator blame.
+
+---
+
+## 6. Layout Geometry & Navigation Component Invariants
+
+### 1. Viewport & Detail Container Standards
+- Main page containers use `w-full space-y-6 font-sans` without artificial horizontal max-width constraints.
+- When displaying device or entity profiles:
+  - **Top**: Breadcrumb navigation with `<Link>` and `<CaretRight />` separators.
+  - **Header**: Entity title in sentence/monospace font, verified status badge, driver badge, and operational action buttons (`Run collection`, `Test Connection`, `Delete`).
+  - **Telemetry Row**: 4 summary cards (`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4`) displaying Reachability, Driver & Transport, Topology Groups, and Snapshot Vault activity with direct drill-down links.
+  - **Body**: Full-width form/configuration cards using `bg-zinc-900/60 border-zinc-800`.
+
+### 2. Navigation Cleanliness & Zero-Badge-Count Invariant
+- Navigation tabs and sidebar links must convey clear information architecture without noisy counter badges.
+- Tab buttons follow the flat monochrome styling:
+  - Active: `bg-[#c8ff00] text-zinc-950 font-bold shadow-sm`
+  - Inactive: `text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50`
+  - No counter pills inside the tab button.
+

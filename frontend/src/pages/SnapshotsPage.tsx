@@ -138,8 +138,8 @@ export const SnapshotsPage: React.FC = () => {
       {/* Flat Data Table */}
       <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900/30">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-zinc-300">
-            <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-[11px] border-b border-zinc-800">
+          <table className="w-full text-left text-sm text-zinc-300">
+            <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-xs font-semibold border-b border-zinc-800">
               <tr>
                 <th className="px-5 py-3">Snapshot ID</th>
                 <th className="px-5 py-3">Target Device</th>
@@ -153,7 +153,7 @@ export const SnapshotsPage: React.FC = () => {
             <tbody className="divide-y divide-zinc-800/60 font-sans">
               {paginatedSnapshots.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-8 text-center text-zinc-500 italic">
+                  <td colSpan={7} className="px-5 py-8 text-center text-zinc-400 italic">
                     No snapshots match the active filters.
                   </td>
                 </tr>
@@ -169,7 +169,7 @@ export const SnapshotsPage: React.FC = () => {
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="font-bold text-zinc-100 group-hover:text-white transition-colors">{snap.deviceName}</div>
-                      <div className="text-[10px] text-zinc-500 font-mono">{snap.deviceHostname}</div>
+                      <div className="text-xs text-zinc-500 font-mono">{snap.deviceHostname}</div>
                     </td>
                     <td className="px-5 py-3.5">
                       <Badge
@@ -254,7 +254,7 @@ export const SnapshotsPage: React.FC = () => {
               ))}
             </div>
 
-            <div className="bg-zinc-950 rounded-xl p-4 border border-zinc-800 font-mono text-xs text-zinc-200 overflow-x-auto max-h-[450px]">
+            <div className="bg-zinc-950 rounded-xl p-4 border border-zinc-800 font-mono text-sm text-zinc-200 overflow-x-auto max-h-[450px]">
               <div className="text-zinc-500 mb-2 select-none border-b border-zinc-800/80 pb-1">
                 # {activeCommandTab}
               </div>
@@ -263,8 +263,8 @@ export const SnapshotsPage: React.FC = () => {
               </pre>
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-zinc-800 text-xs text-zinc-400">
-              <span className="font-mono text-[11px]">Archive URI: {selectedSnapshot.s3Key}</span>
+            <div className="flex items-center justify-between pt-3 border-t border-zinc-800 text-sm text-zinc-400">
+              <span className="font-mono text-xs text-zinc-400">Archive URI: {selectedSnapshot.s3Key}</span>
               <Button
                 variant="primary"
                 size="sm"

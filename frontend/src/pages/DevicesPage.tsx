@@ -518,7 +518,7 @@ export const DevicesPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveView('devices')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
             activeView === 'devices'
               ? 'bg-zinc-800 text-white border border-zinc-700/80 shadow-sm'
               : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
@@ -526,14 +526,11 @@ export const DevicesPage: React.FC = () => {
         >
           <HardDrives className={`w-4 h-4 ${activeView === 'devices' ? 'text-[#c8ff00]' : 'text-zinc-400'}`} />
           <span>All Devices</span>
-          <span className="px-1.5 py-0.2 bg-zinc-950/40 border border-zinc-750 rounded text-[10px] font-mono">
-            {devices.length}
-          </span>
         </button>
         <button
           type="button"
           onClick={() => setActiveView('groups')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
             activeView === 'groups'
               ? 'bg-zinc-800 text-white border border-zinc-700/80 shadow-sm'
               : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
@@ -541,9 +538,6 @@ export const DevicesPage: React.FC = () => {
         >
           <UsersThree className={`w-4 h-4 ${activeView === 'groups' ? 'text-[#c8ff00]' : 'text-zinc-400'}`} />
           <span>Device Groups</span>
-          <span className="px-1.5 py-0.2 bg-zinc-950/40 border border-zinc-750 rounded text-[10px] font-mono">
-            {deviceGroups.length}
-          </span>
         </button>
       </div>
 
@@ -608,8 +602,8 @@ export const DevicesPage: React.FC = () => {
           {/* Flat Table Layout */}
           <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900/30">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-zinc-300">
-                <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-[11px] border-b border-zinc-800">
+              <table className="w-full text-left text-sm text-zinc-300">
+                <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-xs font-semibold border-b border-zinc-800">
                   <tr>
                     <th className="px-5 py-3">Device Name</th>
                     <th className="px-5 py-3">Endpoint</th>
@@ -625,8 +619,8 @@ export const DevicesPage: React.FC = () => {
                     <tr>
                       <td colSpan={7} className="px-5 py-12 text-center text-zinc-400">
                         <HardDrives className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                        <p className="font-semibold text-zinc-300 text-xs">No matching devices</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">Try clearing search or filters</p>
+                        <p className="font-semibold text-zinc-300 text-sm">No matching devices</p>
+                        <p className="text-xs text-zinc-500 mt-1">Try clearing search or filters</p>
                         <button
                           onClick={() => {
                             setSearchTerm('');
@@ -634,7 +628,7 @@ export const DevicesPage: React.FC = () => {
                             setStatusFilter('ALL');
                             setCurrentPage(1);
                           }}
-                          className="mt-3 text-xs text-[#c8ff00] font-bold hover:underline cursor-pointer"
+                          className="mt-3 text-sm text-[#c8ff00] font-bold hover:underline cursor-pointer"
                         >
                           Reset filters
                         </button>
@@ -656,7 +650,7 @@ export const DevicesPage: React.FC = () => {
                               {deviceGroupMap[device.deviceId]?.map((grpName, gIdx) => (
                                 <span
                                   key={`grp-${gIdx}`}
-                                  className="px-1.5 py-0.5 rounded text-[9px] bg-[#c8ff00]/10 text-[#c8ff00] border border-[#c8ff00]/20 font-semibold"
+                                  className="px-2 py-0.5 rounded text-xs bg-[#c8ff00]/10 text-[#c8ff00] border border-[#c8ff00]/20 font-semibold"
                                 >
                                   {grpName}
                                 </span>
@@ -665,7 +659,7 @@ export const DevicesPage: React.FC = () => {
                                 device.tags.map((tag: string, idx: number) => (
                                   <span
                                     key={idx}
-                                    className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-400 border border-zinc-700/50"
+                                    className="px-2 py-0.5 rounded text-xs bg-zinc-800 text-zinc-400 border border-zinc-700/50"
                                   >
                                     {tag}
                                   </span>
@@ -796,8 +790,8 @@ export const DevicesPage: React.FC = () => {
                     <tr>
                       <td colSpan={5} className="px-5 py-12 text-center text-zinc-400">
                         <UsersThree className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                        <p className="font-semibold text-zinc-300 text-xs">No device groups match your filters</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">
+                        <p className="font-semibold text-zinc-300 text-sm">No device groups match your filters</p>
+                        <p className="text-xs text-zinc-500 mt-1">
                           Try adjusting your search criteria or register a new group.
                         </p>
                       </td>
@@ -824,7 +818,7 @@ export const DevicesPage: React.FC = () => {
                               <UsersThree className="w-4 h-4 text-[#c8ff00] shrink-0" />
                               <span className="truncate">{group.name}</span>
                             </div>
-                            <div className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">
+                            <div className="text-xs text-zinc-400 mt-1 line-clamp-1">
                               {group.description || 'No description provided.'}
                             </div>
                           </td>
@@ -832,7 +826,7 @@ export const DevicesPage: React.FC = () => {
                           {/* Target Nodes with member chips */}
                           <td className="px-5 py-3.5">
                             <div className="space-y-1.5">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-zinc-800 text-zinc-300 border border-zinc-700">
                                 {group.deviceIds.length} {group.deviceIds.length === 1 ? 'node' : 'nodes'}
                               </span>
                               {memberDevices.length > 0 && (
@@ -840,13 +834,13 @@ export const DevicesPage: React.FC = () => {
                                   {memberDevices.slice(0, 3).map((dev) => (
                                     <span
                                       key={dev.deviceId}
-                                      className="px-1.5 py-0.5 rounded bg-zinc-950/80 border border-zinc-800 text-[10px] text-zinc-300 font-mono"
+                                      className="px-2 py-0.5 rounded bg-zinc-950/80 border border-zinc-800 text-xs text-zinc-300 font-mono"
                                     >
                                       {dev.name}
                                     </span>
                                   ))}
                                   {memberDevices.length > 3 && (
-                                    <span className="px-1.5 py-0.5 rounded bg-zinc-800/60 text-[10px] text-zinc-400 font-mono">
+                                    <span className="px-2 py-0.5 rounded bg-zinc-800/60 text-xs text-zinc-400 font-mono">
                                       +{memberDevices.length - 3} more
                                     </span>
                                   )}
@@ -858,7 +852,7 @@ export const DevicesPage: React.FC = () => {
                           {/* Platform Composition */}
                           <td className="px-5 py-3.5">
                             {Object.keys(driverCounts).length === 0 ? (
-                              <span className="text-[11px] text-zinc-500 italic">No nodes</span>
+                              <span className="text-xs text-zinc-500 italic">No nodes</span>
                             ) : (
                               <div className="flex flex-wrap gap-1">
                                 {Object.entries(driverCounts).map(([driver, count]) => (
@@ -871,7 +865,7 @@ export const DevicesPage: React.FC = () => {
                           </td>
 
                           {/* Created Date */}
-                          <td className="px-5 py-3.5 text-zinc-400 font-mono text-[11px]">
+                          <td className="px-5 py-3.5 text-zinc-400 font-mono text-xs">
                             {group.createdAt
                               ? new Date(group.createdAt).toLocaleDateString()
                               : 'System'}
@@ -944,7 +938,7 @@ export const DevicesPage: React.FC = () => {
                 <label className="block text-xs font-semibold text-zinc-300">
                   Select Member Devices ({groupFormData.deviceIds.length} of {devices.length} selected)
                 </label>
-                <div className="flex gap-2 text-[11px]">
+                <div className="flex gap-2 text-xs">
                   <button
                     type="button"
                     onClick={() =>
@@ -1202,7 +1196,7 @@ export const DevicesPage: React.FC = () => {
                   <div className="text-xs font-semibold text-zinc-300">
                     Required CSV Headers Format:
                   </div>
-                  <div className="font-mono text-[11px] text-[#c8ff00] font-bold">
+                  <div className="font-mono text-xs text-[#c8ff00] font-bold">
                     hostname, ip address, device type, username, password, connection type
                   </div>
                 </div>
@@ -1229,14 +1223,14 @@ export const DevicesPage: React.FC = () => {
                   <span className="font-semibold text-zinc-300">
                     Live Batch Preview ({validBulkCount} of {parsedBulkDevices.length} ready)
                   </span>
-                  <span className="text-[11px] text-zinc-500 font-mono">
+                  <span className="text-xs text-zinc-400 font-mono">
                     Supported: cisco_xe, cisco_ios, cisco_nxos, cisco_xr, cisco_asa | ssh, telnet
                   </span>
                 </div>
 
                 <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950/60 max-h-56 overflow-y-auto">
                   <table className="w-full text-left text-xs text-zinc-300">
-                    <thead className="bg-zinc-900/95 text-zinc-400 uppercase font-mono text-[10px] border-b border-zinc-800 sticky top-0">
+                    <thead className="bg-zinc-900/95 text-zinc-400 uppercase font-mono text-xs font-semibold border-b border-zinc-800 sticky top-0">
                       <tr>
                         <th className="px-3 py-2.5">Hostname</th>
                         <th className="px-3 py-2.5">IP Address</th>
@@ -1317,16 +1311,16 @@ export const DevicesPage: React.FC = () => {
                             {/* 6. Connection Type with Live Protocol & Port Badge */}
                             <td className="px-3 py-2">
                               <div className="flex items-center gap-1.5">
-                                <span className={d.isConnValid ? 'text-zinc-300 font-mono text-[11px]' : 'text-rose-400 font-mono text-[11px]'}>
+                                <span className={d.isConnValid ? 'text-zinc-300 font-mono text-xs' : 'text-rose-400 font-mono text-xs'}>
                                   {d.connectionType || '—'}
                                 </span>
                                 {d.isConnValid ? (
-                                  <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-[#c8ff00]/10 text-[#c8ff00] font-mono border border-[#c8ff00]/20 font-bold">
+                                  <span className="text-xs uppercase px-2 py-0.5 rounded bg-[#c8ff00]/10 text-[#c8ff00] font-mono border border-[#c8ff00]/20 font-bold">
                                     {d.normalizedConnType?.toUpperCase()} ({d.resolvedPort})
                                   </span>
                                 ) : (
                                   <span
-                                    className="text-[9px] px-1 py-0.5 rounded bg-rose-500/10 text-rose-400 font-sans border border-rose-500/30"
+                                    className="text-xs px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 font-sans border border-rose-500/30"
                                     title={d.connError}
                                   >
                                     Invalid
@@ -1338,16 +1332,16 @@ export const DevicesPage: React.FC = () => {
                             {/* Row Validation Status */}
                             <td className="px-3 py-2 text-right">
                               {d.isValid ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-[#c8ff00] font-semibold">
-                                  <CheckCircle className="w-3.5 h-3.5" weight="fill" />
+                                <span className="inline-flex items-center gap-1 text-xs text-[#c8ff00] font-semibold">
+                                  <CheckCircle className="w-4 h-4" weight="fill" />
                                   Ready
                                 </span>
                               ) : (
                                 <span
-                                  className="inline-flex items-center gap-1 text-[10px] text-rose-400 font-semibold"
+                                  className="inline-flex items-center gap-1 text-xs text-rose-400 font-semibold"
                                   title={d.validationSummary}
                                 >
-                                  <Warning className="w-3.5 h-3.5" weight="fill" />
+                                  <Warning className="w-4 h-4" weight="fill" />
                                   Invalid
                                 </span>
                               )}

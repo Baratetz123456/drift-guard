@@ -135,8 +135,22 @@ All brand assets, color tokens, and logo geometry MUST strictly comply with the 
   - Every data table MUST implement search filtering, column dropdown filters, and pagination via `PaginationToolbar`.
 - **Provider Quarantine**:
   - The terms "OpenAI" and "OpenRouter" are strictly restricted to the AI Model tab under Settings. Global UI components must use vendor-neutral terminology.
-- **Progressive AI Disclosure**:
-  - Comparison views present an in-place AI summary card with an `Inspect` button linking to the dedicated detailed report view.
+- **Universal Fluid Detail Layout Standard**:
+  - All profile, inspector, and detail views (including Device Profile, Audit Profile, Device Group Details, Command Set Details, and Snapshot Details) MUST NOT be enclosed inside arbitrary narrow wrappers (e.g. `max-w-4xl mx-auto` or `max-w-5xl mx-auto`).
+  - All detail and profile views MUST render fluid full-width (`w-full space-y-6 font-sans`), matching the visual width, table dimensions, and desktop viewport of the parent module tabs.
+- **Zero-Badge-Count Law (Navigation & Tabs)**:
+  - Numeric badge count pills (e.g. `{devices.length}`, `{snapshots.length}`, `{group.deviceIds.length}`) are strictly prohibited across:
+    1. Primary sidebar navigation items
+    2. Top module phase tabs (`Setup`, `Operations`, `Analysis`)
+    3. Sub-view switcher buttons (e.g. `All Devices` vs `Device Groups`)
+    4. Profile/detail header title badges
+  - Item counts belong exclusively inside dedicated summary telemetry cards, table pagination toolbars, or filter chips—never as persistent nav badges.
+- **Operational Header Action Standard**:
+  - Every device, group, or command profile detail view MUST provide a prominent operational shortcut button in the header actions bar:
+    - Devices: Primary **`Run collection`** button linking to `/operations?tab=capture&deviceId={device.deviceId}`.
+    - Groups: Primary **`Run collection`** button linking to `/operations?tab=capture&groupId={group.groupId}`.
+    - Command Sets: Primary **`Run collection`** button linking to `/operations?tab=capture&setId={commandSet.setId}`.
+  - Button text MUST strictly use sentence case: **`Run collection`** (never all-caps or title-case "Run Collection").
 
 ---
 

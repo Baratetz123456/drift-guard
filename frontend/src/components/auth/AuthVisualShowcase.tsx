@@ -23,7 +23,7 @@ export const AuthVisualShowcase: React.FC = () => {
         {/* Brand Row */}
         <div className="flex items-center justify-between">
           <BrandLogo variant="full" showTagline={false} size={30} />
-          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30">
+          <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30">
             v1.2
           </span>
         </div>
@@ -41,7 +41,7 @@ export const AuthVisualShowcase: React.FC = () => {
           <h2 className="text-2xl xl:text-3xl font-semibold text-white tracking-tight leading-snug">
             Zero blind spots during production network changes.
           </h2>
-          <p className="text-xs xl:text-sm text-slate-400 leading-relaxed font-sans max-w-xl">
+          <p className="text-sm text-slate-300 leading-relaxed font-sans max-w-xl">
             Compare line-by-line CLI syntax, BGP peering tables, and interface states before and after maintenance windows to guarantee converged fleet health.
           </p>
         </div>
@@ -56,38 +56,38 @@ export const AuthVisualShowcase: React.FC = () => {
       <div className="relative z-10 space-y-4 pt-4 border-t border-slate-900/90">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
-              <Camera className="w-3.5 h-3.5 text-[#c8ff00]" weight="bold" />
+            <div className="flex items-center gap-1.5 text-sm font-bold text-slate-200">
+              <Camera className="w-4 h-4 text-[#c8ff00]" weight="bold" />
               <span>Immutable snapshots</span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-normal">
+            <p className="text-xs text-slate-400 leading-normal">
               Dual-phase CLI states archived immutably to encrypted vault.
             </p>
           </div>
 
           <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
-              <GitDiff className="w-3.5 h-3.5 text-[#c8ff00]" weight="bold" />
+            <div className="flex items-center gap-1.5 text-sm font-bold text-slate-200">
+              <GitDiff className="w-4 h-4 text-[#c8ff00]" weight="bold" />
               <span>Syntax diff engine</span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-normal">
+            <p className="text-xs text-slate-400 leading-normal">
               Side-by-side token diff with counter normalization.
             </p>
           </div>
 
           <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
-              <Sparkle className="w-3.5 h-3.5 text-[#c8ff00]" weight="fill" />
+            <div className="flex items-center gap-1.5 text-sm font-bold text-slate-200">
+              <Sparkle className="w-4 h-4 text-[#c8ff00]" weight="fill" />
               <span>Advisory AI risk</span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-normal">
+            <p className="text-xs text-slate-400 leading-normal">
               3-part diagnostics (Observation, Impact, Next step).
             </p>
           </div>
         </div>
 
         {/* Security Standard Micro-Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400 pt-3 border-t border-slate-900/80">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400 pt-3 border-t border-slate-900/80">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
               <Key className="w-3.5 h-3.5 text-[#c8ff00]" weight="bold" />

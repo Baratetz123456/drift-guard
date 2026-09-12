@@ -1,6 +1,5 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAppStore } from '../store/useAppStore';
 import { ComparePage } from './ComparePage';
 import { HistoryPage } from './HistoryPage';
 import { AIAnalysisPage } from './AIAnalysisPage';
@@ -11,7 +10,6 @@ type AnalysisTab = 'compare' | 'history' | 'report';
 
 export const AnalysisPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { comparisons } = useAppStore();
 
   const activeTab = (searchParams.get('tab') as AnalysisTab) || 'compare';
 
@@ -40,7 +38,6 @@ export const AnalysisPage: React.FC = () => {
       id: 'history' as AnalysisTab,
       label: 'History',
       icon: ClockCounterClockwise,
-      badge: comparisons.length,
     },
   ];
 
@@ -68,7 +65,7 @@ export const AnalysisPage: React.FC = () => {
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                     isActive
                       ? 'bg-[#c8ff00] text-zinc-950 font-bold shadow-sm'
                       : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
@@ -76,15 +73,6 @@ export const AnalysisPage: React.FC = () => {
                 >
                   <Icon className="w-4 h-4" weight={isActive ? 'fill' : 'regular'} />
                   <span>{tab.label}</span>
-                  {tab.badge !== undefined && (
-                    <span
-                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                        isActive ? 'bg-zinc-950/20 text-zinc-950 font-bold' : 'bg-zinc-800 text-zinc-500'
-                      }`}
-                    >
-                      {tab.badge}
-                    </span>
-                  )}
                 </button>
               );
             })}
