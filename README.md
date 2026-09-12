@@ -2,18 +2,9 @@
 
 <div align="center">
 
-```
-             /\
-            /  \
-           / /\ \
-          | |  | |    ============================== [BASELINE TRACE]
-          | |  | |                  \
-          | |  | |                   \
-          |  \/  |                    \
-           \    /                      * [CONVERGED TRACE NODE]
-            \  /
-             \/       "Before. After. Understood."
-```
+![DriftGuard — Before. After. Understood.](./docs/assets/driftguard-banner.png)
+
+<br/>
 
 **Enterprise Network Change Verification & AI-Assisted Drift Analysis**
 
@@ -81,65 +72,17 @@ DriftGuard functions as an engineered flight instrument panel — calm, technica
 
 ## System Architecture
 
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        UI["DriftGuard Web Client<br/>(React 19 / Vite / Tailwind / Phosphor)"]
-    end
+![DriftGuard System Architecture](./docs/assets/diagrams/deployment-topology.png)
 
-    subgraph "AWS Serverless Infrastructure"
-        subgraph "Identity & Perimeter"
-            COG["AWS Cognito<br/>User Pool & JWT Auth"]
-            APIGW["Amazon API Gateway<br/>REST API + Cognito Authorizer"]
-        end
+### Architectural Subsystem Breakdown
 
-        subgraph "Compute Microservices (AWS Lambda)"
-            FN_DEV["fn-devices<br/>Device Fleet CRUD"]
-            FN_CMD["fn-commands<br/>Show Command Profiles"]
-            FN_SNAP["fn-snapshots<br/>Snapshot Catalog"]
-            FN_ORCH["fn-collection-orchestrator<br/>Parallel Job Dispatcher"]
-            FN_WORK["fn-collection-worker<br/>Netmiko SSH Runner (VPC Subnets)"]
-            FN_COMP["fn-compare<br/>CLI Diff Engine"]
-            FN_AI["fn-ai-analyze<br/>Scrubbing & AI Inference"]
-            FN_AUDIT["fn-audit<br/>Compliance Logger"]
-        end
-
-        subgraph "Orchestration & Workflow"
-            SFN["AWS Step Functions<br/>Multi-Device Collection State Machine"]
-        end
-
-        subgraph "Storage & Data Layer"
-            DDB[("Amazon DynamoDB<br/>Single-Table Design")]
-            S3[("Amazon S3<br/>Raw Snapshot Payloads")]
-        end
-
-        subgraph "Security & Secrets"
-            KMS["AWS KMS<br/>Envelope Encryption CMK"]
-        end
-    end
-
-    subgraph "Enterprise Fleet (On-Prem / Cloud)"
-        FLEET["Cisco IOS / IOS-XE Devices<br/>(Core, Distribution, WAN Edge)"]
-    end
-
-    UI -->|"Auth Flow"| COG
-    UI -->|"HTTPS + Bearer JWT"| APIGW
-
-    APIGW --> FN_DEV & FN_CMD & FN_SNAP & FN_COMP & FN_AI & FN_AUDIT
-    APIGW --> FN_ORCH
-
-    FN_ORCH -->|"Execute Workflow"| SFN
-    SFN -->|"Map Iterator"| FN_WORK
-
-    FN_WORK -->|"Read-Only SSH (Port 22)"| FLEET
-    FN_WORK -->|"Write Payloads"| S3
-    FN_WORK -->|"Save Metadata"| DDB
-
-    FN_DEV & FN_CMD & FN_SNAP & FN_AUDIT <--> DDB
-    FN_DEV <-->|"Decrypt SSH Credentials"| KMS
-    FN_AI <-->|"Decrypt Model Keys"| KMS
-    FN_COMP -->|"Fetch CLI Outputs"| S3
-```
+- **Client Layer**: Desktop-optimized React 19 + TypeScript single-page application (SPA) with Zustand state management, offering instant offline simulation and live cloud telemetry modes.
+- **Edge & Identity (AWS)**: Amazon CloudFront CDN distribution backed by Amazon S3 (Origin Access Control) for secure static asset delivery, integrated with Amazon Cognito User Pool for SRP-based operator authentication and JWT session token issuance.
+- **API & Ingress (AWS)**: Amazon API Gateway REST API v1 enforcing CognitoAuthorizer token validation, strict CORS policies, and method-level request throttling.
+- **Compute Microservices (AWS Lambda)**: Modular Python 3.12 (ARM64) microservices handling device inventory CRUD, command set profiles, snapshot indexing, line-by-line syntax diffing, and audit logging.
+- **Workflow Orchestration (AWS)**: AWS Step Functions distributed state machine orchestrating parallel multi-device SSH collection workflows with automated retry and failure catch blocks.
+- **Data & Security (AWS)**: Amazon DynamoDB single-table design for sub-millisecond metadata lookups, Amazon S3 for immutable raw snapshot and diff payloads, and AWS KMS customer-managed keys (CMK) for envelope encryption of SSH secrets and AI keys.
+- **Enterprise Network Fleet**: Physical and virtual Cisco IOS, IOS-XE, IOS-XR, and NX-OS devices inspected via non-mutating SSH show commands (port 22) alongside external LLM reasoning providers.
 
 ---
 

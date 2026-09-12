@@ -21,92 +21,7 @@ DriftGuard is an enterprise desktop verification instrument engineered to captur
 
 The DriftGuard architecture spans client-side desktop execution, edge content delivery, serverless API microservices, asynchronous workflow orchestration, secure storage, and external network targets.
 
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        User[Network Engineer / Browser]
-        SPA[React 19 + TypeScript SPA<br/>Zustand State Store]
-    end
-
-    subgraph "Edge & Identity (AWS)"
-        CF[Amazon CloudFront CDN<br/>Static Web Distribution]
-        S3_Web[(S3 Web Bucket<br/>Static Assets)]
-        Cognito[Amazon Cognito User Pool<br/>JWT Authentication]
-    end
-
-    subgraph "API & Ingress (AWS)"
-        APIGW[Amazon API Gateway REST v1<br/>Stage: v1 with Method Throttling]
-    end
-
-    subgraph "Compute Microservices (AWS Lambda)"
-        Fn_Auth[Settings / Auth Function]
-        Fn_Dev[Devices Function]
-        Fn_Cmd[Commands Function]
-        Fn_Orch[Collection Orchestrator]
-        Fn_Worker[Collection Worker<br/>Netmiko SSH]
-        Fn_Snap[Snapshots Function]
-        Fn_Comp[Compare Function]
-        Fn_AI[AI Analyze Function]
-        Fn_Audit[Audit Function]
-    end
-
-    subgraph "Orchestration & Workflows (AWS)"
-        SFN[AWS Step Functions<br/>Collection State Machine]
-    end
-
-    subgraph "Data & Security (AWS)"
-        DDB[(Amazon DynamoDB<br/>DeltaNet-env Single-Table)]
-        S3_Data[(Amazon S3<br/>Snapshots & Diffs Bucket)]
-        KMS[AWS KMS<br/>alias/deltanet-env]
-    end
-
-    subgraph "External Targets"
-        Routers[Cisco IOS / XE / XR / NX-OS<br/>Arista EOS / Juniper Junos]
-        LLM[AI Provider API<br/>OpenRouter / OpenAI]
-    end
-
-    %% Client Interactions
-    User -->|HTTPS| CF
-    CF -->|Origin Access Control| S3_Web
-    User -->|Sign In / SRP Auth| Cognito
-    SPA -->|Bearer JWT + HTTPS| APIGW
-
-    %% Ingress to Lambda
-    APIGW -->|Cognito Authorizer| Fn_Auth
-    APIGW -->|Cognito Authorizer| Fn_Dev
-    APIGW -->|Cognito Authorizer| Fn_Cmd
-    APIGW -->|Cognito Authorizer| Fn_Orch
-    APIGW -->|Cognito Authorizer| Fn_Snap
-    APIGW -->|Cognito Authorizer| Fn_Comp
-    APIGW -->|Cognito Authorizer| Fn_AI
-    APIGW -->|Cognito Authorizer| Fn_Audit
-
-    %% Orchestration
-    Fn_Orch -->|StartExecution| SFN
-    SFN -->|Task State Invoke| Fn_Worker
-
-    %% Worker Execution
-    Fn_Worker -->|Decrypt SSH Password| KMS
-    Fn_Worker -->|SSH port 22 show cmds| Routers
-    Fn_Worker -->|Write Snapshot Metadata| DDB
-    Fn_Worker -->|Write Raw CLI Output > 4KB| S3_Data
-
-    %% AI Analysis Execution
-    Fn_AI -->|Decrypt API Key| KMS
-    Fn_AI -->|Read Diff Payload| S3_Data
-    Fn_AI -->|Analysis Prompt| LLM
-    Fn_AI -->|Persist Analysis| DDB
-
-    %% General Data Access
-    Fn_Dev <--> DDB
-    Fn_Cmd <--> DDB
-    Fn_Snap <--> DDB
-    Fn_Snap <--> S3_Data
-    Fn_Comp <--> DDB
-    Fn_Comp <--> S3_Data
-    Fn_Audit <--> DDB
-    Fn_Auth <--> DDB
-```
+![DriftGuard System Architecture & Deployment Topology](./assets/diagrams/deployment-topology.png)
 
 ### Component Responsibility Matrix
 
@@ -132,27 +47,7 @@ graph TB
 
 DriftGuard implements an enterprise token authentication flow powered by Amazon Cognito:
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Browser as Frontend SPA (React)
-    participant Cognito as AWS Cognito User Pool
-    participant APIGW as API Gateway (/v1)
-    participant Lambda as Backend Lambda
-
-    Browser->>Cognito: InitiateAuth (ALLOW_USER_SRP_AUTH)
-    Cognito-->>Browser: Challenge / Authentication Result
-    Browser->>Cognito: RespondToAuthChallenge (SRP / Password)
-    Cognito-->>Browser: Tokens: { AccessToken, IdToken, RefreshToken }
-    Note over Browser: Token stored in localStorage ('auth_token')
-    
-    Browser->>APIGW: GET /devices (Header: Authorization: Bearer <AccessToken>)
-    APIGW->>Cognito: Validate Token Signature & Expiry (CognitoAuthorizer)
-    Cognito-->>APIGW: Authorized (Claims: sub, email, username)
-    APIGW->>Lambda: Invoke with requestContext.authorizer.claims
-    Lambda-->>APIGW: 200 OK + JSON Payload
-    APIGW-->>Browser: 200 OK + JSON Data
-```
+![DriftGuard Authentication & Token Lifecycle Flow](./assets/diagrams/auth-lifecycle-flow.png)
 
 1. **Sign In**: The operator submits credentials through the desktop UI. The client communicates directly with Cognito using SRP authentication to prevent transmitting plaintext passwords.
 2. **Token Issuance**: Upon successful authentication, Cognito returns an `AccessToken` (1 hour validity), `IdToken` (1 hour validity), and `RefreshToken` (30 days validity).
@@ -165,47 +60,7 @@ sequenceDiagram
 
 Network device collections over SSH require multiple seconds per device and are executed asynchronously via AWS Step Functions:
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant UI as Frontend Dashboard
-    participant API as API Gateway
-    participant Orch as CollectionOrchestrator
-    participant SFN as Step Functions State Machine
-    participant Worker as CollectionWorker (Netmiko)
-    participant DDB as DynamoDB
-    participant S3 as S3 Bucket
-
-    UI->>API: POST /collections { deviceId, commandSetId, snapshotType }
-    API->>Orch: Invoke Lambda
-    Orch->>DDB: Create Job Record (status: PENDING)
-    Orch->>SFN: StartExecution(jobId, deviceId, commandSetId)
-    Orch-->>API: 202 Accepted { jobId, executionArn }
-    API-->>UI: 202 Accepted { jobId }
-
-    SFN->>Worker: Task State: RunCollection
-    Worker->>DDB: Fetch device IP & KMS-encrypted credentials
-    Worker->>Worker: Decrypt credentials & connect via SSH
-    Worker->>Worker: Execute show commands & sanitize output
-    alt Output <= 4 KB
-        Worker->>DDB: Save Snapshot (rawOutput inline)
-    else Output > 4 KB
-        Worker->>S3: PutObject(snapshots/{id}.json)
-        Worker->>DDB: Save Snapshot (s3Key: snapshots/{id}.json)
-    end
-    Worker->>DDB: Update Job Record (status: SUCCEEDED)
-    Worker-->>SFN: Task Succeeded
-
-    loop Polling Status (Interval: 2-3s)
-        UI->>API: GET /collections/{jobId}
-        API->>DDB: Query Job by PK
-        DDB-->>API: { status: SUCCEEDED, snapshotId: "snap-123" }
-        API-->>UI: 200 OK { status: SUCCEEDED }
-    end
-
-    UI->>API: GET /snapshots/snap-123
-    API-->>UI: 200 OK { snapshot data }
-```
+![DriftGuard Asynchronous Collection & Diff Workflow](./assets/diagrams/collection-diff-workflow.png)
 
 ---
 

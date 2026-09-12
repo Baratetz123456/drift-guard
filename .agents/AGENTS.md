@@ -84,6 +84,15 @@ Every standard feature or bugfix task follows this 4-phase sequence:
 - **Documentation Integrity**: Never remove comments or docstrings unrelated to current edits.
 - **Clickable Links**: All file and symbol references MUST use GitHub-style markdown links with `file://` scheme (e.g. `[handler.py](file:///d:/DeltaNet/backend/functions/devices/handler.py)`).
 - **Desktop-First Polish**: DriftGuard is an enterprise desktop verification instrument. Keep typography crisp (Inter + JetBrains Mono) and avoid plain default styles.
+- **Session Lifecycle & Storage Isolation**:
+  - All operator sessions MUST use cryptographically structured JWTs (emulating the AWS Cognito User Pool ID token schema with `sub`, `email`, `cognito:groups`, `token_use: 'id'`, `iss`, `iat`, and `exp`).
+  - Tokens MUST be stored exclusively in `sessionStorage` (never `localStorage`), guaranteeing complete destruction of credentials whenever the browser tab, window, or application is closed.
+  - All authenticated routes MUST enforce a 30-minute inactivity timeout with user activity listeners (`mousemove`, `mousedown`, `keydown`, `wheel`, `touchstart`, `scroll`) and an interactive 60-second warning countdown dialog before automatic termination.
+- **Documentation Visual Standards (Zero-Mermaid Law)**:
+  - Published architecture and system documentation MUST NOT use Mermaid text code blocks for public diagrams.
+  - All diagrams MUST be generated as high-resolution visual assets stored under `docs/assets/diagrams/` and referenced via markdown image syntax (`![Caption](./assets/diagrams/<filename>.png)`).
+  - Diagrams MUST follow a unified **Dark Technical Blueprint** theme on deep obsidian `slate-950` with electric Voltage (`#c8ff00`) directional signal lines.
+  - Diagrams MUST incorporate official service logos and icons for all infrastructure providers (AWS CloudFront, S3, Cognito, API Gateway, Lambda, Step Functions, DynamoDB, KMS) and target network equipment (Cisco IOS-XE, IOS-XR, NX-OS).
 
 ---
 
@@ -107,6 +116,15 @@ Every standard feature or bugfix task follows this 4-phase sequence:
   - Verification/success is unified with Voltage (`#c8ff00` in dark mode, `#4d7c0f` in light mode).
   - Diff additions MUST use `bg-[#c8ff00]/10 text-[#c8ff00]`.
   - Verified badges must include a checkmark icon with Voltage styling.
+
+- **Borderless Background-Blended Animation Standard**:
+  - Visual animations on auth or hero showcases MUST NOT be enclosed inside borders, cards, or boxed containers with contrasting background rectangles.
+  - Animations MUST render transparently and blend natively into the canvas background (`slate-950`).
+  - Animation themes MUST directly reflect the network change verification nature (floating Cisco nodes, streaming CLI syntax diff tokens with backdrop label pills, and dual-phase converged trace paths).
+  - External JSON animation engines (such as DotLottie) are strictly prohibited in favor of native HTML5 Canvas or SVG rendering.
+
+- **Copy Non-Repetition**:
+  - The brand tagline (`"Before. After. Understood."`) MUST be presented as an electric Voltage pill badge or sub-anchor. It MUST NEVER be duplicated verbatim as the main `<h2>` page headline. Page titles must feature an operational, risk-focused headline in sentence case.
 
 - **Strict Button Naming**:
   - **`Run collection`** (or **`Capture`**) and **`Compare`** are the standard names for data collection and diff analysis.
