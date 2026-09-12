@@ -98,6 +98,8 @@ Every standard feature or bugfix task follows this 4-phase sequence:
 
 ## 5. DriftGuard Brand & Design System Standards
 
+All brand assets, color tokens, and logo geometry MUST strictly comply with the [brand-driftguard](file:///d:/DriftGuard/drift-guard/.agents/skills/brand-driftguard/SKILL.md) skill specification.
+
 - **Brand Identity**:
   - **Product Name**: `DriftGuard` (Sentence case in UI copy, never all-caps).
   - **Tagline**: `"Before. After. Understood."`
