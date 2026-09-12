@@ -30,11 +30,11 @@ DriftGuard operates under an autonomous multi-agent software engineering team pr
 ### Role Roster
 | Role Name | Call Sign | Primary Responsibility | Associated Skill |
 | :--- | :--- | :--- | :--- |
-| **Lead Orchestrator** | `@orchestrator` | Task intake, scope decomposition, gating transitions, synthesis | `agent-orchestrator` |
-| **Architect** | `@architect` | Requirements analysis, AWS serverless design, Cisco CLI data models | `agent-architect` |
-| **Implementer** | `@implementer` | Backend Lambda microservices, React 19/TS UI, DynamoDB access | `agent-implementer` |
+| **Lead Orchestrator** | `@orchestrator` | Task intake, scope decomposition, gating transitions, synthesis | `agent-orchestrator`, `brand-driftguard` |
+| **Architect** | `@architect` | Requirements analysis, AWS serverless design, Cisco CLI data models | `agent-architect`, `brand-driftguard` |
+| **Implementer** | `@implementer` | Backend Lambda microservices, React 19/TS UI, DynamoDB access | `agent-implementer`, `brand-driftguard` |
 | **Tester** | `@tester` | Terminal execution (`npm run build`, `pytest`), mock testing | `agent-tester` |
-| **Reviewer & Verifier** | `@reviewer` | Cisco read-only safety, KMS security audit, UI consistency | `agent-reviewer` |
+| **Reviewer & Verifier** | `@reviewer` | Cisco read-only safety, KMS security audit, UI consistency | `agent-reviewer`, `brand-driftguard` |
 
 ---
 
