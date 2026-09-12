@@ -14,6 +14,7 @@ import {
   GitDiff,
   Trash,
   Funnel,
+  CaretRight,
 } from '@phosphor-icons/react';
 
 export const SnapshotsPage: React.FC = () => {
@@ -146,7 +147,7 @@ export const SnapshotsPage: React.FC = () => {
                 <th className="px-5 py-3">Ticket</th>
                 <th className="px-5 py-3">Commands</th>
                 <th className="px-5 py-3">Captured At</th>
-                <th className="px-5 py-3 text-right">Actions</th>
+                <th className="px-5 py-3 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60 font-sans">
@@ -158,12 +159,16 @@ export const SnapshotsPage: React.FC = () => {
                 </tr>
               ) : (
                 paginatedSnapshots.map((snap: Snapshot) => (
-                  <tr key={snap.snapshotId} className="hover:bg-zinc-900/50 transition-colors">
+                  <tr
+                    key={snap.snapshotId}
+                    onClick={() => navigate(`/operations/snapshots/${snap.snapshotId}`)}
+                    className="hover:bg-zinc-800/40 transition-colors cursor-pointer group"
+                  >
                     <td className="px-5 py-3.5 font-mono text-zinc-200">
                       {snap.snapshotId}
                     </td>
                     <td className="px-5 py-3.5">
-                      <div className="font-bold text-zinc-100">{snap.deviceName}</div>
+                      <div className="font-bold text-zinc-100 group-hover:text-white transition-colors">{snap.deviceName}</div>
                       <div className="text-[10px] text-zinc-500 font-mono">{snap.deviceHostname}</div>
                     </td>
                     <td className="px-5 py-3.5">
@@ -183,32 +188,8 @@ export const SnapshotsPage: React.FC = () => {
                     <td className="px-5 py-3.5 text-zinc-400 font-mono">
                       {new Date(snap.timestamp).toLocaleString()}
                     </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          leftIcon={<Eye className="w-3.5 h-3.5" />}
-                          onClick={() => handleOpenInspect(snap)}
-                        >
-                          Inspect
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          leftIcon={<GitDiff className="w-3.5 h-3.5" weight="bold" />}
-                          onClick={() => navigate(`/analysis?tab=compare&preSnapId=${snap.snapshotId}`)}
-                        >
-                          Compare
-                        </Button>
-                        <button
-                          onClick={() => setDeletingSnapshot(snap)}
-                          className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
-                          title="Delete"
-                        >
-                          <Trash className="w-4 h-4" />
-                        </button>
-                      </div>
+                    <td className="px-5 py-3.5 text-right text-zinc-500 group-hover:text-zinc-200 transition-colors">
+                      <CaretRight className="w-4 h-4 ml-auto" />
                     </td>
                   </tr>
                 ))

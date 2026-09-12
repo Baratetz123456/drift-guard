@@ -1,67 +1,113 @@
-import { Device, CommandSet, Snapshot, Comparison, AIAnalysis, AuditLogEntry, UserSettings } from '../types';
+import { Device, DeviceGroup, CommandSet, Snapshot, Comparison, AIAnalysis, AuditLogEntry, UserSettings } from '../types';
 
-export const initialDevices: Device[] = [
+export const initialDeviceGroups: DeviceGroup[] = [
   {
-    deviceId: 'dev-001',
+    groupId: 'grp-001',
     userId: 'user-default',
-    name: 'CORE-SW-01',
-    hostname: '10.200.1.1',
-    port: 22,
-    deviceType: 'cisco_xe',
-    authType: 'password',
-    username: 'admin',
-    status: 'online',
-    lastTestedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    tags: ['Core', 'Datacenter-A', 'Catalyst 9300'],
-    createdAt: '2026-09-01T10:00:00Z',
+    name: 'Core Backbone',
+    description: 'Primary campus distribution and transit edge nodes',
+    deviceIds: ['dev-001', 'dev-006'],
+    createdAt: '2026-09-02T10:00:00Z',
     updatedAt: '2026-09-10T08:30:00Z',
   },
   {
-    deviceId: 'dev-002',
+    groupId: 'grp-002',
     userId: 'user-default',
-    name: 'BORDER-RTR-02',
-    hostname: '10.200.1.254',
-    port: 22,
-    deviceType: 'cisco_xr',
-    authType: 'key',
-    username: 'netops',
-    status: 'online',
-    lastTestedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    tags: ['Edge', 'Transit-WAN', 'ASR 9000'],
-    createdAt: '2026-09-02T12:00:00Z',
-    updatedAt: '2026-09-10T14:10:00Z',
+    name: 'Datacenter Fabric',
+    description: 'Nexus spine-leaf switching pairs and perimeter gateways',
+    deviceIds: ['dev-003'],
+    createdAt: '2026-09-03T11:00:00Z',
+    updatedAt: '2026-09-09T14:20:00Z',
   },
   {
-    deviceId: 'dev-003',
+    groupId: 'grp-003',
     userId: 'user-default',
-    name: 'DIST-LEAF-03',
-    hostname: '10.200.2.15',
-    port: 22,
-    deviceType: 'cisco_nxos',
-    authType: 'password',
-    username: 'admin',
-    status: 'online',
-    lastTestedAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    tags: ['Spine-Leaf', 'Nexus 9300', 'VPC-Pair'],
-    createdAt: '2026-09-03T09:30:00Z',
-    updatedAt: '2026-09-08T11:00:00Z',
-  },
-  {
-    deviceId: 'dev-004',
-    userId: 'user-default',
-    name: 'BRANCH-RTR-04',
-    hostname: '192.168.100.1',
-    port: 2222,
-    deviceType: 'cisco_ios',
-    authType: 'password',
-    username: 'cisco',
-    status: 'offline',
-    lastTestedAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-    tags: ['Branch', 'ISDN-Backup', 'ISR 4331'],
+    name: 'Branch Edge WAN',
+    description: 'Regional branch office access routers and backup uplinks',
+    deviceIds: ['dev-004'],
     createdAt: '2026-09-05T14:20:00Z',
     updatedAt: '2026-09-10T16:00:00Z',
   },
+  {
+    groupId: 'grp-004',
+    userId: 'user-default',
+    name: 'Border Peering WAN',
+    description: 'Autonomous system edge routers and public Internet exchange points',
+    deviceIds: ['dev-002', 'dev-007'],
+    createdAt: '2026-09-06T09:00:00Z',
+    updatedAt: '2026-09-11T13:45:00Z',
+  },
+  {
+    groupId: 'grp-005',
+    userId: 'user-default',
+    name: 'Perimeter Security Cluster',
+    description: 'Edge stateful packet inspection appliances and DMZ gateways',
+    deviceIds: ['dev-005'],
+    createdAt: '2026-09-07T12:00:00Z',
+    updatedAt: '2026-09-11T15:10:00Z',
+  },
+  {
+    groupId: 'grp-006',
+    userId: 'user-default',
+    name: 'Campus Access Layer',
+    description: 'User access closets and high-density PoE edge distribution',
+    deviceIds: ['dev-006'],
+    createdAt: '2026-09-08T08:30:00Z',
+    updatedAt: '2026-09-12T09:15:00Z',
+  },
+  {
+    groupId: 'grp-007',
+    userId: 'user-default',
+    name: 'Multi-Tier Maintenance Mesh',
+    description: 'Mixed cross-platform maintenance group for staging deployments',
+    deviceIds: ['dev-001', 'dev-003', 'dev-005'],
+    createdAt: '2026-09-09T17:00:00Z',
+    updatedAt: '2026-09-12T10:00:00Z',
+  },
 ];
+
+function generate100Devices(): Device[] {
+  const devicesList: Device[] = [];
+  let id = 1;
+
+  const roleConfigs = [
+    { prefix: 'CORE-SW', count: 20, type: 'cisco_xe' as const, ipPrefix: '10.100.1', tags: ['Core', 'Campus-Backbone', 'Catalyst 9500'] },
+    { prefix: 'DIST-SW', count: 20, type: 'cisco_xe' as const, ipPrefix: '10.100.2', tags: ['Distribution', 'Building-A', 'Catalyst 9400'] },
+    { prefix: 'EDGE-RTR', count: 20, type: 'cisco_xr' as const, ipPrefix: '10.200.1', tags: ['Edge', 'WAN-Edge', 'ASR 9000'] },
+    { prefix: 'DC-LEAF', count: 20, type: 'cisco_nxos' as const, ipPrefix: '10.50.1', tags: ['Datacenter', 'Spine-Leaf', 'Nexus 9300'] },
+    { prefix: 'DC-SPINE', count: 10, type: 'cisco_nxos' as const, ipPrefix: '10.50.2', tags: ['Datacenter', 'Spine-Core', 'Nexus 9500'] },
+    { prefix: 'SEC-FW', count: 10, type: 'cisco_asa' as const, ipPrefix: '10.20.1', tags: ['Security', 'Perimeter', 'Firepower 2100'] },
+  ];
+
+  roleConfigs.forEach((cfg) => {
+    for (let i = 1; i <= cfg.count; i++) {
+      const devId = `dev-${String(id).padStart(3, '0')}`;
+      const numStr = String(i).padStart(2, '0');
+      const isOnline = id % 14 !== 0;
+      devicesList.push({
+        deviceId: devId,
+        userId: 'user-default',
+        name: `${cfg.prefix}-${numStr}`,
+        hostname: `${cfg.ipPrefix}.${i}`,
+        port: 22,
+        deviceType: cfg.type,
+        authType: 'password',
+        username: 'netops',
+        connectionType: 'ssh',
+        status: isOnline ? 'online' : 'offline',
+        lastTestedAt: new Date(Date.now() - id * 150000).toISOString(),
+        tags: cfg.tags,
+        createdAt: new Date(Date.now() - 30 * 86400000 + id * 3600000).toISOString(),
+        updatedAt: new Date(Date.now() - id * 60000).toISOString(),
+      });
+      id++;
+    }
+  });
+
+  return devicesList;
+}
+
+export const initialDevices: Device[] = generate100Devices();
 
 export const initialCommandSets: CommandSet[] = [
   {
@@ -176,54 +222,183 @@ bgp 65001       0           172         0           13760       41280
 internal        3                                               3480
 Total           3           204         0           16320       52440`;
 
-export const initialSnapshots: Snapshot[] = [
-  {
-    snapshotId: 'snap-pre-001',
-    userId: 'user-default',
-    deviceId: 'dev-001',
-    deviceName: 'CORE-SW-01',
-    deviceHostname: '10.200.1.1',
-    deviceType: 'cisco_xe',
-    snapshotType: 'pre_change',
-    commands: [
-      'show ip interface brief',
-      'show ip bgp summary',
-      'show ip route summary',
-    ],
-    outputs: {
-      'show ip interface brief': PRE_INTERFACE_BRIEF,
-      'show ip bgp summary': PRE_BGP_SUMMARY,
-      'show ip route summary': PRE_ROUTE_SUMMARY,
-    },
-    s3Key: 'snapshots/user-default/CORE-SW-01/snap-pre-001.json',
-    timestamp: '2026-09-11T09:15:00Z',
-    changeTicket: 'CHG-998214',
-    notes: 'Pre-maintenance snapshot before uplink failover test & VLAN 300 provisioning.',
-  },
-  {
-    snapshotId: 'snap-post-002',
-    userId: 'user-default',
-    deviceId: 'dev-001',
-    deviceName: 'CORE-SW-01',
-    deviceHostname: '10.200.1.1',
-    deviceType: 'cisco_xe',
-    snapshotType: 'post_change',
-    commands: [
-      'show ip interface brief',
-      'show ip bgp summary',
-      'show ip route summary',
-    ],
-    outputs: {
-      'show ip interface brief': POST_INTERFACE_BRIEF,
-      'show ip bgp summary': POST_BGP_SUMMARY,
-      'show ip route summary': POST_ROUTE_SUMMARY,
-    },
-    s3Key: 'snapshots/user-default/CORE-SW-01/snap-post-002.json',
-    timestamp: '2026-09-11T10:45:00Z',
-    changeTicket: 'CHG-998214',
-    notes: 'Post-maintenance verification snapshot after VLAN 300 rollout.',
-  },
-];
+function generateSnapshots(devicesList: Device[]): Snapshot[] {
+  const snaps: Snapshot[] = [];
+  const baseNow = Date.now();
+
+  devicesList.forEach((dev, devIdx) => {
+    // For dev-001, preserve snap-pre-001 and snap-post-002 for cmp-001 compatibility
+    if (dev.deviceId === 'dev-001') {
+      snaps.push(
+        {
+          snapshotId: 'snap-pre-001',
+          userId: 'user-default',
+          deviceId: 'dev-001',
+          deviceName: 'CORE-SW-01',
+          deviceHostname: '10.100.1.1',
+          deviceType: 'cisco_xe',
+          snapshotType: 'pre_change',
+          commands: [
+            'show ip interface brief',
+            'show ip bgp summary',
+            'show ip route summary',
+          ],
+          outputs: {
+            'show ip interface brief': PRE_INTERFACE_BRIEF,
+            'show ip bgp summary': PRE_BGP_SUMMARY,
+            'show ip route summary': PRE_ROUTE_SUMMARY,
+          },
+          s3Key: 'snapshots/user-default/CORE-SW-01/snap-pre-001.json',
+          timestamp: '2026-09-11T09:15:00Z',
+          changeTicket: 'CHG-998214',
+          notes: 'Pre-maintenance snapshot before uplink failover test & VLAN 300 provisioning.',
+        },
+        {
+          snapshotId: 'snap-post-002',
+          userId: 'user-default',
+          deviceId: 'dev-001',
+          deviceName: 'CORE-SW-01',
+          deviceHostname: '10.100.1.1',
+          deviceType: 'cisco_xe',
+          snapshotType: 'post_change',
+          commands: [
+            'show ip interface brief',
+            'show ip bgp summary',
+            'show ip route summary',
+          ],
+          outputs: {
+            'show ip interface brief': POST_INTERFACE_BRIEF,
+            'show ip bgp summary': POST_BGP_SUMMARY,
+            'show ip route summary': POST_ROUTE_SUMMARY,
+          },
+          s3Key: 'snapshots/user-default/CORE-SW-01/snap-post-002.json',
+          timestamp: '2026-09-11T10:45:00Z',
+          changeTicket: 'CHG-998214',
+          notes: 'Post-maintenance verification snapshot after VLAN 300 rollout.',
+        }
+      );
+
+      // 4 additional pairs (8 snapshots) for dev-001 to make exactly 10
+      const intervals = [25, 20, 15, 5];
+      intervals.forEach((daysAgo, pairIdx) => {
+        const ticketNum = 9100 + pairIdx;
+        const preTime = new Date(baseNow - daysAgo * 86400000).toISOString();
+        const postTime = new Date(baseNow - daysAgo * 86400000 + 7200000).toISOString();
+
+        snaps.push({
+          snapshotId: `snap-${dev.deviceId}-pre-${pairIdx + 1}`,
+          userId: 'user-default',
+          deviceId: dev.deviceId,
+          deviceName: dev.name,
+          deviceHostname: dev.hostname,
+          deviceType: dev.deviceType,
+          snapshotType: 'pre_change',
+          commands: [
+            'show ip interface brief',
+            'show ip bgp summary',
+            'show ip route summary',
+          ],
+          outputs: {
+            'show ip interface brief': PRE_INTERFACE_BRIEF,
+            'show ip bgp summary': PRE_BGP_SUMMARY,
+            'show ip route summary': PRE_ROUTE_SUMMARY,
+          },
+          s3Key: `snapshots/user-default/${dev.name}/pre-${pairIdx + 1}.json`,
+          timestamp: preTime,
+          changeTicket: `CHG-${ticketNum}`,
+          notes: `Routine pre-change baseline for ${dev.name}`,
+        });
+
+        snaps.push({
+          snapshotId: `snap-${dev.deviceId}-post-${pairIdx + 1}`,
+          userId: 'user-default',
+          deviceId: dev.deviceId,
+          deviceName: dev.name,
+          deviceHostname: dev.hostname,
+          deviceType: dev.deviceType,
+          snapshotType: 'post_change',
+          commands: [
+            'show ip interface brief',
+            'show ip bgp summary',
+            'show ip route summary',
+          ],
+          outputs: {
+            'show ip interface brief': POST_INTERFACE_BRIEF,
+            'show ip bgp summary': POST_BGP_SUMMARY,
+            'show ip route summary': POST_ROUTE_SUMMARY,
+          },
+          s3Key: `snapshots/user-default/${dev.name}/post-${pairIdx + 1}.json`,
+          timestamp: postTime,
+          changeTicket: `CHG-${ticketNum}`,
+          notes: `Routine post-change verification for ${dev.name}`,
+        });
+      });
+
+      return;
+    }
+
+    // For all remaining 99 devices: 5 pairs (10 snapshots) per device
+    const dayIntervals = [28, 21, 14, 7, 1];
+    dayIntervals.forEach((daysAgo, pairIdx) => {
+      const ticketNum = 9200 + (devIdx * 5) + pairIdx;
+      const staggerOffsetMs = (devIdx % 24) * 3600000;
+      const preTime = new Date(baseNow - (daysAgo * 86400000) - staggerOffsetMs).toISOString();
+      const postTime = new Date(baseNow - (daysAgo * 86400000) - staggerOffsetMs + 5400000).toISOString();
+
+      snaps.push({
+        snapshotId: `snap-${dev.deviceId}-pre-${pairIdx + 1}`,
+        userId: 'user-default',
+        deviceId: dev.deviceId,
+        deviceName: dev.name,
+        deviceHostname: dev.hostname,
+        deviceType: dev.deviceType,
+        snapshotType: 'pre_change',
+        commands: [
+          'show ip interface brief',
+          'show ip bgp summary',
+          'show ip route summary',
+        ],
+        outputs: {
+          'show ip interface brief': PRE_INTERFACE_BRIEF,
+          'show ip bgp summary': PRE_BGP_SUMMARY,
+          'show ip route summary': PRE_ROUTE_SUMMARY,
+        },
+        s3Key: `snapshots/user-default/${dev.name}/pre-${pairIdx + 1}.json`,
+        timestamp: preTime,
+        changeTicket: `CHG-${ticketNum}`,
+        notes: `Pre-maintenance baseline snapshot for ${dev.name}`,
+      });
+
+      snaps.push({
+        snapshotId: `snap-${dev.deviceId}-post-${pairIdx + 1}`,
+        userId: 'user-default',
+        deviceId: dev.deviceId,
+        deviceName: dev.name,
+        deviceHostname: dev.hostname,
+        deviceType: dev.deviceType,
+        snapshotType: 'post_change',
+        commands: [
+          'show ip interface brief',
+          'show ip bgp summary',
+          'show ip route summary',
+        ],
+        outputs: {
+          'show ip interface brief': POST_INTERFACE_BRIEF,
+          'show ip bgp summary': POST_BGP_SUMMARY,
+          'show ip route summary': POST_ROUTE_SUMMARY,
+        },
+        s3Key: `snapshots/user-default/${dev.name}/post-${pairIdx + 1}.json`,
+        timestamp: postTime,
+        changeTicket: `CHG-${ticketNum}`,
+        notes: `Post-maintenance verification snapshot for ${dev.name}`,
+      });
+    });
+  });
+
+  return snaps;
+}
+
+export const initialSnapshots: Snapshot[] = generateSnapshots(initialDevices);
 
 export const initialComparisons: Comparison[] = [
   {

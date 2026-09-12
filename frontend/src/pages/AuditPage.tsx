@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
@@ -9,8 +10,7 @@ import {
   MagnifyingGlass,
   CheckCircle,
   User,
-  CaretDown,
-  CaretUp,
+  CaretRight,
   Funnel,
   DownloadSimple,
   Camera,
@@ -20,11 +20,11 @@ import {
 } from '@phosphor-icons/react';
 
 export const AuditPage: React.FC = () => {
+  const navigate = useNavigate();
   const { auditLogs, addToast } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [actionFilter, setActionFilter] = useState('ALL');
-  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -148,7 +148,7 @@ export const AuditPage: React.FC = () => {
                 <th className="px-5 py-3">Actor</th>
                 <th className="px-5 py-3">Resource Target</th>
                 <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3 text-right">Details</th>
+                <th className="px-5 py-3 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60 font-sans">
@@ -172,68 +172,51 @@ export const AuditPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedLogs.map((log: AuditLogEntry) => {
-                  const isExpanded = expandedLogId === log.auditId;
-                  return (
-                    <React.Fragment key={log.auditId}>
-                      <tr className="hover:bg-zinc-900/40 transition-colors">
-                        <td className="px-5 py-3.5 font-mono text-zinc-400 whitespace-nowrap">
-                          {new Date(log.timestamp).toLocaleString()}
-                        </td>
-                        <td className="px-5 py-3.5 font-semibold text-zinc-100">
-                          <div className="flex items-center gap-2">
-                            {log.action.includes('SNAPSHOT') ? (
-                              <Camera className="w-3.5 h-3.5 text-blue-400 shrink-0" weight="bold" />
-                            ) : log.action.includes('COMPARISON') ? (
-                              <GitDiff className="w-3.5 h-3.5 text-[#c8ff00] shrink-0" weight="bold" />
-                            ) : log.action.includes('AI') ? (
-                              <Sparkle className="w-3.5 h-3.5 text-amber-400 shrink-0" weight="fill" />
-                            ) : (
-                              <TerminalWindow className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                            )}
-                            <span className="font-mono text-xs">{log.action}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-1.5 text-zinc-300">
-                            <User className="w-3.5 h-3.5 text-zinc-500" />
-                            <span>{log.userEmail}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5 font-mono text-zinc-300">
-                          {log.resource}: <span className="text-white">{log.resourceId}</span>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <Badge
-                            variant={log.status === 'SUCCESS' ? 'success' : 'danger'}
-                            size="sm"
-                          >
-                            {log.status}
-                          </Badge>
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          <button
-                            onClick={() => setExpandedLogId(isExpanded ? null : log.auditId)}
-                            className="inline-flex items-center gap-1 text-zinc-300 hover:text-white font-mono text-[11px] cursor-pointer"
-                          >
-                            <span>{isExpanded ? 'Hide' : 'Inspect'}</span>
-                            {isExpanded ? <CaretUp className="w-3 h-3" /> : <CaretDown className="w-3 h-3" />}
-                          </button>
-                        </td>
-                      </tr>
-
-                      {isExpanded && (
-                        <tr className="bg-zinc-950/80 border-b border-zinc-800">
-                          <td colSpan={6} className="px-5 py-4">
-                            <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800 font-mono text-[11px] text-zinc-300 overflow-x-auto">
-                              <pre>{JSON.stringify(log, null, 2)}</pre>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })
+                paginatedLogs.map((log: AuditLogEntry) => (
+                  <tr
+                    key={log.auditId}
+                    onClick={() => navigate(`/operations/audit/${log.auditId}`)}
+                    className="hover:bg-zinc-800/40 transition-colors cursor-pointer group"
+                  >
+                    <td className="px-5 py-3.5 font-mono text-zinc-400 whitespace-nowrap">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </td>
+                    <td className="px-5 py-3.5 font-semibold text-zinc-100 group-hover:text-white transition-colors">
+                      <div className="flex items-center gap-2">
+                        {log.action.includes('SNAPSHOT') ? (
+                          <Camera className="w-3.5 h-3.5 text-blue-400 shrink-0" weight="bold" />
+                        ) : log.action.includes('COMPARISON') ? (
+                          <GitDiff className="w-3.5 h-3.5 text-[#c8ff00] shrink-0" weight="bold" />
+                        ) : log.action.includes('AI') ? (
+                          <Sparkle className="w-3.5 h-3.5 text-amber-400 shrink-0" weight="fill" />
+                        ) : (
+                          <TerminalWindow className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                        )}
+                        <span className="font-mono text-xs">{log.action}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-1.5 text-zinc-300">
+                        <User className="w-3.5 h-3.5 text-zinc-500" />
+                        <span>{log.userEmail}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 font-mono text-zinc-300">
+                      {log.resource}: <span className="text-white">{log.resourceId}</span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <Badge
+                        variant={log.status === 'SUCCESS' ? 'success' : 'danger'}
+                        size="sm"
+                      >
+                        {log.status}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-3.5 text-right text-zinc-500 group-hover:text-zinc-200 transition-colors">
+                      <CaretRight className="w-4 h-4 ml-auto" />
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

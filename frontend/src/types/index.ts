@@ -26,6 +26,16 @@ export interface Device {
   updatedAt: string;
 }
 
+export interface DeviceGroup {
+  groupId: string;
+  userId: string;
+  name: string;
+  description?: string;
+  deviceIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CommandSet {
   setId: string;
   userId: string;

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {
   Device,
+  DeviceGroup,
   CommandSet,
   Snapshot,
   Comparison,
@@ -12,6 +13,7 @@ import {
 } from '../types';
 import {
   initialDevices,
+  initialDeviceGroups,
   initialCommandSets,
   initialSnapshots,
   initialComparisons,
@@ -42,6 +44,7 @@ interface AppState {
 
   // Domain state
   devices: Device[];
+  deviceGroups: DeviceGroup[];
   commandSets: CommandSet[];
   snapshots: Snapshot[];
   comparisons: Comparison[];
@@ -60,6 +63,11 @@ interface AppState {
   updateDevice: (deviceId: string, updates: Partial<Device>) => void;
   deleteDevice: (deviceId: string) => void;
   testDeviceConnection: (deviceId: string) => Promise<{ success: boolean; latencyMs?: number; error?: string }>;
+
+  // Device Group actions
+  addDeviceGroup: (group: Omit<DeviceGroup, 'groupId' | 'userId' | 'createdAt' | 'updatedAt'>) => DeviceGroup;
+  updateDeviceGroup: (groupId: string, updates: Partial<DeviceGroup>) => void;
+  deleteDeviceGroup: (groupId: string) => void;
 
   // Command Set actions
   addCommandSet: (set: Omit<CommandSet, 'setId' | 'userId' | 'createdAt' | 'updatedAt'>) => CommandSet;
@@ -207,6 +215,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   devices: initialDevices,
+  deviceGroups: initialDeviceGroups,
   commandSets: getInitialCommandSets(),
   snapshots: initialSnapshots,
   comparisons: initialComparisons,
@@ -300,6 +309,37 @@ export const useAppStore = create<AppState>((set, get) => ({
       get().addToast('error', UI_COPY.states.deviceUnreachable.sshTimeout(`${dev.name} (${dev.hostname}:2222)`));
       return { success: false, error: 'TCP SYN timeout on port 2222' };
     }
+  },
+
+  addDeviceGroup: (groupData) => {
+    const newGroup: DeviceGroup = {
+      ...groupData,
+      groupId: `grp-${Date.now().toString(36)}`,
+      userId: get().user?.id || 'user-default',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    set((state) => ({ deviceGroups: [...state.deviceGroups, newGroup] }));
+    get().addToast('success', `Device group "${newGroup.name}" created.`);
+    return newGroup;
+  },
+
+  updateDeviceGroup: (groupId, updates) => {
+    set((state) => ({
+      deviceGroups: state.deviceGroups.map((g) =>
+        g.groupId === groupId
+          ? { ...g, ...updates, updatedAt: new Date().toISOString() }
+          : g
+      ),
+    }));
+    get().addToast('info', 'Device group updated.');
+  },
+
+  deleteDeviceGroup: (groupId) => {
+    set((state) => ({
+      deviceGroups: state.deviceGroups.filter((g) => g.groupId !== groupId),
+    }));
+    get().addToast('warning', 'Device group removed.');
   },
 
   addCommandSet: (setData) => {

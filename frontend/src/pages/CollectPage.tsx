@@ -1,22 +1,38 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { SnapshotType, Device, CommandSet } from '../types';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
+import { Modal } from '../components/common/Modal';
+import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
+import { validateCommandSetCompatibility, isCommandSetCompatible } from '../utils/compatibilityValidator';
 import {
   Camera,
   HardDrives,
   TerminalWindow,
   Play,
   ArrowRight,
+  ArrowLeft,
   Spinner,
   CheckCircle,
   Lightning,
   Funnel,
   Tag,
   Clock,
+  UsersThree,
+  Warning,
+  FolderPlus,
+  Plus,
+  CaretRight,
+  Check,
+  ShieldCheck,
+  MagnifyingGlass,
+  GitDiff,
+  Database,
+  ArrowsClockwise,
 } from '@phosphor-icons/react';
 
 interface ParallelDeviceProgress {
@@ -33,15 +49,29 @@ interface ParallelDeviceProgress {
 
 export const CollectPage: React.FC = () => {
   const navigate = useNavigate();
-  const { devices, commandSets, addSnapshot } = useAppStore();
+  const [searchParams] = useSearchParams();
+  const { devices, deviceGroups, commandSets, snapshots, addSnapshot, addDeviceGroup } = useAppStore();
 
-  // Mode: Single Target vs Batch Maintenance
-  const [collectMode, setCollectMode] = useState<'single' | 'batch'>('single');
+  // Active step in 3-step guided flow: 1. Target -> 2. Parameters -> 3. Execute
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
+
+  // Mode: Single Device vs By Device Group vs Custom Multi-Select
+  const [collectScope, setCollectScope] = useState<'single' | 'group' | 'custom'>('single');
 
   // Single target state
   const [selectedDeviceId, setSelectedDeviceId] = useState(devices[0]?.deviceId || '');
 
-  // Batch target state
+  // Step 1: Single device filters & pagination
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const [devicePlatformFilter, setDevicePlatformFilter] = useState('ALL');
+  const [deviceStatusFilter, setDeviceStatusFilter] = useState('ALL');
+  const [devicePage, setDevicePage] = useState(1);
+  const [devicePageSize, setDevicePageSize] = useState(10);
+
+  // Group target state
+  const [selectedGroupId, setSelectedGroupId] = useState(deviceGroups[0]?.groupId || '');
+
+  // Custom batch target state
   const [selectedTagFilter, setSelectedTagFilter] = useState<string>('ALL');
   const [selectedBatchDeviceIds, setSelectedBatchDeviceIds] = useState<string[]>(
     devices.slice(0, 3).map((d) => d.deviceId)
@@ -53,6 +83,12 @@ export const CollectPage: React.FC = () => {
   const [ticketNumber, setTicketNumber] = useState('CHG-998214');
   const [notes, setNotes] = useState('Pre-change maintenance capture before router uplink migration');
 
+  // Quick group creation modal state
+  const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDescription, setNewGroupDescription] = useState('');
+  const [newGroupDeviceIds, setNewGroupDeviceIds] = useState<string[]>([]);
+
   // Execution state
   const [isExecuting, setIsExecuting] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -62,8 +98,49 @@ export const CollectPage: React.FC = () => {
   // Parallel progress tracking
   const [parallelProgress, setParallelProgress] = useState<Record<string, ParallelDeviceProgress>>({});
 
-  const selectedDevice = devices.find((d: Device) => d.deviceId === selectedDeviceId);
-  const selectedSet = commandSets.find((s: CommandSet) => s.setId === selectedSetId);
+  // URL query sync: allow ?groupId=... to preselect group and set scope to 'group'
+  useEffect(() => {
+    const groupIdParam = searchParams.get('groupId');
+    if (groupIdParam && deviceGroups.some((g) => g.groupId === groupIdParam)) {
+      setSelectedGroupId(groupIdParam);
+      setCollectScope('group');
+    }
+  }, [searchParams, deviceGroups]);
+
+  const selectedDevice = useMemo(() => {
+    return devices.find((d: Device) => d.deviceId === selectedDeviceId) || devices[0];
+  }, [devices, selectedDeviceId]);
+
+  const selectedGroup = useMemo(() => {
+    return deviceGroups.find((g) => g.groupId === selectedGroupId) || deviceGroups[0];
+  }, [deviceGroups, selectedGroupId]);
+
+  const selectedSet = useMemo(() => {
+    return commandSets.find((s: CommandSet) => s.setId === selectedSetId) || commandSets[0];
+  }, [commandSets, selectedSetId]);
+
+  // Devices in selected group
+  const groupDevices = useMemo(() => {
+    if (!selectedGroup) return [];
+    return devices.filter((d) => selectedGroup.deviceIds.includes(d.deviceId));
+  }, [devices, selectedGroup]);
+
+  // Devices in custom selection
+  const customDevices = useMemo(() => {
+    return devices.filter((d) => selectedBatchDeviceIds.includes(d.deviceId));
+  }, [devices, selectedBatchDeviceIds]);
+
+  // Active target devices for the current scope
+  const activeTargetDevices = useMemo(() => {
+    if (collectScope === 'single') return selectedDevice ? [selectedDevice] : [];
+    if (collectScope === 'group') return groupDevices;
+    return customDevices;
+  }, [collectScope, selectedDevice, groupDevices, customDevices]);
+
+  // Real-time Driver Compatibility Validator
+  const compatibility = useMemo(() => {
+    return validateCommandSetCompatibility(selectedSet, activeTargetDevices);
+  }, [selectedSet, activeTargetDevices]);
 
   // Extract unique tags across inventory
   const allTags = useMemo(() => {
@@ -77,6 +154,43 @@ export const CollectPage: React.FC = () => {
     if (selectedTagFilter === 'ALL') return devices;
     return devices.filter((d) => (d.tags || []).includes(selectedTagFilter));
   }, [devices, selectedTagFilter]);
+
+  // Filtered devices for Step 1 Single Target Table (100 mock network devices)
+  const filteredDevices = useMemo(() => {
+    return devices.filter((d: Device) => {
+      const matchesSearch =
+        d.name.toLowerCase().includes(deviceSearch.toLowerCase()) ||
+        d.hostname.toLowerCase().includes(deviceSearch.toLowerCase()) ||
+        d.deviceId.toLowerCase().includes(deviceSearch.toLowerCase());
+
+      const matchesPlatform =
+        devicePlatformFilter === 'ALL' || d.deviceType === devicePlatformFilter;
+
+      const matchesStatus =
+        deviceStatusFilter === 'ALL' ||
+        (deviceStatusFilter === 'ONLINE' && d.status === 'online') ||
+        (deviceStatusFilter === 'OFFLINE' && d.status === 'offline');
+
+      return matchesSearch && matchesPlatform && matchesStatus;
+    });
+  }, [devices, deviceSearch, devicePlatformFilter, deviceStatusFilter]);
+
+  const totalDevicePages = Math.ceil(filteredDevices.length / devicePageSize) || 1;
+  const paginatedDevices = useMemo(() => {
+    const start = (devicePage - 1) * devicePageSize;
+    return filteredDevices.slice(start, start + devicePageSize);
+  }, [filteredDevices, devicePage, devicePageSize]);
+
+  // Single target selection action with auto driver matching
+  const handleSelectSingleDevice = (dev: Device) => {
+    setSelectedDeviceId(dev.deviceId);
+    // Find compatible command set for device driver
+    const matchingSet = commandSets.find((cs) => cs.deviceType === dev.deviceType);
+    if (matchingSet) {
+      setSelectedSetId(matchingSet.setId);
+    }
+    setActiveStep(2);
+  };
 
   const handleToggleDevice = (deviceId: string) => {
     setSelectedBatchDeviceIds((prev) =>
@@ -94,9 +208,37 @@ export const CollectPage: React.FC = () => {
     }
   };
 
+  // Group creation shortcuts in Collect Page
+  const handleOpenCreateNewGroup = () => {
+    setNewGroupName('');
+    setNewGroupDescription('');
+    setNewGroupDeviceIds([]);
+    setIsCreateGroupModalOpen(true);
+  };
+
+  const handleOpenSaveCustomGroup = () => {
+    setNewGroupName('');
+    setNewGroupDescription('Maintenance snapshot cluster');
+    setNewGroupDeviceIds([...selectedBatchDeviceIds]);
+    setIsCreateGroupModalOpen(true);
+  };
+
+  const handleSaveNewGroup = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGroupName.trim() || newGroupDeviceIds.length === 0) return;
+    const created = addDeviceGroup({
+      name: newGroupName.trim(),
+      description: newGroupDescription.trim(),
+      deviceIds: newGroupDeviceIds,
+    });
+    setSelectedGroupId(created.groupId);
+    setCollectScope('group');
+    setIsCreateGroupModalOpen(false);
+  };
+
   // Run single collection
   const handleStartSingleCollection = async () => {
-    if (!selectedDevice || !selectedSet) return;
+    if (!selectedDevice || !selectedSet || !compatibility.isCompatible) return;
 
     setIsExecuting(true);
     setCurrentStep(1);
@@ -173,14 +315,13 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
 
   // Run parallel batch collection
   const handleStartBatchCollection = async () => {
-    const targetDevices = devices.filter((d) => selectedBatchDeviceIds.includes(d.deviceId));
-    if (targetDevices.length === 0 || !selectedSet) return;
+    const targetDevices = collectScope === 'group' ? groupDevices : customDevices;
+    if (targetDevices.length === 0 || !selectedSet || !compatibility.isCompatible) return;
 
     setIsExecuting(true);
     setCurrentStep(1);
     setCompletedSnapshotIds([]);
 
-    // Initialize parallel tracking state
     const initialTracking: Record<string, ParallelDeviceProgress> = {};
     targetDevices.forEach((d) => {
       initialTracking[d.deviceId] = {
@@ -201,11 +342,9 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
 
     const createdSnapshots: string[] = [];
 
-    // Run parallel workers with Promise.all
     await Promise.all(
       targetDevices.map(async (dev) => {
         try {
-          // Step 1: Connect
           const connectDelay = Math.floor(Math.random() * 600) + 400;
           await new Promise((r) => setTimeout(r, connectDelay));
           const latency = Math.floor(Math.random() * 25) + 12;
@@ -224,7 +363,6 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
             `[SSH] Handshake established with ${dev.name} (${dev.hostname}) — ${latency}ms latency`,
           ]);
 
-          // Step 2: Execute commands
           const outputs: Record<string, string> = {};
           for (let i = 0; i < selectedSet.commands.length; i++) {
             const cmd = selectedSet.commands[i];
@@ -242,7 +380,6 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
             }));
           }
 
-          // Step 3: Archive
           setParallelProgress((prev) => ({
             ...prev,
             [dev.deviceId]: {
@@ -253,7 +390,6 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
 
           await new Promise((r) => setTimeout(r, 400));
 
-          // Step 4: Persist snapshot
           const snap = addSnapshot({
             deviceId: dev.deviceId,
             deviceName: dev.name,
@@ -308,7 +444,8 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
   };
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-6 font-sans w-full">
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
@@ -316,382 +453,1141 @@ Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State
             <span>Snapshot collector</span>
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Trigger automated SSH collection to archive immutable pre- and post-change device states.
+            Follow the 3-step operational workflow to select target network devices, configure command sets, and execute automated state captures.
           </p>
-        </div>
-
-        {/* Mode Selector Toggle */}
-        <div className="flex items-center gap-1.5 p-1 bg-zinc-900 border border-zinc-800 rounded-xl w-fit self-start sm:self-auto">
-          <button
-            type="button"
-            disabled={isExecuting}
-            onClick={() => setCollectMode('single')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              collectMode === 'single'
-                ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            Single Target
-          </button>
-          <button
-            type="button"
-            disabled={isExecuting}
-            onClick={() => setCollectMode('batch')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              collectMode === 'batch'
-                ? 'bg-[#c8ff00] text-zinc-950 font-bold shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <Lightning className="w-3.5 h-3.5" weight="bold" />
-            <span>Batch Maintenance</span>
-          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Form Controls */}
-        <div className="lg:col-span-6 space-y-5">
-          <Card className="p-6 space-y-4 border-zinc-800 bg-zinc-900/60">
-            <h3 className="font-bold text-sm text-zinc-200 flex items-center gap-2 border-b border-zinc-800 pb-3">
-              <HardDrives className="w-4 h-4 text-zinc-400" weight="duotone" />
-              <span>{collectMode === 'single' ? 'Target and command selection' : 'Batch parallel maintenance group'}</span>
-            </h3>
+      {/* 3-Step Guided Operational Workflow Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Step 1 Pill */}
+        <button
+          type="button"
+          disabled={isExecuting}
+          onClick={() => setActiveStep(1)}
+          className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+            activeStep === 1
+              ? 'bg-zinc-900 border-[#c8ff00]/60 ring-1 ring-[#c8ff00]/30 shadow-md'
+              : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700'
+          }`}
+        >
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 ${
+              activeStep === 1
+                ? 'bg-[#c8ff00] text-zinc-950'
+                : activeTargetDevices.length > 0
+                ? 'bg-zinc-800 text-[#c8ff00]'
+                : 'bg-zinc-900 text-zinc-500'
+            }`}
+          >
+            {activeTargetDevices.length > 0 && activeStep > 1 ? (
+              <Check className="w-4 h-4" weight="bold" />
+            ) : (
+              '1'
+            )}
+          </div>
+          <div className="truncate">
+            <div className="text-xs font-bold leading-tight text-white">1. Select Target</div>
+            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+              {collectScope === 'single'
+                ? selectedDevice
+                  ? `${selectedDevice.name} (${selectedDevice.hostname})`
+                  : 'Select target node'
+                : collectScope === 'group'
+                ? selectedGroup
+                  ? `${selectedGroup.name} (${groupDevices.length} nodes)`
+                  : 'Select group'
+                : `${selectedBatchDeviceIds.length} custom nodes selected`}
+            </div>
+          </div>
+        </button>
 
-            {collectMode === 'single' ? (
+        {/* Step 2 Pill */}
+        <button
+          type="button"
+          disabled={isExecuting || activeTargetDevices.length === 0}
+          onClick={() => setActiveStep(2)}
+          className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+            activeStep === 2
+              ? 'bg-zinc-900 border-[#c8ff00]/60 ring-1 ring-[#c8ff00]/30 shadow-md'
+              : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed'
+          }`}
+        >
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 ${
+              activeStep === 2
+                ? 'bg-[#c8ff00] text-zinc-950'
+                : selectedSet
+                ? 'bg-zinc-800 text-[#c8ff00]'
+                : 'bg-zinc-900 text-zinc-500'
+            }`}
+          >
+            {selectedSet && activeStep > 2 ? (
+              <Check className="w-4 h-4" weight="bold" />
+            ) : (
+              '2'
+            )}
+          </div>
+          <div className="truncate">
+            <div className="text-xs font-bold leading-tight text-white">2. Command Set & Parameters</div>
+            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+              {selectedSet
+                ? `${selectedSet.name} • ${
+                    snapshotType === 'pre_change'
+                      ? 'PRE'
+                      : snapshotType === 'post_change'
+                      ? 'POST'
+                      : 'AD-HOC'
+                  }`
+                : 'Configure parameters'}
+            </div>
+          </div>
+        </button>
+
+        {/* Step 3 Pill */}
+        <button
+          type="button"
+          disabled={isExecuting || activeTargetDevices.length === 0 || !selectedSet}
+          onClick={() => setActiveStep(3)}
+          className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+            activeStep === 3
+              ? 'bg-zinc-900 border-[#c8ff00]/60 ring-1 ring-[#c8ff00]/30 shadow-md'
+              : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed'
+          }`}
+        >
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 ${
+              activeStep === 3
+                ? 'bg-[#c8ff00] text-zinc-950'
+                : completedSnapshotIds.length > 0
+                ? 'bg-zinc-800 text-[#c8ff00]'
+                : 'bg-zinc-900 text-zinc-500'
+            }`}
+          >
+            {completedSnapshotIds.length > 0 ? (
+              <Check className="w-4 h-4" weight="bold" />
+            ) : (
+              '3'
+            )}
+          </div>
+          <div className="truncate">
+            <div className="text-xs font-bold leading-tight text-white">3. Pre-flight & Run Collection</div>
+            <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+              {compatibility.isCompatible ? 'Driver aligned • Ready' : 'Incompatible driver profile'}
+            </div>
+          </div>
+        </button>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* STEP 1: SELECT TARGET                                                     */}
+      {/* ========================================================================= */}
+      {activeStep === 1 && (
+        <div className="space-y-4 w-full">
+          {/* Target Scope 3-Way Mode Selector */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-zinc-800 bg-zinc-900/40">
+            <div className="text-xs text-zinc-300 font-semibold flex items-center gap-2">
+              <HardDrives className="w-4 h-4 text-zinc-400" />
+              <span>Choose Target Dispatch Mode</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 p-1 bg-zinc-950 border border-zinc-800 rounded-lg w-fit">
+              <button
+                type="button"
+                disabled={isExecuting}
+                onClick={() => setCollectScope('single')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  collectScope === 'single'
+                    ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <HardDrives className={`w-3.5 h-3.5 ${collectScope === 'single' ? 'text-[#c8ff00]' : 'text-zinc-400'}`} />
+                <span>Single Target</span>
+              </button>
+              <button
+                type="button"
+                disabled={isExecuting}
+                onClick={() => setCollectScope('group')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  collectScope === 'group'
+                    ? 'bg-[#c8ff00] text-zinc-950 font-bold shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <UsersThree className={`w-3.5 h-3.5 ${collectScope === 'group' ? 'text-zinc-950' : 'text-zinc-400'}`} weight={collectScope === 'group' ? 'bold' : 'regular'} />
+                <span>By Device Group</span>
+              </button>
+              <button
+                type="button"
+                disabled={isExecuting}
+                onClick={() => setCollectScope('custom')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  collectScope === 'custom'
+                    ? 'bg-[#c8ff00] text-zinc-950 font-bold shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <Lightning className={`w-3.5 h-3.5 ${collectScope === 'custom' ? 'text-zinc-950' : 'text-zinc-400'}`} weight="bold" />
+                <span>Custom Batch</span>
+              </button>
+            </div>
+          </div>
+
+          {/* SINGLE TARGET: Paginated 100-Device Table with Search, Filter & Chevron */}
+          {collectScope === 'single' && (
+            <div className="space-y-4">
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                {/* Search */}
+                <div className="relative flex-1 max-w-md">
+                  <MagnifyingGlass className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="text"
+                    placeholder="Search device name, IP address, or ID..."
+                    value={deviceSearch}
+                    onChange={(e) => {
+                      setDeviceSearch(e.target.value);
+                      setDevicePage(1);
+                    }}
+                    className="w-full pl-10 pr-4 py-2 bg-zinc-900/80 border border-zinc-800 rounded-lg text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors"
+                  />
+                </div>
+
+                {/* Filters */}
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {/* Platform */}
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5">
+                    <Funnel className="w-3.5 h-3.5 text-zinc-500" />
+                    <select
+                      value={devicePlatformFilter}
+                      onChange={(e) => {
+                        setDevicePlatformFilter(e.target.value);
+                        setDevicePage(1);
+                      }}
+                      className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL">All Drivers</option>
+                      {CISCO_DEVICE_PLATFORMS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Status */}
+                  <select
+                    value={deviceStatusFilter}
+                    onChange={(e) => {
+                      setDeviceStatusFilter(e.target.value);
+                      setDevicePage(1);
+                    }}
+                    className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 cursor-pointer"
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="ONLINE">Online Only</option>
+                    <option value="OFFLINE">Offline Only</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 100-Device Paginated Table with Chevron */}
+              <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900/30">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-zinc-300">
+                    <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-[11px] border-b border-zinc-800">
+                      <tr>
+                        <th className="px-5 py-3">Device Name</th>
+                        <th className="px-5 py-3">Hostname / IP</th>
+                        <th className="px-5 py-3">Driver</th>
+                        <th className="px-5 py-3">Status</th>
+                        <th className="px-5 py-3">Snapshots</th>
+                        <th className="w-10 px-5 py-3 text-right"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60 font-sans">
+                      {paginatedDevices.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-5 py-12 text-center text-zinc-400">
+                            <HardDrives className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                            <p className="font-semibold text-zinc-300 text-xs">No matching devices found</p>
+                            <p className="text-[11px] text-zinc-500 mt-0.5">Try clearing filters or search criteria.</p>
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedDevices.map((dev: Device) => {
+                          const snapCount = snapshots.filter(
+                            (s) => s.deviceId === dev.deviceId || s.deviceName === dev.name
+                          ).length;
+                          const isSelected = selectedDeviceId === dev.deviceId;
+
+                          return (
+                            <tr
+                              key={dev.deviceId}
+                              onClick={() => handleSelectSingleDevice(dev)}
+                              className={`hover:bg-zinc-800/40 transition-colors cursor-pointer group ${
+                                isSelected ? 'bg-zinc-800/30 ring-1 ring-inset ring-[#c8ff00]/40' : ''
+                              }`}
+                            >
+                              <td className="px-5 py-3.5">
+                                <div className="font-bold text-zinc-100 group-hover:text-white transition-colors">
+                                  {dev.name}
+                                </div>
+                                <div className="text-[10px] text-zinc-500 font-mono">{dev.deviceId}</div>
+                              </td>
+
+                              <td className="px-5 py-3.5 font-mono text-zinc-300">
+                                {dev.hostname}
+                              </td>
+
+                              <td className="px-5 py-3.5 font-mono text-zinc-400">
+                                {dev.deviceType}
+                              </td>
+
+                              <td className="px-5 py-3.5">
+                                <Badge variant={dev.status === 'online' ? 'success' : 'danger'} size="sm">
+                                  {dev.status.toUpperCase()}
+                                </Badge>
+                              </td>
+
+                              <td className="px-5 py-3.5 font-mono text-zinc-300">
+                                {snapCount} available
+                              </td>
+
+                              <td className="px-5 py-3.5 text-right text-zinc-500 group-hover:text-zinc-200 transition-colors">
+                                <CaretRight className="w-4 h-4 ml-auto" />
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="px-4">
+                  <PaginationToolbar
+                    currentPage={devicePage}
+                    totalPages={totalDevicePages}
+                    totalItems={filteredDevices.length}
+                    pageSize={devicePageSize}
+                    onPageChange={setDevicePage}
+                    onPageSizeChange={(newSize) => {
+                      setDevicePageSize(newSize);
+                      setDevicePage(1);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* DEVICE GROUP TARGET MODE */}
+          {collectScope === 'group' && (
+            <Card className="p-6 space-y-4 border-zinc-800 bg-zinc-900/60">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <UsersThree className="w-4 h-4 text-[#c8ff00]" />
+                    <span>Select Target Device Group</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Dispatch parallel snapshot workers across all network nodes assigned to this operational group.
+                  </p>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  onClick={handleOpenCreateNewGroup}
+                >
+                  New Group
+                </Button>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  Target Device
+                  Registered Device Groups
                 </label>
                 <select
                   disabled={isExecuting}
-                  value={selectedDeviceId}
-                  onChange={(e) => setSelectedDeviceId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
+                  value={selectedGroupId}
+                  onChange={(e) => setSelectedGroupId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-100 focus:outline-none focus:border-zinc-500 font-sans cursor-pointer"
                 >
-                  {devices.map((d: Device) => (
-                    <option key={d.deviceId} value={d.deviceId}>
-                      {d.name} ({d.hostname}) — {d.deviceType}
+                  {deviceGroups.map((g) => (
+                    <option key={g.groupId} value={g.groupId}>
+                      {g.name} ({g.deviceIds.length} nodes) — {g.description || 'No description'}
                     </option>
                   ))}
                 </select>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-zinc-300">
-                    Filter by Tag / Segment
-                  </label>
-                  <button
-                    type="button"
-                    disabled={isExecuting}
-                    onClick={handleSelectAllFiltered}
-                    className="text-xs text-[#c8ff00] font-semibold hover:underline cursor-pointer"
-                  >
-                    Select / Deselect all
-                  </button>
+
+              {selectedGroup && (
+                <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-zinc-200">{selectedGroup.name}</span>
+                    <span className="font-mono text-[#c8ff00] font-semibold">{groupDevices.length} network nodes</span>
+                  </div>
+                  <p className="text-xs text-zinc-400">{selectedGroup.description || 'Target nodes included in this group:'}</p>
+
+                  {groupDevices.length === 0 ? (
+                    <div className="text-xs text-amber-400">
+                      No devices are currently assigned to this group. Add devices to proceed.
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pt-1">
+                      {groupDevices.map((d) => (
+                        <div
+                          key={d.deviceId}
+                          className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono flex items-center gap-2"
+                        >
+                          <span className="font-bold text-white">{d.name}</span>
+                          <span className="text-zinc-500 text-[10px]">{d.hostname}</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400">{d.deviceType}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* CUSTOM BATCH TARGET MODE */}
+          {collectScope === 'custom' && (
+            <Card className="p-6 space-y-4 border-zinc-800 bg-zinc-900/60">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Lightning className="w-4 h-4 text-[#c8ff00]" weight="bold" />
+                    <span>Custom Batch Multi-Selection</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Hand-pick target devices or filter by topology tags for ad-hoc parallel captures.
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
+                <div className="flex items-center gap-2">
+                  {selectedBatchDeviceIds.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={<FolderPlus className="w-3.5 h-3.5" />}
+                      onClick={handleOpenSaveCustomGroup}
+                    >
+                      Save as Group
+                    </Button>
+                  )}
+                  <Button
                     type="button"
-                    onClick={() => setSelectedTagFilter('ALL')}
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleSelectAllFiltered}
+                  >
+                    Select / Deselect All
+                  </Button>
+                </div>
+              </div>
+
+              {/* Tag Badges */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTagFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                    selectedTagFilter === 'ALL'
+                      ? 'bg-zinc-800 text-white border-zinc-600'
+                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
+                  }`}
+                >
+                  All Tags ({devices.length})
+                </button>
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setSelectedTagFilter(tag)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
-                      selectedTagFilter === 'ALL'
+                      selectedTagFilter === tag
                         ? 'bg-zinc-800 text-white border-zinc-600'
                         : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
                     }`}
                   >
-                    All Tags ({devices.length})
+                    {tag}
                   </button>
-                  {allTags.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => setSelectedTagFilter(tag)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
-                        selectedTagFilter === tag
-                          ? 'bg-zinc-800 text-white border-zinc-600'
-                          : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Multi-Device Picker Table */}
-                <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950/60 max-h-48 overflow-y-auto">
-                  <div className="divide-y divide-zinc-800/60">
-                    {tagFilteredDevices.map((dev) => {
-                      const isChecked = selectedBatchDeviceIds.includes(dev.deviceId);
-                      return (
-                        <label
-                          key={dev.deviceId}
-                          className="flex items-center justify-between px-3 py-2 hover:bg-zinc-900/50 cursor-pointer text-xs"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <input
-                              type="checkbox"
-                              disabled={isExecuting}
-                              checked={isChecked}
-                              onChange={() => handleToggleDevice(dev.deviceId)}
-                              className="rounded bg-zinc-900 border-zinc-700 text-[#c8ff00] focus:ring-0 cursor-pointer"
-                            />
-                            <div className="truncate">
-                              <span className="font-bold text-zinc-200">{dev.name}</span>
-                              <span className="text-zinc-500 font-mono ml-2">({dev.hostname})</span>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-mono text-zinc-400 shrink-0">
-                            {dev.deviceType}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="text-[11px] text-zinc-400 flex items-center justify-between">
-                  <span>Selected: {selectedBatchDeviceIds.length} target devices</span>
-                  <span className="text-[#c8ff00] font-mono">Parallel dispatch ready</span>
-                </div>
+                ))}
               </div>
-            )}
 
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                Command Set Suite
-              </label>
+              {/* Multi-Device Picker Table */}
+              <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950/60 max-h-72 overflow-y-auto divide-y divide-zinc-800/60">
+                {tagFilteredDevices.map((dev) => {
+                  const isChecked = selectedBatchDeviceIds.includes(dev.deviceId);
+                  return (
+                    <label
+                      key={dev.deviceId}
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-zinc-900/50 cursor-pointer text-xs transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <input
+                          type="checkbox"
+                          disabled={isExecuting}
+                          checked={isChecked}
+                          onChange={() => handleToggleDevice(dev.deviceId)}
+                          className="rounded bg-zinc-900 border-zinc-700 text-[#c8ff00] focus:ring-0 cursor-pointer"
+                        />
+                        <div className="truncate">
+                          <span className="font-bold text-zinc-200">{dev.name}</span>
+                          <span className="text-zinc-500 font-mono text-[11px] ml-2">({dev.hostname})</span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono text-zinc-400 shrink-0">
+                        {dev.deviceType}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* Sticky Bottom Progression Bar for Step 1 */}
+          <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl">
+            <div className="flex items-center gap-3 text-xs font-mono">
+              <span className="text-zinc-400">Target Selected:</span>
+              <span className="text-white font-bold">
+                {collectScope === 'single'
+                  ? selectedDevice
+                    ? `${selectedDevice.name} (${selectedDevice.hostname})`
+                    : 'None'
+                  : collectScope === 'group'
+                  ? selectedGroup
+                    ? `${selectedGroup.name} (${groupDevices.length} nodes)`
+                    : 'None'
+                  : `${selectedBatchDeviceIds.length} custom nodes`}
+              </span>
+            </div>
+
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              disabled={activeTargetDevices.length === 0}
+              rightIcon={<ArrowRight className="w-3.5 h-3.5" weight="bold" />}
+              onClick={() => setActiveStep(2)}
+            >
+              Proceed to Parameters
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* STEP 2: COMMAND SET & MAINTENANCE PARAMETERS                              */}
+      {/* ========================================================================= */}
+      {activeStep === 2 && (
+        <div className="space-y-5 w-full">
+          <Card className="p-6 space-y-6 border-zinc-800 bg-zinc-900/60">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+              <div>
+                <h2 className="text-base font-bold text-white">Configure Command Profile & Telemetry Parameters</h2>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Select the show command set and specify maintenance window change ticketing.
+                </p>
+              </div>
+              <Badge variant="info" size="md">
+                Target: {activeTargetDevices.length} node{activeTargetDevices.length > 1 ? 's' : ''}
+              </Badge>
+            </div>
+
+            {/* Command Set Selector */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-zinc-300">
+                  Command Set Profile
+                </label>
+                {selectedSet && (
+                  <span className="text-xs font-mono text-zinc-400">
+                    Target Driver: <span className="text-[#c8ff00] font-semibold">{selectedSet.deviceType}</span>
+                  </span>
+                )}
+              </div>
+
               <select
                 disabled={isExecuting}
                 value={selectedSetId}
                 onChange={(e) => setSelectedSetId(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
+                className={`w-full px-3.5 py-2.5 bg-zinc-950 border rounded-xl text-sm text-zinc-100 focus:outline-none transition-colors font-sans cursor-pointer ${
+                  compatibility.isCompatible
+                    ? 'border-zinc-800 focus:border-zinc-500'
+                    : 'border-rose-700/80 focus:border-rose-500'
+                }`}
               >
-                {commandSets.map((s: CommandSet) => (
-                  <option key={s.setId} value={s.setId}>
-                    {s.name} ({s.commands.length} commands)
-                  </option>
-                ))}
+                {commandSets.map((s: CommandSet) => {
+                  const isComp = isCommandSetCompatible(s, activeTargetDevices);
+                  return (
+                    <option key={s.setId} value={s.setId}>
+                      {s.name} ({s.commands.length} cmds) — {s.deviceType} {isComp ? '✓ Compatible' : `[Mismatched Driver: ${s.deviceType}]`}
+                    </option>
+                  );
+                })}
               </select>
+
+              {/* Commands List Preview */}
+              {selectedSet && (
+                <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-zinc-300">Commands to Execute ({selectedSet.commands.length}):</span>
+                    <span className="text-zinc-500 font-mono text-[11px]">Read-only safe</span>
+                  </div>
+                  <div className="space-y-1 font-mono text-xs text-zinc-300">
+                    {selectedSet.commands.map((cmd, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-zinc-300">
+                        <span className="text-zinc-600 select-none">›</span>
+                        <span className="font-bold text-zinc-200">{cmd}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
+            {/* Snapshot Stage Selection */}
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                Snapshot Type / Change Stage
+              <label className="block text-xs font-semibold text-zinc-300 mb-2">
+                Maintenance Window Stage
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-3">
                 {(['pre_change', 'post_change', 'ad_hoc'] as SnapshotType[]).map((type) => (
                   <button
                     key={type}
                     type="button"
                     disabled={isExecuting}
                     onClick={() => setSnapshotType(type)}
-                    className={`py-2 px-2.5 rounded-lg text-xs font-semibold border text-center transition-all cursor-pointer ${
+                    className={`px-4 py-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex flex-col items-center gap-1 ${
                       snapshotType === type
-                        ? 'bg-[#c8ff00] text-zinc-950 border-[#c8ff00] font-bold shadow-sm'
-                        : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700'
+                        ? type === 'pre_change'
+                          ? 'bg-sky-950/40 text-sky-300 border-sky-600 ring-1 ring-sky-500 shadow-sm'
+                          : type === 'post_change'
+                          ? 'bg-[#c8ff00]/15 text-[#c8ff00] border-[#c8ff00]/60 ring-1 ring-[#c8ff00]/40 shadow-sm'
+                          : 'bg-zinc-800 text-white border-zinc-600 shadow-sm'
+                        : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
                     }`}
                   >
-                    {type === 'pre_change'
-                      ? 'Pre-Change'
-                      : type === 'post_change'
-                      ? 'Post-Change'
-                      : 'Ad-Hoc'}
+                    <span className="font-bold text-sm">
+                      {type === 'pre_change'
+                        ? 'Pre-Change Baseline'
+                        : type === 'post_change'
+                        ? 'Post-Change Verification'
+                        : 'Ad-Hoc Inspection'}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-normal">
+                      {type === 'pre_change'
+                        ? 'Establish stable reference baseline'
+                        : type === 'post_change'
+                        ? 'Capture post-deployment diff telemetry'
+                        : 'Routine operational audit'}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Ticket & Notes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                  Change Ticket #
+                  Change Ticket Identifier
                 </label>
                 <input
                   type="text"
                   disabled={isExecuting}
                   value={ticketNumber}
                   onChange={(e) => setTicketNumber(e.target.value)}
-                  placeholder="CHG-XXXX"
-                  className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
+                  placeholder="CHG-XXXXXX"
+                  className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500 font-mono"
                 />
               </div>
+
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                  Change Window Notes
+                  Maintenance Window Notes
                 </label>
                 <input
                   type="text"
                   disabled={isExecuting}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Optional brief..."
-                  className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
+                  placeholder="e.g. Uplink interface switchover..."
+                  className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
                 />
               </div>
             </div>
 
-            <div className="pt-3">
+            {/* Navigation Buttons */}
+            <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
               <Button
-                variant="primary"
-                isLoading={isExecuting}
-                leftIcon={collectMode === 'batch' ? <Lightning className="w-4 h-4" weight="bold" /> : <Play className="w-4 h-4" weight="bold" />}
-                onClick={collectMode === 'single' ? handleStartSingleCollection : handleStartBatchCollection}
-                disabled={collectMode === 'batch' && selectedBatchDeviceIds.length === 0}
-                className="w-full py-3"
+                type="button"
+                variant="secondary"
+                size="sm"
+                leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
+                onClick={() => setActiveStep(1)}
               >
-                {isExecuting
-                  ? collectMode === 'single'
-                    ? 'Collecting from 1 device…'
-                    : `Collecting from ${selectedBatchDeviceIds.length} devices in parallel…`
-                  : collectMode === 'single'
-                  ? 'Run collection'
-                  : `Run parallel collection (${selectedBatchDeviceIds.length} targets)`}
+                Back to Target
+              </Button>
+
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                rightIcon={<ArrowRight className="w-3.5 h-3.5" weight="bold" />}
+                onClick={() => setActiveStep(3)}
+              >
+                Proceed to Pre-flight & Run
               </Button>
             </div>
           </Card>
         </div>
+      )}
 
-        {/* Right Column: Execution Telemetry & Parallel Progress */}
-        <div className="lg:col-span-6 space-y-5">
-          <Card className="p-6 flex flex-col h-full justify-between border-zinc-800 bg-zinc-900/60">
-            <div>
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <TerminalWindow className="w-4 h-4 text-zinc-300" weight="duotone" />
-                  <h3 className="font-bold text-sm text-zinc-200">Execution Telemetry</h3>
+      {/* ========================================================================= */}
+      {/* STEP 3: PRE-FLIGHT VERIFICATION & LIVE EXECUTION                          */}
+      {/* ========================================================================= */}
+      {activeStep === 3 && (
+        <div className="space-y-6 w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column: Pre-Flight Checklist & Control */}
+            <div className="lg:col-span-6 space-y-5">
+              <Card className="p-6 space-y-5 border-zinc-800 bg-zinc-900/60">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+                  <h3 className="font-bold text-sm text-zinc-200 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-[#c8ff00]" weight="fill" />
+                    <span>Pre-Flight Verification Checklist</span>
+                  </h3>
+                  <Badge variant={compatibility.isCompatible ? 'success' : 'danger'} size="sm">
+                    {compatibility.isCompatible ? 'READY' : 'BLOCKED'}
+                  </Badge>
                 </div>
-                {isExecuting && (
-                  <span className="flex items-center gap-1.5 text-xs text-zinc-300 font-mono">
-                    <Spinner className="w-4 h-4 animate-spin" />
-                    {collectMode === 'single' ? `Step ${currentStep}/4` : 'Parallel Execution Active'}
-                  </span>
-                )}
-              </div>
 
-              {/* Progress Tracker (Single Mode) */}
-              {collectMode === 'single' ? (
-                <div className="grid grid-cols-4 gap-2 mb-4">
-                  {[
-                    { step: 1, label: 'SSH Connect' },
-                    { step: 2, label: 'Run Commands' },
-                    { step: 3, label: 'Archive Vault' },
-                    { step: 4, label: 'Complete' },
-                  ].map((s) => (
-                    <div
-                      key={s.step}
-                      className={`p-2 rounded-lg text-center text-xs font-medium border transition-colors ${
-                        currentStep > s.step
-                          ? 'bg-[#c8ff00]/15 text-[#c8ff00] border-[#c8ff00]/30 font-semibold'
-                          : currentStep === s.step
-                          ? 'bg-[#c8ff00]/25 text-[#c8ff00] border-[#c8ff00]/50 font-bold animate-pulse'
-                          : 'bg-zinc-950/60 text-zinc-500 border-zinc-800/60'
-                      }`}
-                    >
-                      <div className="text-[10px] font-mono font-bold">STEP {s.step}</div>
-                      <div className="truncate text-[11px]">{s.label}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                /* Parallel Worker Matrix (Batch Mode) */
-                <div className="space-y-2 mb-4">
-                  <div className="text-[11px] font-semibold text-zinc-400 flex items-center justify-between">
-                    <span>Parallel Workers Status</span>
-                    <span>{Object.values(parallelProgress).filter((p) => p.status === 'completed').length} of {selectedBatchDeviceIds.length} done</span>
+                {/* Scope & Target Summary */}
+                <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2 text-xs font-mono">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Dispatch Target:</span>
+                    <span className="text-zinc-200 font-bold">
+                      {collectScope === 'single'
+                        ? selectedDevice?.name
+                        : collectScope === 'group'
+                        ? selectedGroup?.name
+                        : 'Custom Batch'}
+                    </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                    {Object.values(parallelProgress).map((worker) => (
-                      <div
-                        key={worker.deviceId}
-                        className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs flex items-center justify-between"
-                      >
-                        <div className="min-w-0 mr-2">
-                          <div className="font-bold text-zinc-200 truncate">{worker.deviceName}</div>
-                          <div className="text-[10px] text-zinc-500 font-mono">
-                            {worker.status === 'executing'
-                              ? `Cmd ${worker.currentCmdIndex}/${worker.totalCmds}`
-                              : worker.latencyMs ? `${worker.latencyMs}ms` : worker.deviceHostname}
-                          </div>
-                        </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Target Device Count:</span>
+                    <span className="text-white font-bold">{activeTargetDevices.length} node{activeTargetDevices.length > 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Command Profile:</span>
+                    <span className="text-zinc-200">{selectedSet?.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Commands to Run:</span>
+                    <span className="text-[#c8ff00] font-bold">{selectedSet?.commands.length} show commands</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Change Ticket:</span>
+                    <span className="text-zinc-200">{ticketNumber || 'None'}</span>
+                  </div>
+                </div>
 
-                        <Badge
-                          variant={
-                            worker.status === 'completed'
-                              ? 'default'
-                              : worker.status === 'executing'
-                              ? 'info'
-                              : worker.status === 'failed'
-                              ? 'danger'
-                              : 'outline'
-                          }
-                          size="sm"
+                {/* Driver Compatibility Telemetry Card */}
+                <div
+                  className={`p-4 rounded-xl border transition-all ${
+                    compatibility.isCompatible
+                      ? 'bg-[#c8ff00]/10 border-[#c8ff00]/30 text-zinc-200'
+                      : 'bg-rose-950/30 border-rose-800/70 text-zinc-200'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    {compatibility.isCompatible ? (
+                      <CheckCircle className="w-4 h-4 text-[#c8ff00] shrink-0 mt-0.5" weight="fill" />
+                    ) : (
+                      <Warning className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" weight="fill" />
+                    )}
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`text-xs font-bold ${
+                            compatibility.isCompatible ? 'text-[#c8ff00]' : 'text-rose-400'
+                          }`}
                         >
-                          {worker.status.toUpperCase()}
-                        </Badge>
+                          {compatibility.isCompatible
+                            ? 'Driver Alignment Verified'
+                            : 'Driver Compatibility Mismatch — Blocked'}
+                        </span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-900/80 border border-zinc-700/60">
+                          {selectedSet?.deviceType}
+                        </span>
                       </div>
-                    ))}
+
+                      <p className="text-[11px] leading-relaxed text-zinc-300">
+                        {compatibility.summary}
+                      </p>
+
+                      {!compatibility.isCompatible && (
+                        <div className="space-y-2 pt-2 border-t border-rose-900/40 text-[11px]">
+                          <div>
+                            <span className="font-semibold text-rose-300">Operational Impact: </span>
+                            <span className="text-zinc-400">{compatibility.impact}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-sky-400">Action Required: </span>
+                            <span className="text-zinc-400">{compatibility.nextStep}</span>
+                          </div>
+
+                          {compatibility.incompatibleDevices.length > 0 && (
+                            <div className="pt-1">
+                              <span className="text-[10px] uppercase font-mono text-zinc-400 block mb-1">
+                                Incompatible Target Nodes ({compatibility.incompatibleDevices.length}):
+                              </span>
+                              <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                                {compatibility.incompatibleDevices.map((dev) => (
+                                  <span
+                                    key={dev.deviceId}
+                                    className="px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-[10px] font-mono text-rose-200"
+                                  >
+                                    {dev.name} ({dev.deviceType})
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Streaming Terminal Log */}
-              <div className="bg-zinc-950 rounded-xl p-3.5 border border-zinc-800 font-mono text-xs text-zinc-300 min-h-[220px] max-h-[260px] overflow-y-auto space-y-1.5">
-                {terminalLogs.length === 0 ? (
-                  <div className="text-zinc-600 italic">
-                    Ready to initiate collection. Click "Run collection" to stream Netmiko SSH events.
+                {/* Cisco Read-Only Safety Banner */}
+                <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950/80 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 text-zinc-300">
+                    <ShieldCheck className="w-4 h-4 text-[#c8ff00]" weight="fill" />
+                    <span>DriftGuard enforces show commands only. Mutating commands strictly blocked.</span>
                   </div>
-                ) : (
-                  terminalLogs.map((log: string, i: number) => (
-                    <div
-                      key={i}
-                      className={`${
-                        log.includes('[SUCCESS]')
-                          ? 'text-[#c8ff00] font-bold'
-                          : log.includes('[CLI]')
-                          ? 'text-zinc-200'
-                          : log.includes('[PARALLEL]')
-                          ? 'text-sky-400 font-semibold'
-                          : 'text-zinc-400'
-                      }`}
-                    >
-                      {log}
+                  <span className="font-mono text-[#c8ff00] font-bold">100% Safe</span>
+                </div>
+
+                {/* Primary Execution Button & Back Button */}
+                <div className="space-y-2.5 pt-2">
+                  <Button
+                    variant="primary"
+                    isLoading={isExecuting}
+                    leftIcon={
+                      collectScope !== 'single' ? (
+                        <Lightning className="w-4 h-4" weight="bold" />
+                      ) : (
+                        <Play className="w-4 h-4" weight="bold" />
+                      )
+                    }
+                    onClick={
+                      collectScope === 'single'
+                        ? handleStartSingleCollection
+                        : handleStartBatchCollection
+                    }
+                    disabled={
+                      isExecuting ||
+                      activeTargetDevices.length === 0 ||
+                      !compatibility.isCompatible
+                    }
+                    className="w-full py-3 text-sm"
+                  >
+                    {isExecuting
+                      ? collectScope === 'single'
+                        ? 'Collecting from 1 device…'
+                        : `Collecting from ${activeTargetDevices.length} devices in parallel…`
+                      : !compatibility.isCompatible
+                      ? 'Collection blocked — Incompatible driver profile'
+                      : collectScope === 'single'
+                      ? 'Run collection'
+                      : `Run parallel collection (${activeTargetDevices.length} targets)`}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={isExecuting}
+                    leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
+                    onClick={() => setActiveStep(2)}
+                    className="w-full"
+                  >
+                    Back to Parameters
+                  </Button>
+                </div>
+              </Card>
+            </div>
+
+            {/* Right Column: Execution Telemetry & Terminal Logs */}
+            <div className="lg:col-span-6 space-y-5">
+              <Card className="p-6 flex flex-col h-full justify-between border-zinc-800 bg-zinc-900/60">
+                <div>
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <TerminalWindow className="w-4 h-4 text-zinc-300" weight="duotone" />
+                      <h3 className="font-bold text-sm text-zinc-200">Execution Telemetry</h3>
                     </div>
-                  ))
+                    {isExecuting && (
+                      <span className="flex items-center gap-1.5 text-xs text-zinc-300 font-mono">
+                        <Spinner className="w-4 h-4 animate-spin" />
+                        {collectScope === 'single' ? `Step ${currentStep}/4` : 'Parallel Execution Active'}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Progress Tracker (Single Mode) */}
+                  {collectScope === 'single' ? (
+                    <div className="grid grid-cols-4 gap-2 mb-4">
+                      {[
+                        { step: 1, label: 'SSH Connect' },
+                        { step: 2, label: 'Run Commands' },
+                        { step: 3, label: 'Archive Vault' },
+                        { step: 4, label: 'Complete' },
+                      ].map((s) => (
+                        <div
+                          key={s.step}
+                          className={`p-2 rounded-lg text-center text-xs font-medium border transition-colors ${
+                            currentStep > s.step
+                              ? 'bg-[#c8ff00]/15 text-[#c8ff00] border-[#c8ff00]/30 font-semibold'
+                              : currentStep === s.step
+                              ? 'bg-[#c8ff00]/25 text-[#c8ff00] border-[#c8ff00]/50 font-bold animate-pulse'
+                              : 'bg-zinc-950/60 text-zinc-500 border-zinc-800/60'
+                          }`}
+                        >
+                          <div className="text-[10px] font-mono font-bold">STEP {s.step}</div>
+                          <div className="truncate text-[11px]">{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Parallel Worker Matrix (Batch Mode) */
+                    <div className="space-y-2 mb-4">
+                      <div className="text-[11px] font-semibold text-zinc-400 flex items-center justify-between">
+                        <span>Parallel Workers Status</span>
+                        <span>{Object.values(parallelProgress).filter((p) => p.status === 'completed').length} of {activeTargetDevices.length} done</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                        {Object.values(parallelProgress).map((worker) => (
+                          <div
+                            key={worker.deviceId}
+                            className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs flex items-center justify-between"
+                          >
+                            <div className="min-w-0 mr-2">
+                              <div className="font-bold text-zinc-200 truncate">{worker.deviceName}</div>
+                              <div className="text-[10px] text-zinc-500 font-mono">
+                                {worker.status === 'executing'
+                                  ? `Cmd ${worker.currentCmdIndex}/${worker.totalCmds}`
+                                  : worker.latencyMs ? `${worker.latencyMs}ms` : worker.deviceHostname}
+                              </div>
+                            </div>
+
+                            <Badge
+                              variant={
+                                worker.status === 'completed'
+                                  ? 'default'
+                                  : worker.status === 'executing'
+                                  ? 'info'
+                                  : worker.status === 'failed'
+                                  ? 'danger'
+                                  : 'outline'
+                              }
+                              size="sm"
+                            >
+                              {worker.status.toUpperCase()}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Streaming Terminal Log */}
+                  <div className="bg-zinc-950 rounded-xl p-3.5 border border-zinc-800 font-mono text-xs text-zinc-300 min-h-[220px] max-h-[260px] overflow-y-auto space-y-1.5">
+                    {terminalLogs.length === 0 ? (
+                      <div className="text-zinc-600 italic">
+                        Ready to initiate collection. Click "Run collection" to stream Netmiko SSH events.
+                      </div>
+                    ) : (
+                      terminalLogs.map((log: string, i: number) => (
+                        <div
+                          key={i}
+                          className={`${
+                            log.includes('[SUCCESS]')
+                              ? 'text-[#c8ff00] font-bold'
+                              : log.includes('[CLI]')
+                              ? 'text-zinc-200'
+                              : log.includes('[PARALLEL]')
+                              ? 'text-sky-400 font-semibold'
+                              : 'text-zinc-400'
+                          }`}
+                        >
+                          {log}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Completion Actions Banner */}
+                {completedSnapshotIds.length > 0 && (
+                  <div className="mt-4 p-4 rounded-xl bg-zinc-900 border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <CheckCircle className="w-4 h-4 text-[#c8ff00]" weight="fill" />
+                        <span>
+                          {completedSnapshotIds.length === 1
+                            ? 'Snapshot captured successfully'
+                            : `${completedSnapshotIds.length} snapshots captured successfully`}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                        {completedSnapshotIds.length === 1
+                          ? completedSnapshotIds[0]
+                          : 'Committed to immutable snapshot vault'}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={<Database className="w-3.5 h-3.5" />}
+                        onClick={() => navigate('/operations?tab=snapshots')}
+                      >
+                        View Vault
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        rightIcon={<GitDiff className="w-3.5 h-3.5" weight="bold" />}
+                        onClick={() => navigate('/analysis?tab=compare')}
+                      >
+                        Compare
+                      </Button>
+                    </div>
+                  </div>
                 )}
+              </Card>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Create Group Modal in Collect Page */}
+      {isCreateGroupModalOpen && (
+        <Modal
+          isOpen={isCreateGroupModalOpen}
+          onClose={() => setIsCreateGroupModalOpen(false)}
+          title="Create Device Group"
+        >
+          <form onSubmit={handleSaveNewGroup} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                Group Name
+              </label>
+              <input
+                type="text"
+                required
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="e.g. Core Backbone or DC Fabric"
+                className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                Description
+              </label>
+              <input
+                type="text"
+                value={newGroupDescription}
+                onChange={(e) => setNewGroupDescription(e.target.value)}
+                placeholder="Operational purpose of this group..."
+                className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-zinc-300">
+                  Target Devices ({newGroupDeviceIds.length} selected)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newGroupDeviceIds.length === devices.length) {
+                      setNewGroupDeviceIds([]);
+                    } else {
+                      setNewGroupDeviceIds(devices.map((d) => d.deviceId));
+                    }
+                  }}
+                  className="text-[11px] text-[#c8ff00] hover:underline cursor-pointer"
+                >
+                  {newGroupDeviceIds.length === devices.length ? 'Deselect all' : 'Select all'}
+                </button>
+              </div>
+              <div className="border border-zinc-800 rounded-xl bg-zinc-950 max-h-48 overflow-y-auto divide-y divide-zinc-800/60">
+                {devices.map((dev) => {
+                  const isChecked = newGroupDeviceIds.includes(dev.deviceId);
+                  return (
+                    <label
+                      key={dev.deviceId}
+                      className="flex items-center justify-between px-3 py-2 hover:bg-zinc-900/50 cursor-pointer text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setNewGroupDeviceIds((prev) =>
+                              prev.includes(dev.deviceId)
+                                ? prev.filter((id) => id !== dev.deviceId)
+                                : [...prev, dev.deviceId]
+                            );
+                          }}
+                          className="rounded bg-zinc-900 border-zinc-700 text-[#c8ff00] focus:ring-0 cursor-pointer"
+                        />
+                        <span className="font-semibold text-zinc-200">{dev.name}</span>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
-            {completedSnapshotIds.length > 0 && (
-              <div className="mt-4 p-4 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold text-white">
-                    {completedSnapshotIds.length === 1
-                      ? 'Snapshot captured'
-                      : `${completedSnapshotIds.length} snapshots captured`}
-                  </div>
-                  <div className="text-[11px] text-zinc-400 font-mono">
-                    {completedSnapshotIds.length === 1
-                      ? completedSnapshotIds[0]
-                      : `Batch committed to vault`}
-                  </div>
-                </div>
-
-                <Button
-                  variant="primary"
-                  size="sm"
-                  rightIcon={<ArrowRight className="w-4 h-4" weight="bold" />}
-                  onClick={() => navigate('/analysis?tab=compare')}
-                >
-                  Compare
-                </Button>
-              </div>
-            )}
-          </Card>
-        </div>
-      </div>
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-zinc-800">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsCreateGroupModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                disabled={!newGroupName.trim() || newGroupDeviceIds.length === 0}
+              >
+                Create Group
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { Device, DeviceType } from '../types';
+import { Device, DeviceGroup, DeviceType } from '../types';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
@@ -24,6 +25,10 @@ import {
   CheckCircle,
   Eye,
   EyeSlash,
+  UsersThree,
+  FolderPlus,
+  Play,
+  CaretRight,
 } from '@phosphor-icons/react';
 
 interface ParsedBulkDevice {
@@ -57,12 +62,44 @@ LEGACY-SW-04, 192.168.100.1, cisco_ios, operator, TelnetLabPass, telnet
 SEC-FW-05, 10.200.3.1, cisco_asa, secadmin, AsaShield88, ssh`;
 
 export const DevicesPage: React.FC = () => {
-  const { devices, addDevice, addDevices, updateDevice, deleteDevice, testDeviceConnection } = useAppStore();
+  const {
+    devices,
+    deviceGroups,
+    addDevice,
+    addDevices,
+    updateDevice,
+    deleteDevice,
+    testDeviceConnection,
+    addDeviceGroup,
+    updateDeviceGroup,
+    deleteDeviceGroup,
+  } = useAppStore();
+
+  const navigate = useNavigate();
+  const [activeView, setActiveView] = useState<'devices' | 'groups'>('devices');
   const [searchTerm, setSearchTerm] = useState('');
   const [driverFilter, setDriverFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+
+  // Group management state
+  const [groupSearchTerm, setGroupSearchTerm] = useState('');
+  const [groupDriverFilter, setGroupDriverFilter] = useState<string>('ALL');
+  const [groupCurrentPage, setGroupCurrentPage] = useState(1);
+  const [groupPageSize, setGroupPageSize] = useState(10);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<DeviceGroup | null>(null);
+  const [deletingGroup, setDeletingGroup] = useState<DeviceGroup | null>(null);
+  const [groupFormData, setGroupFormData] = useState<{
+    name: string;
+    description: string;
+    deviceIds: string[];
+  }>({
+    name: '',
+    description: '',
+    deviceIds: [],
+  });
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [registerMode, setRegisterMode] = useState<'single' | 'bulk'>('single');
@@ -351,6 +388,99 @@ export const DevicesPage: React.FC = () => {
     return filteredDevices.slice(start, start + pageSize);
   }, [filteredDevices, currentPage, pageSize]);
 
+  const deviceGroupMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    deviceGroups.forEach((g) => {
+      g.deviceIds.forEach((devId) => {
+        if (!map[devId]) map[devId] = [];
+        map[devId].push(g.name);
+      });
+    });
+    return map;
+  }, [deviceGroups]);
+
+  const handleOpenCreateGroup = () => {
+    setEditingGroup(null);
+    setGroupFormData({ name: '', description: '', deviceIds: [] });
+    setIsGroupModalOpen(true);
+  };
+
+  const handleOpenEditGroup = (group: DeviceGroup) => {
+    setEditingGroup(group);
+    setGroupFormData({
+      name: group.name,
+      description: group.description || '',
+      deviceIds: [...group.deviceIds],
+    });
+    setIsGroupModalOpen(true);
+  };
+
+  const handleSaveGroup = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!groupFormData.name.trim()) return;
+
+    if (editingGroup) {
+      updateDeviceGroup(editingGroup.groupId, {
+        name: groupFormData.name.trim(),
+        description: groupFormData.description.trim(),
+        deviceIds: groupFormData.deviceIds,
+      });
+    } else {
+      addDeviceGroup({
+        name: groupFormData.name.trim(),
+        description: groupFormData.description.trim(),
+        deviceIds: groupFormData.deviceIds,
+      });
+    }
+
+    setIsGroupModalOpen(false);
+    setEditingGroup(null);
+    setGroupFormData({ name: '', description: '', deviceIds: [] });
+  };
+
+  const handleConfirmDeleteGroup = () => {
+    if (!deletingGroup) return;
+    deleteDeviceGroup(deletingGroup.groupId);
+    setDeletingGroup(null);
+  };
+
+  const handleToggleDeviceInGroup = (deviceId: string) => {
+    setGroupFormData((prev) => ({
+      ...prev,
+      deviceIds: prev.deviceIds.includes(deviceId)
+        ? prev.deviceIds.filter((id) => id !== deviceId)
+        : [...prev.deviceIds, deviceId],
+    }));
+  };
+
+  // Group filtering and pagination for 50-100 registrations
+  const filteredGroups = useMemo(() => {
+    return deviceGroups.filter((group) => {
+      const memberDevices = devices.filter((d) => group.deviceIds.includes(d.deviceId));
+      const term = groupSearchTerm.toLowerCase().trim();
+      const matchesSearch =
+        !term ||
+        group.name.toLowerCase().includes(term) ||
+        (group.description || '').toLowerCase().includes(term) ||
+        memberDevices.some(
+          (d) => d.name.toLowerCase().includes(term) || d.hostname.toLowerCase().includes(term)
+        );
+
+      let matchesDriver = true;
+      if (groupDriverFilter !== 'ALL') {
+        matchesDriver = memberDevices.some((d) => d.deviceType === groupDriverFilter);
+      }
+
+      return matchesSearch && matchesDriver;
+    });
+  }, [deviceGroups, devices, groupSearchTerm, groupDriverFilter]);
+
+  const groupTotalPages = Math.ceil(filteredGroups.length / groupPageSize) || 1;
+  const paginatedGroups = useMemo(() => {
+    const start = (groupCurrentPage - 1) * groupPageSize;
+    return filteredGroups.slice(start, start + groupPageSize);
+  }, [filteredGroups, groupCurrentPage, groupPageSize]);
+
   return (
     <div className="space-y-6 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -360,212 +490,541 @@ export const DevicesPage: React.FC = () => {
             <span>Target Inventory</span>
           </h1>
           <p className="text-xs text-zinc-400 mt-1">
-            Managed Cisco network nodes configured for automated baseline snapshots and diff audits.
+            Managed Cisco network nodes and operational device groups configured for automated baseline snapshots and diff audits.
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          leftIcon={<Plus className="w-4 h-4" weight="bold" />}
-          onClick={() => setIsAddModalOpen(true)}
+        {activeView === 'devices' ? (
+          <Button
+            variant="primary"
+            leftIcon={<Plus className="w-4 h-4" weight="bold" />}
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            Register
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            leftIcon={<FolderPlus className="w-4 h-4" weight="bold" />}
+            onClick={handleOpenCreateGroup}
+          >
+            Create Group
+          </Button>
+        )}
+      </div>
+
+      {/* Sub-Tabs: All Devices vs Device Groups */}
+      <div className="flex items-center gap-1.5 p-1 bg-zinc-900 border border-zinc-800 rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveView('devices')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            activeView === 'devices'
+              ? 'bg-zinc-800 text-white border border-zinc-700/80 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+          }`}
         >
-          Register
-        </Button>
+          <HardDrives className={`w-4 h-4 ${activeView === 'devices' ? 'text-[#c8ff00]' : 'text-zinc-400'}`} />
+          <span>All Devices</span>
+          <span className="px-1.5 py-0.2 bg-zinc-950/40 border border-zinc-750 rounded text-[10px] font-mono">
+            {devices.length}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveView('groups')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            activeView === 'groups'
+              ? 'bg-zinc-800 text-white border border-zinc-700/80 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+          }`}
+        >
+          <UsersThree className={`w-4 h-4 ${activeView === 'groups' ? 'text-[#c8ff00]' : 'text-zinc-400'}`} />
+          <span>Device Groups</span>
+          <span className="px-1.5 py-0.2 bg-zinc-950/40 border border-zinc-750 rounded text-[10px] font-mono">
+            {deviceGroups.length}
+          </span>
+        </button>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-md">
-          <MagnifyingGlass className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-          <input
-            type="text"
-            placeholder="Search devices by hostname, IP, or tag..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full pl-10 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
-          />
-        </div>
+      {activeView === 'devices' ? (
+        <div className="space-y-4">
+          {/* Search and Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <MagnifyingGlass className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Search devices by hostname, IP, or tag..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full pl-10 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+              />
+            </div>
 
-        <div className="flex items-center gap-2">
-          {/* Driver Filter */}
-          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
-            <Funnel className="w-3.5 h-3.5 text-zinc-500" />
-            <select
-              value={driverFilter}
-              onChange={(e) => {
-                setDriverFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
-            >
-              <option value="ALL">All Drivers</option>
-              {CISCO_DEVICE_PLATFORMS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              {/* Driver Filter */}
+              <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
+                <Funnel className="w-3.5 h-3.5 text-zinc-500" />
+                <select
+                  value={driverFilter}
+                  onChange={(e) => {
+                    setDriverFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">All Drivers</option>
+                  {CISCO_DEVICE_PLATFORMS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="online">Online</option>
+                  <option value="offline">Offline</option>
+                  <option value="untested">Untested</option>
+                </select>
+              </div>
+            </div>
           </div>
 
-          {/* Status Filter */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="online">Online</option>
-              <option value="offline">Offline</option>
-              <option value="untested">Untested</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Flat Table Layout */}
-      <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900/30">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-zinc-300">
-            <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-[11px] border-b border-zinc-800">
-              <tr>
-                <th className="px-5 py-3">Device Name</th>
-                <th className="px-5 py-3">Endpoint</th>
-                <th className="px-5 py-3">Driver</th>
-                <th className="px-5 py-3">Auth Mode</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3">Last Probed</th>
-                <th className="px-5 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/60 font-sans">
-              {paginatedDevices.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-zinc-400">
-                    <HardDrives className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                    <p className="font-semibold text-zinc-300 text-xs">No matching devices</p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">Try clearing search or filters</p>
-                    <button
-                      onClick={() => {
-                        setSearchTerm('');
-                        setDriverFilter('ALL');
-                        setStatusFilter('ALL');
-                        setCurrentPage(1);
-                      }}
-                      className="mt-3 text-xs text-[#c8ff00] font-bold hover:underline cursor-pointer"
-                    >
-                      Reset filters
-                    </button>
-                  </td>
-                </tr>
-              ) : (
-                paginatedDevices.map((device: Device) => {
-                  const isTesting = testingId === device.deviceId;
-                  return (
-                    <tr key={device.deviceId} className="hover:bg-zinc-900/50 transition-colors">
-                      <td className="px-5 py-3.5">
-                        <div className="font-bold text-zinc-100 flex items-center gap-2">
-                          {device.name}
-                        </div>
-                        {device.tags && device.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {device.tags.map((tag: string, idx: number) => (
-                              <span
-                                key={idx}
-                                className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-400 border border-zinc-700/50"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5 font-mono text-zinc-300">
-                        <div className="flex items-center gap-1.5">
-                          <span>{device.hostname}:{device.port}</span>
-                          {device.connectionType && (
-                            <span className="text-[9px] uppercase px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/60 font-mono font-semibold">
-                              {device.connectionType}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 font-mono text-zinc-300">
-                        {device.deviceType}
-                      </td>
-                      <td className="px-5 py-3.5 text-zinc-400">
-                        <span className="capitalize">{device.authType}</span>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <Badge
-                          variant={
-                            device.status === 'online'
-                              ? 'success'
-                              : device.status === 'offline'
-                              ? 'danger'
-                              : 'warning'
-                          }
-                          size="sm"
+          {/* Flat Table Layout */}
+          <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900/30">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-zinc-300">
+                <thead className="bg-zinc-900/90 text-zinc-400 uppercase font-mono text-[11px] border-b border-zinc-800">
+                  <tr>
+                    <th className="px-5 py-3">Device Name</th>
+                    <th className="px-5 py-3">Endpoint</th>
+                    <th className="px-5 py-3">Driver</th>
+                    <th className="px-5 py-3">Auth Mode</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Last Probed</th>
+                    <th className="px-5 py-3 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60 font-sans">
+                  {paginatedDevices.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-12 text-center text-zinc-400">
+                        <HardDrives className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                        <p className="font-semibold text-zinc-300 text-xs">No matching devices</p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5">Try clearing search or filters</p>
+                        <button
+                          onClick={() => {
+                            setSearchTerm('');
+                            setDriverFilter('ALL');
+                            setStatusFilter('ALL');
+                            setCurrentPage(1);
+                          }}
+                          className="mt-3 text-xs text-[#c8ff00] font-bold hover:underline cursor-pointer"
                         >
-                          {device.status.toUpperCase()}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-3.5 text-zinc-400">
-                        {device.lastTestedAt
-                          ? new Date(device.lastTestedAt).toLocaleTimeString()
-                          : 'Never'}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            isLoading={isTesting}
-                            onClick={() => handleTestConnection(device.deviceId)}
-                          >
-                            {isTesting ? 'Probing' : 'Test'}
-                          </Button>
-                          <button
-                            onClick={() => handleStartEdit(device)}
-                            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
-                            title="Edit"
-                          >
-                            <PencilSimple className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeletingDevice(device)}
-                            className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
-                            title="Delete"
-                          >
-                            <Trash className="w-4 h-4" />
-                          </button>
-                        </div>
+                          Reset filters
+                        </button>
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                  ) : (
+                    paginatedDevices.map((device: Device) => {
+                      return (
+                        <tr
+                          key={device.deviceId}
+                          onClick={() => navigate(`/setup/devices/${device.deviceId}`)}
+                          className="hover:bg-zinc-800/40 transition-colors cursor-pointer group"
+                        >
+                          <td className="px-5 py-3.5">
+                            <div className="font-bold text-zinc-100 flex items-center gap-2">
+                              {device.name}
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {deviceGroupMap[device.deviceId]?.map((grpName, gIdx) => (
+                                <span
+                                  key={`grp-${gIdx}`}
+                                  className="px-1.5 py-0.5 rounded text-[9px] bg-[#c8ff00]/10 text-[#c8ff00] border border-[#c8ff00]/20 font-semibold"
+                                >
+                                  {grpName}
+                                </span>
+                              ))}
+                              {device.tags &&
+                                device.tags.map((tag: string, idx: number) => (
+                                  <span
+                                    key={idx}
+                                    className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-400 border border-zinc-700/50"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 font-mono text-zinc-300">
+                            <div className="flex items-center gap-1.5">
+                              <span>
+                                {device.hostname}:{device.port}
+                              </span>
+                              {device.connectionType && (
+                                <span className="text-[9px] uppercase px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/60 font-mono font-semibold">
+                                  {device.connectionType}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 font-mono text-zinc-300">
+                            {device.deviceType}
+                          </td>
+                          <td className="px-5 py-3.5 text-zinc-400">
+                            <span className="capitalize">{device.authType}</span>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <Badge
+                              variant={
+                                device.status === 'online'
+                                  ? 'success'
+                                  : device.status === 'offline'
+                                  ? 'danger'
+                                  : 'warning'
+                              }
+                              size="sm"
+                            >
+                              {device.status.toUpperCase()}
+                            </Badge>
+                          </td>
+                          <td className="px-5 py-3.5 text-zinc-400">
+                            {device.lastTestedAt
+                              ? new Date(device.lastTestedAt).toLocaleTimeString()
+                              : 'Never'}
+                          </td>
+                          <td className="px-5 py-3.5 text-right text-zinc-500 group-hover:text-zinc-200 transition-colors">
+                            <CaretRight className="w-4 h-4 ml-auto" />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-        <div className="px-4">
-          <PaginationToolbar
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={filteredDevices.length}
-            pageSize={pageSize}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
-          />
+            <div className="px-4">
+              <PaginationToolbar
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredDevices.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+              />
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Device Groups Enterprise Data Table View */
+        <div className="space-y-4">
+          {/* Search and Driver Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <MagnifyingGlass className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input
+                type="text"
+                value={groupSearchTerm}
+                onChange={(e) => {
+                  setGroupSearchTerm(e.target.value);
+                  setGroupCurrentPage(1);
+                }}
+                placeholder="Search groups by name, description, or node hostname..."
+                className="w-full pl-10 pr-4 py-2 bg-zinc-900/80 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors"
+              />
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5">
+                <Funnel className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="text-xs text-zinc-400">Platform:</span>
+                <select
+                  value={groupDriverFilter}
+                  onChange={(e) => {
+                    setGroupDriverFilter(e.target.value);
+                    setGroupCurrentPage(1);
+                  }}
+                  className="bg-transparent text-xs text-zinc-200 focus:outline-none font-medium cursor-pointer"
+                >
+                  <option value="ALL" className="bg-zinc-900">All Platforms</option>
+                  <option value="cisco_xe" className="bg-zinc-900">Cisco IOS-XE</option>
+                  <option value="cisco_xr" className="bg-zinc-900">Cisco IOS-XR</option>
+                  <option value="cisco_nxos" className="bg-zinc-900">Cisco NX-OS</option>
+                  <option value="cisco_ios" className="bg-zinc-900">Cisco IOS Classic</option>
+                  <option value="cisco_asa" className="bg-zinc-900">Cisco ASA</option>
+                </select>
+              </div>
+
+              <span className="text-xs text-zinc-500 font-mono hidden md:inline">
+                {filteredGroups.length} {filteredGroups.length === 1 ? 'group' : 'groups'}
+              </span>
+            </div>
+          </div>
+
+          {/* Enterprise Table Container */}
+          <div className="border border-zinc-800 rounded-2xl bg-zinc-900/40 backdrop-blur-sm overflow-hidden shadow-xl space-y-4 pb-4">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-zinc-800/80 text-zinc-400 font-semibold bg-zinc-950/40">
+                    <th className="px-5 py-3.5">Device Group</th>
+                    <th className="px-5 py-3.5">Target Nodes</th>
+                    <th className="px-5 py-3.5">Platform Composition</th>
+                    <th className="px-5 py-3.5">Created Date</th>
+                    <th className="px-5 py-3.5 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60">
+                  {paginatedGroups.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-12 text-center text-zinc-400">
+                        <UsersThree className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                        <p className="font-semibold text-zinc-300 text-xs">No device groups match your filters</p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5">
+                          Try adjusting your search criteria or register a new group.
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedGroups.map((group) => {
+                      const memberDevices = devices.filter((d) => group.deviceIds.includes(d.deviceId));
+
+                      // Platform driver counts
+                      const driverCounts: Record<string, number> = {};
+                      memberDevices.forEach((d) => {
+                        driverCounts[d.deviceType] = (driverCounts[d.deviceType] || 0) + 1;
+                      });
+
+                      return (
+                        <tr
+                          key={group.groupId}
+                          onClick={() => navigate(`/setup/groups/${group.groupId}`)}
+                          className="hover:bg-zinc-800/40 transition-colors cursor-pointer group"
+                        >
+                          {/* Group Name & Description */}
+                          <td className="px-5 py-3.5 max-w-xs">
+                            <div className="font-bold text-zinc-100 flex items-center gap-2">
+                              <UsersThree className="w-4 h-4 text-[#c8ff00] shrink-0" />
+                              <span className="truncate">{group.name}</span>
+                            </div>
+                            <div className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">
+                              {group.description || 'No description provided.'}
+                            </div>
+                          </td>
+
+                          {/* Target Nodes with member chips */}
+                          <td className="px-5 py-3.5">
+                            <div className="space-y-1.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700">
+                                {group.deviceIds.length} {group.deviceIds.length === 1 ? 'node' : 'nodes'}
+                              </span>
+                              {memberDevices.length > 0 && (
+                                <div className="flex flex-wrap gap-1 max-w-sm">
+                                  {memberDevices.slice(0, 3).map((dev) => (
+                                    <span
+                                      key={dev.deviceId}
+                                      className="px-1.5 py-0.5 rounded bg-zinc-950/80 border border-zinc-800 text-[10px] text-zinc-300 font-mono"
+                                    >
+                                      {dev.name}
+                                    </span>
+                                  ))}
+                                  {memberDevices.length > 3 && (
+                                    <span className="px-1.5 py-0.5 rounded bg-zinc-800/60 text-[10px] text-zinc-400 font-mono">
+                                      +{memberDevices.length - 3} more
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Platform Composition */}
+                          <td className="px-5 py-3.5">
+                            {Object.keys(driverCounts).length === 0 ? (
+                              <span className="text-[11px] text-zinc-500 italic">No nodes</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(driverCounts).map(([driver, count]) => (
+                                  <Badge key={driver} variant="outline" size="sm">
+                                    {driver.replace('cisco_', '').toUpperCase()} ({count})
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Created Date */}
+                          <td className="px-5 py-3.5 text-zinc-400 font-mono text-[11px]">
+                            {group.createdAt
+                              ? new Date(group.createdAt).toLocaleDateString()
+                              : 'System'}
+                          </td>
+
+                          {/* Chevron */}
+                          <td className="px-5 py-3.5 text-right text-zinc-500 group-hover:text-zinc-200 transition-colors">
+                            <CaretRight className="w-4 h-4 ml-auto" />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* PaginationToolbar */}
+            <div className="px-4">
+              <PaginationToolbar
+                currentPage={groupCurrentPage}
+                totalPages={groupTotalPages}
+                totalItems={filteredGroups.length}
+                pageSize={groupPageSize}
+                onPageChange={setGroupCurrentPage}
+                onPageSizeChange={setGroupPageSize}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create / Edit Group Modal */}
+      {isGroupModalOpen && (
+        <Modal
+          isOpen={isGroupModalOpen}
+          onClose={() => {
+            setIsGroupModalOpen(false);
+            setEditingGroup(null);
+          }}
+          title={editingGroup ? `Edit Group: ${editingGroup.name}` : 'Create Device Group'}
+          description="Group infrastructure targets together to execute coordinated parallel baseline captures."
+        >
+          <form onSubmit={handleSaveGroup} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">Group Name</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Core Backbone, DC Leaf Switches"
+                value={groupFormData.name}
+                onChange={(e) => setGroupFormData({ ...groupFormData, name: e.target.value })}
+                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">Description</label>
+              <input
+                type="text"
+                placeholder="Optional purpose, topology tier, or maintenance scope"
+                value={groupFormData.description}
+                onChange={(e) => setGroupFormData({ ...groupFormData, description: e.target.value })}
+                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-zinc-300">
+                  Select Member Devices ({groupFormData.deviceIds.length} of {devices.length} selected)
+                </label>
+                <div className="flex gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setGroupFormData({ ...groupFormData, deviceIds: devices.map((d) => d.deviceId) })
+                    }
+                    className="text-[#c8ff00] hover:underline cursor-pointer font-semibold"
+                  >
+                    Select all
+                  </button>
+                  <span className="text-zinc-600">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setGroupFormData({ ...groupFormData, deviceIds: [] })}
+                    className="text-zinc-400 hover:text-zinc-200 hover:underline cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div className="max-h-56 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-950/60 p-2 divide-y divide-zinc-850">
+                {devices.map((device) => {
+                  const isChecked = groupFormData.deviceIds.includes(device.deviceId);
+                  return (
+                    <label
+                      key={device.deviceId}
+                      className="flex items-center justify-between p-2 hover:bg-zinc-900/60 rounded-lg cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleDeviceInGroup(device.deviceId)}
+                          className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-[#c8ff00] focus:ring-[#c8ff00] cursor-pointer"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-zinc-200 truncate">{device.name}</div>
+                        </div>
+                      </div>
+                      <Badge variant="default" size="sm">
+                        {device.deviceType}
+                      </Badge>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setIsGroupModalOpen(false);
+                  setEditingGroup(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary">
+                {editingGroup ? 'Save Changes' : 'Create Group'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Delete Group Confirmation Dialog */}
+      {deletingGroup && (
+        <ConfirmDialog
+          isOpen={Boolean(deletingGroup)}
+          onClose={() => setDeletingGroup(null)}
+          onConfirm={handleConfirmDeleteGroup}
+          title={`Delete Group: ${deletingGroup.name}`}
+          message={`Delete device group "${deletingGroup.name}"? Member devices will remain in the inventory.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+        />
+      )}
 
       {/* Register Device Modal with Single and Bulk Tabs */}
       <Modal
@@ -607,7 +1066,7 @@ export const DevicesPage: React.FC = () => {
             <form onSubmit={handleCreateSingleDevice} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                  Device Name / Host Label
+                  Device Name
                 </label>
                 <input
                   type="text"
@@ -939,7 +1398,7 @@ export const DevicesPage: React.FC = () => {
           <form onSubmit={handleEditSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                Device Name / Host Label
+                Device Name
               </label>
               <input
                 type="text"
@@ -1088,6 +1547,20 @@ export const DevicesPage: React.FC = () => {
           confirmText="Update"
           cancelText="Cancel"
           variant="warning"
+        />
+      )}
+
+      {/* Delete Group Confirmation Dialog */}
+      {deletingGroup && (
+        <ConfirmDialog
+          isOpen={Boolean(deletingGroup)}
+          onClose={() => setDeletingGroup(null)}
+          onConfirm={handleConfirmDeleteGroup}
+          title={`Delete ${deletingGroup.name}`}
+          message={`Delete device group "${deletingGroup.name}"? Target member devices will remain in the inventory, but this grouping definition will be permanently removed.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
         />
       )}
     </div>

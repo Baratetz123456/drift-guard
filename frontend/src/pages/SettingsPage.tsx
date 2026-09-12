@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
+import { detectUserTimezoneAndRegion } from '../utils/geoDetection';
 import {
   Gear,
   Key,
@@ -30,6 +31,7 @@ export const SettingsPage: React.FC = () => {
   const { settings, updateSettings, user, logout } = useAppStore();
   const [activeTab, setActiveTab] = useState<'ai' | 'ssh' | 'diff' | 'account'>('ai');
   const [isConfirmingSave, setIsConfirmingSave] = useState(false);
+  const geoInfo = useMemo(() => detectUserTimezoneAndRegion(), []);
 
   // AI Tab form state
   const [baseUrl, setBaseUrl] = useState(settings.aiBaseUrl || 'https://openrouter.ai/api/v1');
@@ -315,6 +317,32 @@ export const SettingsPage: React.FC = () => {
               <div className="flex justify-between py-1.5">
                 <span className="text-zinc-400">Session</span>
                 <span className="text-[#c8ff00] font-mono font-semibold">Cognito JWT active</span>
+              </div>
+            </div>
+
+            {/* Regional Localization & Telemetry */}
+            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold text-zinc-200">Regional Localization & Telemetry</h3>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">
+                    Automatically detected from browser client environment.
+                  </p>
+                </div>
+                <Badge variant="default" size="sm">
+                  Auto-detected
+                </Badge>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-900/20 space-y-2.5 text-xs">
+                <div className="flex justify-between items-center py-1 border-b border-zinc-800">
+                  <span className="text-zinc-400">Operational Region</span>
+                  <span className="text-zinc-200 font-semibold">{geoInfo.region} ({geoInfo.regionCode})</span>
+                </div>
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-zinc-400">Local Timezone</span>
+                  <span className="text-zinc-200 font-mono">{geoInfo.formattedTimezone}</span>
+                </div>
               </div>
             </div>
 

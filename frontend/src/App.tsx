@@ -8,6 +8,12 @@ import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage';
 import { TermsPage } from './pages/legal/TermsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { SetupPage } from './pages/SetupPage';
+import { DeviceDetailPage } from './pages/DeviceDetailPage';
+import { DeviceGroupDetailPage } from './pages/DeviceGroupDetailPage';
+import { CommandSetDetailPage } from './pages/CommandSetDetailPage';
+import { SnapshotDetailPage } from './pages/SnapshotDetailPage';
+import { ComparisonDetailPage } from './pages/ComparisonDetailPage';
+import { AuditLogDetailPage } from './pages/AuditLogDetailPage';
 import { OperationsPage } from './pages/OperationsPage';
 import { AnalysisPage } from './pages/AnalysisPage';
 
@@ -27,8 +33,14 @@ export const App: React.FC = () => {
             {/* 4 Primary Operational Phases */}
             <Route index element={<DashboardPage />} />
             <Route path="setup" element={<SetupPage />} />
+            <Route path="setup/devices/:deviceId" element={<DeviceDetailPage />} />
+            <Route path="setup/groups/:groupId" element={<DeviceGroupDetailPage />} />
+            <Route path="setup/commands/:setId" element={<CommandSetDetailPage />} />
             <Route path="operations" element={<OperationsPage />} />
+            <Route path="operations/snapshots/:snapshotId" element={<SnapshotDetailPage />} />
+            <Route path="operations/audit/:auditId" element={<AuditLogDetailPage />} />
             <Route path="analysis" element={<AnalysisPage />} />
+            <Route path="analysis/comparisons/:comparisonId" element={<ComparisonDetailPage />} />
 
             {/* Seamless Backward-Compatible Legacy Redirects */}
             <Route path="devices" element={<Navigate to="/setup?tab=devices" replace />} />

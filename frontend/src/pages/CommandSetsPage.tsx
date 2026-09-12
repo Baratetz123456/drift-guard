@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { CommandSet, DeviceType } from '../types';
 import { Badge } from '../components/common/Badge';
@@ -21,9 +22,11 @@ import {
   MagnifyingGlass,
   Funnel,
   Sparkle,
+  CaretRight,
 } from '@phosphor-icons/react';
 
 export const CommandSetsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { commandSets, addCommandSet, updateCommandSet, deleteCommandSet } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [driverFilter, setDriverFilter] = useState<string>('ALL');
@@ -225,7 +228,7 @@ export const CommandSetsPage: React.FC = () => {
                 <th className="px-5 py-3">Target Driver</th>
                 <th className="px-5 py-3">Commands</th>
                 <th className="px-5 py-3">Safety Status</th>
-                <th className="px-5 py-3 text-right">Actions</th>
+                <th className="px-5 py-3 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60 font-sans">
@@ -249,10 +252,14 @@ export const CommandSetsPage: React.FC = () => {
                 </tr>
               ) : (
                 paginatedSets.map((set: CommandSet) => (
-                  <tr key={set.setId} className="hover:bg-zinc-900/50 transition-colors">
+                  <tr
+                    key={set.setId}
+                    onClick={() => navigate(`/setup/commands/${set.setId}`)}
+                    className="hover:bg-zinc-800/40 transition-colors cursor-pointer group"
+                  >
                     <td className="px-5 py-3.5 max-w-xs">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-zinc-100">{set.name}</span>
+                        <span className="font-bold text-zinc-100 group-hover:text-white transition-colors">{set.name}</span>
                         {set.isDefault && (
                           <Badge variant="default" size="sm">
                             DEFAULT
@@ -265,21 +272,17 @@ export const CommandSetsPage: React.FC = () => {
                       {set.deviceType}
                     </td>
                     <td className="px-5 py-3.5">
-                      <div
-                        onClick={() => setInspectingSet(set)}
-                        className="flex flex-wrap gap-1 max-w-md cursor-pointer group"
-                        title="Click to inspect all commands"
-                      >
+                      <div className="flex flex-wrap gap-1 max-w-md">
                         {set.commands.slice(0, 3).map((cmd: string, idx: number) => (
                           <span
                             key={idx}
-                            className="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700/60 group-hover:border-zinc-500 transition-colors"
+                            className="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700/60"
                           >
                             {cmd}
                           </span>
                         ))}
                         {set.commands.length > 3 && (
-                          <span className="text-[10px] font-mono text-[#c8ff00] font-semibold self-center hover:underline">
+                          <span className="text-[10px] font-mono text-[#c8ff00] font-semibold self-center">
                             +{set.commands.length - 3} more
                           </span>
                         )}
@@ -291,32 +294,8 @@ export const CommandSetsPage: React.FC = () => {
                         Read-Only Verified
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setInspectingSet(set)}
-                        >
-                          Inspect
-                        </Button>
-                        <button
-                          onClick={() => handleStartEdit(set)}
-                          className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
-                          title="Edit"
-                        >
-                          <PencilSimple className="w-4 h-4" />
-                        </button>
-                        {!set.isDefault && (
-                          <button
-                            onClick={() => setDeletingSet(set)}
-                            className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
-                            title="Delete"
-                          >
-                            <Trash className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
+                    <td className="px-5 py-3.5 text-right text-zinc-500 group-hover:text-zinc-200 transition-colors">
+                      <CaretRight className="w-4 h-4 ml-auto" />
                     </td>
                   </tr>
                 ))
