@@ -32,9 +32,51 @@ DriftGuard operates under an autonomous multi-agent software engineering team pr
 | :--- | :--- | :--- | :--- |
 | **Lead Orchestrator** | `@orchestrator` | Task intake, scope decomposition, gating transitions, synthesis | `agent-orchestrator`, `brand-driftguard` |
 | **Architect** | `@architect` | Requirements analysis, AWS serverless design, Cisco CLI data models | `agent-architect`, `brand-driftguard` |
-| **Implementer** | `@implementer` | Backend Lambda microservices, React 19/TS UI, DynamoDB access | `agent-implementer`, `brand-driftguard` |
-| **Tester** | `@tester` | Terminal execution (`npm run build`, `pytest`), mock testing | `agent-tester` |
-| **Reviewer & Verifier** | `@reviewer` | Cisco read-only safety, KMS security audit, UI consistency | `agent-reviewer`, `brand-driftguard` |
+| **Implementer** | `@implementer` | Backend Lambda microservices, React 19/TS UI, DynamoDB access | `agent-implementer`, `brand-driftguard`, `taste-skill`, `impeccable` |
+| **Tester** | `@tester` | Terminal execution (`npm run build`, `pytest`), mock testing | `agent-tester`, `webapp-testing` |
+| **Reviewer & Verifier** | `@reviewer` | Cisco read-only safety, KMS security audit, UI consistency | `agent-reviewer`, `brand-driftguard`, `impeccable` |
+
+---
+
+## 1.1. Sub-Agent Spawning Protocol & Lifecycle Hierarchy
+
+DriftGuard implements runtime sub-agent spawning to enable focused, isolated task execution without contextual pollution.
+
+### 1. Distributed Spawning Authority
+Both the **Lead Orchestrator** and all primary specialists (`@architect`, `@implementer`, `@tester`, `@reviewer`) possess authority to spawn focused sub-agents within their functional domains during runtime.
+
+### 2. 1-Level Depth Constraint (The Anti-Recursion Law)
+- Sub-agent nesting is strictly constrained to **Depth = 1** (`Primary Role -> Sub-Agent`).
+- Sub-agents MUST NOT spawn secondary sub-agents.
+- Sub-agents MUST report all findings, diffs, or test results directly back to their parent agent before terminating.
+- The parent agent retains ultimate operational accountability and synthesizes the sub-agent's deliverable before advancing the workflow.
+
+### 3. Sub-Agent Roster (Hybrid Architecture)
+Primary agents may spawn standardized archetypes or declare ad-hoc domain sub-agents for bespoke tasks:
+
+| Parent Role | Standard Sub-Agent Archetypes | Primary Focus |
+| :--- | :--- | :--- |
+| **`@orchestrator`** | `@researcher` | Deep codebase audits, file exploration, architectural history retrieval |
+| **`@architect`** | `@cloud-architect`<br>`@network-modeler` | AWS SAM / DynamoDB / Cognito contracts<br>Cisco CLI state machines & non-mutating show command structures |
+| **`@implementer`** | `@backend-worker`<br>`@frontend-worker` | Python Lambda microservices, Boto3, Pydantic v2<br>React 19, TypeScript, Tailwind dark glassmorphism, Taste-Skill & Impeccable craft |
+| **`@tester`** | `@build-verifier`<br>`@test-runner`<br>`@e2e-tester` | TypeScript compilation (`npm run build`), Vite bundler checks<br>Python `pytest` execution, Playwright webapp-testing |
+| **`@reviewer`** | `@cisco-safety-auditor`<br>`@security-auditor` | Zero-mutation Cisco show command audit (`config t`, `reload` checks)<br>KMS envelope encryption, Cognito JWTs, session isolation |
+| *Ad-hoc Domain* | `@<domain>-worker` | Dynamically declared by parent for isolated, single-file or bespoke micro-tasks |
+
+### 4. Structured 3-Block In-Chat Lifecycle
+Every sub-agent invocation MUST follow this three-block markdown format in chat:
+
+```markdown
+#### 🚀 [<Parent>] -> Spawning Sub-Agent [@<sub-agent>]
+**Sub-Agent Goal**: <Concise, singular task objective>
+**Context Scope**: <Target files, paths, and constraints>
+
+##### ⚡ [@<sub-agent>] Execution
+<Sub-agent execution steps, code modifications, or analysis>
+
+##### ↩️ [@<sub-agent>] -> Reporting to [<Parent>]
+**Deliverable**: <Concise summary of generated code, audit verdicts, or build outputs>
+```
 
 ---
 
@@ -66,7 +108,7 @@ Every standard feature or bugfix task follows this 4-phase sequence:
 
 ### Phase 3: Automated Testing (`@tester`)
 - Tester executes real terminal validation commands:
-  - Frontend: `npm run build` in `d:\DeltaNet\frontend`
+  - Frontend: `npm run build` in `d:\DriftGuard\drift-guard\frontend`
   - Backend: `pytest` / syntax validation
 - Verifies zero regressions, clean compilation, and verifies mocks or live dev servers.
 
@@ -82,7 +124,7 @@ Every standard feature or bugfix task follows this 4-phase sequence:
 ## 4. Quality Rules & Constraints
 
 - **Documentation Integrity**: Never remove comments or docstrings unrelated to current edits.
-- **Clickable Links**: All file and symbol references MUST use GitHub-style markdown links with `file://` scheme (e.g. `[handler.py](file:///d:/DeltaNet/backend/functions/devices/handler.py)`).
+- **Clickable Links**: All file and symbol references MUST use GitHub-style markdown links with `file://` scheme (e.g. `[handler.py](file:///d:/DriftGuard/drift-guard/backend/functions/devices/handler.py)`).
 - **Desktop-First Polish**: DriftGuard is an enterprise desktop verification instrument. Keep typography crisp (Inter + JetBrains Mono) and avoid plain default styles.
 - **Session Lifecycle & Storage Isolation**:
   - All operator sessions MUST use cryptographically structured JWTs (emulating the AWS Cognito User Pool ID token schema with `sub`, `email`, `cognito:groups`, `token_use: 'id'`, `iss`, `iat`, and `exp`).
