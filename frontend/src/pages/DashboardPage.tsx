@@ -191,7 +191,7 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Senior Engineer Efficiency Pro-Tip */}
+            {/* Engineer Efficiency Pro-Tip */}
             <div className="p-3.5 rounded-lg border-l-2 border-[#c8ff00] bg-zinc-900/40 text-sm text-zinc-200 space-y-1">
               <span className="font-bold text-[#c8ff00]">Efficiency Pro-Tip: </span>
               <span>
@@ -244,7 +244,7 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Senior Engineer Efficiency Pro-Tip */}
+            {/* Engineer Efficiency Pro-Tip */}
             <div className="p-3.5 rounded-lg border-l-2 border-[#c8ff00] bg-zinc-900/40 text-sm text-zinc-200 space-y-1">
               <span className="font-bold text-[#c8ff00]">Efficiency Pro-Tip: </span>
               <span>
@@ -298,7 +298,7 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Senior Engineer Efficiency Pro-Tip */}
+            {/* Engineer Efficiency Pro-Tip */}
             <div className="p-3.5 rounded-lg border-l-2 border-[#c8ff00] bg-zinc-900/40 text-sm text-zinc-200 space-y-1">
               <span className="font-bold text-[#c8ff00]">Efficiency Pro-Tip: </span>
               <span>

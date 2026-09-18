@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import { Select } from '../components/common/Select';
 import { DateRangeFilter, DateRangeValue, isWithinDateRange } from '../components/common/DateRangeFilter';
 import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
 import { Comparison, AIAnalysis } from '../types';
@@ -81,11 +82,11 @@ export const HistoryPage: React.FC = () => {
   return (
     <div className="space-y-6 font-sans">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
           <ClockCounterClockwise className="w-6 h-6 text-zinc-300" weight="duotone" />
           <span>Timeline & Change History</span>
         </h1>
-        <p className="text-sm text-zinc-400 mt-1">
+        <p className="text-xs text-zinc-400 mt-1">
           Historical record of network maintenance windows, line-by-line comparisons, and associated AI audits across 50–100 devices.
         </p>
       </div>
@@ -121,35 +122,35 @@ export const HistoryPage: React.FC = () => {
         {/* Dropdowns */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Device Dropdown */}
-          <div className="flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5">
-            <HardDrives className="w-3.5 h-3.5 text-zinc-500" />
-            <select
+          <div className="w-40">
+            <Select
+              size="sm"
+              icon={<HardDrives className="w-3.5 h-3.5 text-zinc-500" />}
               value={deviceFilter}
               onChange={(e) => {
                 setDeviceFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer max-w-[140px]"
             >
-              <option value="ALL">All Devices ({allDeviceNames.length})</option>
+              <option value="ALL">All Devices</option>
               {allDeviceNames.map((dev) => (
                 <option key={dev} value={dev}>
                   {dev}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Platform / Driver Dropdown */}
-          <div className="flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5">
-            <Funnel className="w-3.5 h-3.5 text-zinc-500" />
-            <select
+          <div className="w-36">
+            <Select
+              size="sm"
+              icon={<Funnel className="w-3.5 h-3.5 text-zinc-500" />}
               value={platformFilter}
               onChange={(e) => {
                 setPlatformFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
             >
               <option value="ALL">All Drivers</option>
               {CISCO_DEVICE_PLATFORMS.map((p) => (
@@ -157,25 +158,27 @@ export const HistoryPage: React.FC = () => {
                   {p.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Risk Severity Dropdown */}
-          <select
-            value={riskFilter}
-            onChange={(e) => {
-              setRiskFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 cursor-pointer"
-          >
-            <option value="ALL">All Risks</option>
-            <option value="SAFE">SAFE</option>
-            <option value="LOW">LOW</option>
-            <option value="MEDIUM">MEDIUM</option>
-            <option value="HIGH">HIGH</option>
-            <option value="CRITICAL">CRITICAL</option>
-          </select>
+          <div className="w-32">
+            <Select
+              size="sm"
+              value={riskFilter}
+              onChange={(e) => {
+                setRiskFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="ALL">All Risks</option>
+              <option value="SAFE">SAFE</option>
+              <option value="LOW">LOW</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="HIGH">HIGH</option>
+              <option value="CRITICAL">CRITICAL</option>
+            </Select>
+          </div>
         </div>
       </div>
 

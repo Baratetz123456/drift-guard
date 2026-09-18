@@ -123,7 +123,7 @@ const AI_MODELS_STORAGE_KEY = 'driftguard_ai_models';
 const initialAIModels: ConfiguredAIModel[] = [
   {
     id: 'model-gemini-free',
-    name: 'Gemini 2.0 Flash Lite (Default Free Tier)',
+    name: 'DriftGuard AI Model',
     modelIdentifier: 'google/gemini-2.0-flash-lite:free',
     baseUrl: 'https://openrouter.ai/api/v1',
     isDefault: true,
@@ -138,7 +138,9 @@ const MOCK_MODEL_IDS = new Set(['model-claude-35-sonnet', 'model-gpt-4o', 'model
 function loadStoredAIModels(): ConfiguredAIModel[] {
   const loaded = loadStoredItems<ConfiguredAIModel[]>(AI_MODELS_STORAGE_KEY, initialAIModels);
   // Filter out any legacy mock models so only genuine configured models and default exist
-  const sanitized = loaded.filter((m) => !MOCK_MODEL_IDS.has(m.id));
+  const sanitized = loaded
+    .filter((m) => !MOCK_MODEL_IDS.has(m.id))
+    .map((m) => (m.isDefault || m.id === 'model-gemini-free' ? { ...m, name: 'DriftGuard AI Model' } : m));
   // Guarantee the default free tier model is present
   if (!sanitized.some((m) => m.isDefault)) {
     sanitized.unshift(initialAIModels[0]);
@@ -148,6 +150,20 @@ function loadStoredAIModels(): ConfiguredAIModel[] {
     sanitized[0].isActive = true;
   }
   persistItems(AI_MODELS_STORAGE_KEY, sanitized);
+  return sanitized;
+}
+
+function loadStoredAnalyses(): AIAnalysis[] {
+  const loaded = loadStoredItems<AIAnalysis[]>(ANALYSES_STORAGE_KEY, []);
+  const sanitized = loaded.map((a) => ({
+    ...a,
+    summary: a.summary?.replace(/Senior engineer/gi, 'Engineer'),
+    executiveSummary: a.executiveSummary
+      ?.replace(/google\/gemini-2\.0-flash-lite:free/gi, 'DriftGuard AI Model')
+      ?.replace(/Senior engineer/gi, 'Engineer'),
+    suggestedRollbackPlan: a.suggestedRollbackPlan?.replace(/Senior engineer/gi, 'Engineer'),
+  }));
+  persistItems(ANALYSES_STORAGE_KEY, sanitized);
   return sanitized;
 }
 
@@ -344,7 +360,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   commandSets: loadStoredItems<CommandSet[]>(COMMAND_SETS_STORAGE_KEY, initialCommandSets),
   snapshots: loadStoredItems<Snapshot[]>(SNAPSHOTS_STORAGE_KEY, []),
   comparisons: loadStoredItems<Comparison[]>(COMPARISONS_STORAGE_KEY, []),
-  analyses: loadStoredItems<AIAnalysis[]>(ANALYSES_STORAGE_KEY, []),
+  analyses: loadStoredAnalyses(),
   auditLogs: loadStoredItems<AuditLogEntry[]>(AUDIT_LOGS_STORAGE_KEY, []),
   settings: initialSettings,
   aiModels: loadStoredAIModels(),
@@ -732,7 +748,7 @@ Evaluate the operational risk, routing protocol changes, interface flaps, and pr
 Output in JSON format with keys:
 - overallRisk: "Critical" | "High" | "Medium" | "Low" | "Informational"
 - riskScore: number (0-100)
-- summary: string (Senior engineer calm technical summary)
+- summary: string (Engineer calm technical summary)
 - executiveSummary: string (Risk blast radius explanation)
 - findings: array of { title, category ("ROUTING" | "INTERFACES" | "SECURITY" | "SYSTEM"), severity, description, potentialImpact, recommendation }
 - suggestedRollbackPlan: string (CLI commands)
@@ -754,7 +770,7 @@ ${diffEntries || 'No configuration changes detected.'}`;
               {
                 role: 'system',
                 content:
-                  'You are DriftGuard Senior Network State Verification AI. Respond ONLY with valid JSON conforming to calm senior engineer standards.',
+                  'You are DriftGuard Network State Verification AI. Respond ONLY with valid JSON conforming to calm engineer standards.',
               },
               { role: 'user', content: promptText },
             ],
@@ -823,13 +839,17 @@ ${diffEntries || 'No configuration changes detected.'}`;
         });
       }
 
+      const modelDisplayName = currentModel.includes('gemini') || currentModel.includes('free')
+        ? 'DriftGuard AI Model'
+        : currentModel;
+
       parsedResult = {
         overallRisk: severity,
         riskScore,
-        summary: `DriftGuard analysis suggests state divergence on ${comparison.deviceName}. Senior engineer verification required.`,
-        executiveSummary: `Post-change verification on ${comparison.deviceName} analyzed via ${currentModel}.`,
+        summary: `DriftGuard analysis suggests state divergence on ${comparison.deviceName}. Engineer verification required.`,
+        executiveSummary: `Post-change verification on ${comparison.deviceName} analyzed via ${modelDisplayName}.`,
         findings: findingsList,
-        suggestedRollbackPlan: `# Recommended Rollback Runbook (Advisory)\n# Senior engineer verification required prior to script execution.\n1. Revert modified configurations\n2. Clear routing session soft-reset\n3. Capture post-rollback snapshot to verify baseline restore.`
+        suggestedRollbackPlan: `# Recommended Rollback Runbook (Advisory)\n# Engineer verification required prior to script execution.\n1. Revert modified configurations\n2. Clear routing session soft-reset\n3. Capture post-rollback snapshot to verify baseline restore.`
       };
     }
 
@@ -852,6 +872,10 @@ ${diffEntries || 'No configuration changes detected.'}`;
         ? 50
         : 20;
 
+    const fallbackModelName = currentModel.includes('gemini') || currentModel.includes('free')
+      ? 'DriftGuard AI Model'
+      : currentModel;
+
     const newAnalysis: AIAnalysis = {
       analysisId: `ana-${Date.now().toString(36)}`,
       comparisonId,
@@ -861,10 +885,10 @@ ${diffEntries || 'No configuration changes detected.'}`;
       riskScore,
       summary:
         parsedResult?.summary ||
-        `DriftGuard analysis suggests state divergence on ${comparison.deviceName}. Senior engineer verification required.`,
+        `DriftGuard analysis suggests state divergence on ${comparison.deviceName}. Engineer verification required.`,
       executiveSummary:
         parsedResult?.executiveSummary ||
-        `Post-change verification on ${comparison.deviceName} analyzed via ${currentModel}.`,
+        `Post-change verification on ${comparison.deviceName} analyzed via ${fallbackModelName}.`,
       findings: parsedResult?.findings || [
         {
           title: 'Routing & Interface State Audit',
@@ -877,7 +901,7 @@ ${diffEntries || 'No configuration changes detected.'}`;
       ],
       suggestedRollbackPlan:
         parsedResult?.suggestedRollbackPlan ||
-        '# Recommended Rollback Runbook (Advisory)\n# Senior engineer verification required prior to script execution.\n1. Revert modified configurations\n2. Clear routing session soft-reset\n3. Capture post-rollback snapshot to verify baseline restore.',
+        '# Recommended Rollback Runbook (Advisory)\n# Engineer verification required prior to script execution.\n1. Revert modified configurations\n2. Clear routing session soft-reset\n3. Capture post-rollback snapshot to verify baseline restore.',
       tokenUsage: {
         promptTokens: 1150,
         completionTokens: 520,
@@ -943,7 +967,7 @@ ${diffEntries || 'No configuration changes detected.'}`;
     return {
       success: true,
       latencyMs,
-      message: `Default Free AI Model (${model}) ready for analysis`,
+      message: `DriftGuard AI Model ready for analysis`,
     };
   },
 

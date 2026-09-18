@@ -2,7 +2,7 @@
  * DriftGuard Standard UI Copy Library
  * Conforms to Voice & Tone Guidelines:
  * - Product Name: DriftGuard | Tagline: "Before. After. Understood."
- * - Calm, precise, directly technical (senior network engineer perspective)
+ * - Calm, precise, directly technical (network engineer perspective)
  * - 3-part error pattern: What happened + What it means + What to do next
  * - Zero blame ("invalid format" instead of "you entered an invalid format")
  * - Zero exclamation marks, emojis, or colloquial humor
@@ -64,7 +64,7 @@ export const UI_COPY = {
 
     aiAdvisory: {
       bannerPrefix: 'DriftGuard analysis suggests',
-      disclaimer: 'Advisory analysis only. Senior engineer verification required before change approval.',
+      disclaimer: 'Advisory analysis only. Engineer verification required before change approval.',
       header: (summary: string) => `DriftGuard analysis suggests: ${summary}`,
     },
 

@@ -7,6 +7,7 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import { Select } from '../components/common/Select';
 import {
   validateCiscoCommandSuite,
   CISCO_DEVICE_PLATFORMS,
@@ -197,15 +198,15 @@ export const CommandSetsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
-            <Funnel className="w-3.5 h-3.5 text-zinc-500" />
-            <select
+          <div className="w-40">
+            <Select
+              size="sm"
+              icon={<Funnel className="w-3.5 h-3.5 text-zinc-500" />}
               value={driverFilter}
               onChange={(e) => {
                 setDriverFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
             >
               <option value="ALL">All Drivers</option>
               {CISCO_DEVICE_PLATFORMS.map((p) => (
@@ -213,7 +214,7 @@ export const CommandSetsPage: React.FC = () => {
                   {p.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
       </div>
@@ -349,20 +350,20 @@ export const CommandSetsPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">Device Driver</label>
-            <select
+            <Select
+              label="Device Driver"
+              size="sm"
               value={formData.deviceType}
               onChange={(e) =>
                 setFormData({ ...formData, deviceType: e.target.value as DeviceType })
               }
-              className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
             >
               {CISCO_DEVICE_PLATFORMS.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>
@@ -464,20 +465,20 @@ export const CommandSetsPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">Device Driver</label>
-              <select
+              <Select
+                label="Device Driver"
+                size="sm"
                 value={editFormData.deviceType}
                 onChange={(e) =>
                   setEditFormData({ ...editFormData, deviceType: e.target.value as DeviceType })
                 }
-                className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
               >
                 {CISCO_DEVICE_PLATFORMS.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>

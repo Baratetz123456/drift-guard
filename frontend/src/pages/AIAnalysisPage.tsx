@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
+import { Select } from '../components/common/Select';
 import { AIAnalysis, Comparison, AnalysisFinding } from '../types';
 import {
   Sparkle,
@@ -84,26 +85,25 @@ export const AIAnalysisPage: React.FC = () => {
     <div className="space-y-6 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
             <Sparkle className="w-6 h-6 text-[#c8ff00]" weight="duotone" />
             <span>DriftGuard Analysis</span>
           </h1>
-          <p className="text-sm text-zinc-400 mt-1">
-            DriftGuard analysis suggests the following operational interpretations. Senior engineer verification required before change approval.
+          <p className="text-xs text-zinc-400 mt-1">
+            DriftGuard analysis suggests the following operational interpretations. Engineer verification required before change approval.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {analyses.length > 1 && (
-            <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300">
-              <span className="text-zinc-500 font-mono">Report:</span>
-              <select
+            <div className="w-64">
+              <Select
+                size="sm"
                 value={activeAnalysis.analysisId}
                 onChange={(e) => {
                   setSelectedAnalysisId(e.target.value);
                   setSearchParams({ tab: 'report', analysisId: e.target.value });
                 }}
-                className="bg-transparent border-none text-xs text-zinc-100 font-mono focus:outline-none cursor-pointer"
               >
                 {analyses.map((a: AIAnalysis) => {
                   const cmp = comparisons.find((c) => c.comparisonId === a.comparisonId);
@@ -113,7 +113,7 @@ export const AIAnalysisPage: React.FC = () => {
                     </option>
                   );
                 })}
-              </select>
+              </Select>
             </div>
           )}
 
@@ -140,12 +140,17 @@ export const AIAnalysisPage: React.FC = () => {
                 Analysis ID: {activeAnalysis.analysisId}
               </span>
               <span className="text-xs text-zinc-400">
-                Model: <strong className="text-zinc-200 font-mono">{settings.defaultModel}</strong>
+                Model:{' '}
+                <strong className="text-zinc-200 font-mono">
+                  {settings.defaultModel?.includes('gemini') || settings.defaultModel?.includes('free')
+                    ? 'DriftGuard AI Model'
+                    : settings.defaultModel}
+                </strong>
               </span>
             </div>
 
             <h2 className="text-xl font-bold text-white leading-snug">
-              {activeAnalysis.summary}
+              {activeAnalysis.summary?.replace(/Senior engineer/gi, 'Engineer')}
             </h2>
 
             <div className="flex items-center gap-4 text-xs text-zinc-400 font-mono">
@@ -191,7 +196,7 @@ export const AIAnalysisPage: React.FC = () => {
       {/* Advisory Operational Disclaimer (Clean Unboxed Inline Notice) */}
       <div className="flex items-center gap-2 text-xs text-zinc-400 py-0.5">
         <ShieldCheck className="w-4 h-4 text-[#c8ff00] shrink-0" weight="duotone" />
-        <span>Senior engineer disclaimer: Advisory interpretations require verification prior to maintenance execution.</span>
+        <span>Engineer disclaimer: Advisory interpretations require verification prior to maintenance execution.</span>
       </div>
 
       {/* Executive Summary for CAB / Management (Unboxed with Accent Border) */}
@@ -203,7 +208,9 @@ export const AIAnalysisPage: React.FC = () => {
           </h3>
         </div>
         <p className="text-sm text-zinc-200 leading-relaxed">
-          {activeAnalysis.executiveSummary}
+          {activeAnalysis.executiveSummary
+            ?.replace(/google\/gemini-2\.0-flash-lite:free/gi, 'DriftGuard AI Model')
+            ?.replace(/Senior engineer/gi, 'Engineer')}
         </p>
       </div>
 

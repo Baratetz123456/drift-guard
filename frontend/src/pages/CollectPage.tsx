@@ -7,6 +7,7 @@ import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import { Select } from '../components/common/Select';
 import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
 import { validateCommandSetCompatibility, isCommandSetCompatible } from '../utils/compatibilityValidator';
 import {
@@ -497,11 +498,11 @@ export const CollectPage: React.FC = () => {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
             <Camera className="w-6 h-6 text-zinc-300" weight="duotone" />
-            <span>Snapshot collector</span>
+            <span>Snapshot Collector</span>
           </h1>
-          <p className="text-sm text-zinc-400 mt-1">
+          <p className="text-xs text-zinc-400 mt-1">
             Follow the 3-step operational workflow to select target network devices, configure command sets, and execute automated state captures.
           </p>
         </div>
@@ -705,15 +706,15 @@ export const CollectPage: React.FC = () => {
                 {/* Filters */}
                 <div className="flex items-center gap-2.5 flex-wrap">
                   {/* Platform */}
-                  <div className="flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5">
-                    <Funnel className="w-3.5 h-3.5 text-zinc-500" />
-                    <select
+                  <div className="w-36">
+                    <Select
+                      size="sm"
+                      icon={<Funnel className="w-3.5 h-3.5 text-zinc-500" />}
                       value={devicePlatformFilter}
                       onChange={(e) => {
                         setDevicePlatformFilter(e.target.value);
                         setDevicePage(1);
                       }}
-                      className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
                     >
                       <option value="ALL">All Drivers</option>
                       {CISCO_DEVICE_PLATFORMS.map((p) => (
@@ -721,22 +722,24 @@ export const CollectPage: React.FC = () => {
                           {p.label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   {/* Status */}
-                  <select
-                    value={deviceStatusFilter}
-                    onChange={(e) => {
-                      setDeviceStatusFilter(e.target.value);
-                      setDevicePage(1);
-                    }}
-                    className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 cursor-pointer"
-                  >
-                    <option value="ALL">All Statuses</option>
-                    <option value="ONLINE">Online Only</option>
-                    <option value="OFFLINE">Offline Only</option>
-                  </select>
+                  <div className="w-36">
+                    <Select
+                      size="sm"
+                      value={deviceStatusFilter}
+                      onChange={(e) => {
+                        setDeviceStatusFilter(e.target.value);
+                        setDevicePage(1);
+                      }}
+                    >
+                      <option value="ALL">All Statuses</option>
+                      <option value="ONLINE">Online Only</option>
+                      <option value="OFFLINE">Offline Only</option>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
@@ -857,21 +860,19 @@ export const CollectPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  Registered Device Groups
-                </label>
-                <select
+                <Select
+                  label="Registered Device Groups"
+                  size="md"
                   disabled={isExecuting}
                   value={selectedGroupId}
                   onChange={(e) => setSelectedGroupId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-100 focus:outline-none focus:border-zinc-500 font-sans cursor-pointer"
                 >
                   {deviceGroups.map((g) => (
                     <option key={g.groupId} value={g.groupId}>
                       {g.name} ({g.deviceIds.length} nodes) — {g.description || 'No description'}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               {selectedGroup && (
@@ -1065,15 +1066,12 @@ export const CollectPage: React.FC = () => {
                 )}
               </div>
 
-              <select
+              <Select
+                size="md"
                 disabled={isExecuting}
                 value={selectedSetId}
                 onChange={(e) => setSelectedSetId(e.target.value)}
-                className={`w-full px-3.5 py-2.5 bg-zinc-950 border rounded-xl text-sm text-zinc-100 focus:outline-none transition-colors font-sans cursor-pointer ${
-                  compatibility.isCompatible
-                    ? 'border-zinc-800 focus:border-zinc-500'
-                    : 'border-rose-700/80 focus:border-rose-500'
-                }`}
+                error={!compatibility.isCompatible ? 'Mismatched driver for target nodes' : undefined}
               >
                 {commandSets.map((s: CommandSet) => {
                   const isComp = isCommandSetCompatible(s, activeTargetDevices);
@@ -1083,7 +1081,7 @@ export const CollectPage: React.FC = () => {
                     </option>
                   );
                 })}
-              </select>
+              </Select>
 
               {/* Commands List Preview */}
               {selectedSet && (

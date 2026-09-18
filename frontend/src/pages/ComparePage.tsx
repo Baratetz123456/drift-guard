@@ -5,6 +5,7 @@ import { Device, Snapshot, DeviceType } from '../types';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import { Select } from '../components/common/Select';
 import { DateRangeFilter, DateRangeValue, isWithinDateRange } from '../components/common/DateRangeFilter';
 import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
 import {
@@ -254,11 +255,11 @@ export const ComparePage: React.FC = () => {
     <div className="space-y-6 font-sans">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
           <GitDiff className="w-6 h-6 text-zinc-300" weight="duotone" />
           <span>Visual Diff & Timeline Comparison</span>
         </h1>
-        <p className="text-sm text-zinc-400 mt-1">
+        <p className="text-xs text-zinc-400 mt-1">
           Follow the 3-step operational workflow to select a network node, isolate change timeline points, and analyze configuration drift.
         </p>
       </div>
@@ -395,15 +396,15 @@ export const ComparePage: React.FC = () => {
             {/* Filters */}
             <div className="flex items-center gap-2.5 flex-wrap">
               {/* Platform */}
-              <div className="flex items-center gap-2 text-sm text-zinc-300 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2">
-                <Funnel className="w-4 h-4 text-zinc-400" />
-                <select
+              <div className="w-36">
+                <Select
+                  size="sm"
+                  icon={<Funnel className="w-3.5 h-3.5 text-zinc-500" />}
                   value={devicePlatformFilter}
                   onChange={(e) => {
                     setDevicePlatformFilter(e.target.value);
                     setDevicePage(1);
                   }}
-                  className="bg-transparent border-none text-sm text-zinc-200 focus:outline-none cursor-pointer"
                 >
                   <option value="ALL">All Drivers</option>
                   {CISCO_DEVICE_PLATFORMS.map((p) => (
@@ -411,22 +412,24 @@ export const ComparePage: React.FC = () => {
                       {p.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               {/* Status */}
-              <select
-                value={deviceStatusFilter}
-                onChange={(e) => {
-                  setDeviceStatusFilter(e.target.value);
-                  setDevicePage(1);
-                }}
-                className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-zinc-600 cursor-pointer"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="ONLINE">Online Only</option>
-                <option value="OFFLINE">Offline Only</option>
-              </select>
+              <div className="w-36">
+                <Select
+                  size="sm"
+                  value={deviceStatusFilter}
+                  onChange={(e) => {
+                    setDeviceStatusFilter(e.target.value);
+                    setDevicePage(1);
+                  }}
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="ONLINE">Online Only</option>
+                  <option value="OFFLINE">Offline Only</option>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -597,18 +600,20 @@ export const ComparePage: React.FC = () => {
               />
             </div>
 
-            <select
-              value={stageFilter}
-              onChange={(e) => {
-                setStageFilter(e.target.value);
-                setTimelinePage(1);
-              }}
-              className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 cursor-pointer"
-            >
-              <option value="ALL">All Stages</option>
-              <option value="PRE">Pre-Change Only</option>
-              <option value="POST">Post-Change Only</option>
-            </select>
+            <div className="w-40">
+              <Select
+                size="sm"
+                value={stageFilter}
+                onChange={(e) => {
+                  setStageFilter(e.target.value);
+                  setTimelinePage(1);
+                }}
+              >
+                <option value="ALL">All Stages</option>
+                <option value="PRE">Pre-Change Only</option>
+                <option value="POST">Post-Change Only</option>
+              </Select>
+            </div>
           </div>
 
           {/* Chronological Snapshot Table */}
@@ -841,7 +846,7 @@ export const ComparePage: React.FC = () => {
                     <div className="text-sm font-semibold text-white flex items-center gap-2">
                       <span>Auto-run AI Analysis</span>
                       <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
-                        {settings.hasApiKey ? 'Custom Key' : 'Default Free Tier'}
+                        {settings.hasApiKey ? 'Custom Key' : 'Built-in Engine'}
                       </span>
                     </div>
                     <div className="text-xs text-zinc-400">
@@ -867,7 +872,11 @@ export const ComparePage: React.FC = () => {
               <div className="pt-2.5 border-t border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-zinc-500">AI Model:</span>
-                  <span className="text-zinc-200 font-bold">{aiAvailability.model}</span>
+                  <span className="text-zinc-200 font-bold">
+                    {aiAvailability.model?.includes('gemini') || aiAvailability.model?.includes('free')
+                      ? 'DriftGuard AI Model'
+                      : aiAvailability.model}
+                  </span>
                   <span className="text-zinc-600">•</span>
                   {aiAvailability.testing ? (
                     <span className="flex items-center gap-1.5 text-zinc-400">

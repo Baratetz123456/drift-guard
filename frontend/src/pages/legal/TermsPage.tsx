@@ -161,7 +161,7 @@ export const TermsPage: React.FC = () => {
               </p>
             </div>
             <p>
-              DriftGuard's AI analysis serves as an automated second opinion to assist senior engineers during maintenance windows. DriftGuard does not automatically execute rollback runbooks or modify device configurations without explicit, human-controlled operator command entry.
+              DriftGuard's AI analysis serves as an automated second opinion to assist engineers during maintenance windows. DriftGuard does not automatically execute rollback runbooks or modify device configurations without explicit, human-controlled operator command entry.
             </p>
           </section>
 

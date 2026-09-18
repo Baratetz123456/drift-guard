@@ -16,7 +16,6 @@ import {
   Eye,
   EyeSlash,
   User,
-  SignOut,
   CheckCircle,
   XCircle,
   CircleNotch,
@@ -32,7 +31,6 @@ export const SettingsPage: React.FC = () => {
     settings,
     updateSettings,
     user,
-    logout,
     aiModels,
     addAIModel,
     updateAIModel,
@@ -306,17 +304,25 @@ export const SettingsPage: React.FC = () => {
                       <span className="text-[10px] font-mono uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#c8ff00] text-zinc-950">
                         Active model
                       </span>
-                      <h3 className="text-sm font-bold text-white">{activeModel.name}</h3>
+                      <h3 className="text-sm font-bold text-white">
+                        {activeModel.isDefault ? 'DriftGuard AI Model' : activeModel.name}
+                      </h3>
                       {activeModel.isDefault && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-400">
-                          Built-in free tier
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[#c8ff00]">
+                          Built-in engine
                         </span>
                       )}
                     </div>
                     <div className="text-xs text-zinc-400 font-mono mt-1 flex items-center gap-2">
-                      <span>{activeModel.modelIdentifier}</span>
-                      <span>•</span>
-                      <span className="truncate max-w-xs">{activeModel.baseUrl || 'https://openrouter.ai/api/v1'}</span>
+                      {activeModel.isDefault ? (
+                        <span>Embedded drift detection engine</span>
+                      ) : (
+                        <>
+                          <span>{activeModel.modelIdentifier}</span>
+                          <span>•</span>
+                          <span className="truncate max-w-xs">{activeModel.baseUrl || 'https://openrouter.ai/api/v1'}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -425,26 +431,34 @@ export const SettingsPage: React.FC = () => {
 
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-sm text-zinc-100">{m.name}</span>
+                            <span className="font-semibold text-sm text-zinc-100">
+                              {m.isDefault ? 'DriftGuard AI Model' : m.name}
+                            </span>
                             {isCurrentActive && (
                               <span className="text-[10px] font-mono px-2 py-0.2 rounded bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30 font-bold">
                                 ACTIVE
                               </span>
                             )}
                             {m.isDefault && (
-                              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
-                                Built-in free
+                              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-800 text-[#c8ff00] border border-zinc-700">
+                                Built-in engine
                               </span>
                             )}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-zinc-400 font-mono">
-                            <span className="text-sky-400">{m.modelIdentifier}</span>
-                            <span>•</span>
-                            <span className="truncate max-w-xs">{m.baseUrl || 'https://openrouter.ai/api/v1'}</span>
-                            {m.apiKeyPreview && (
+                            {m.isDefault ? (
+                              <span className="text-zinc-400">Embedded drift detection engine</span>
+                            ) : (
                               <>
+                                <span className="text-sky-400">{m.modelIdentifier}</span>
                                 <span>•</span>
-                                <span className="text-zinc-500">Key: {m.apiKeyPreview}</span>
+                                <span className="truncate max-w-xs">{m.baseUrl || 'https://openrouter.ai/api/v1'}</span>
+                                {m.apiKeyPreview && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-zinc-500">Key: {m.apiKeyPreview}</span>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>
@@ -702,17 +716,6 @@ export const SettingsPage: React.FC = () => {
                   <span>Privacy policy</span> &rarr;
                 </Link>
               </div>
-            </div>
-
-            <div className="pt-2">
-              <Button
-                type="button"
-                variant="danger"
-                leftIcon={<SignOut className="w-4 h-4" />}
-                onClick={() => logout()}
-              >
-                Sign out
-              </Button>
             </div>
           </div>
         )}
