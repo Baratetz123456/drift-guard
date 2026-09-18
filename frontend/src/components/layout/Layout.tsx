@@ -70,13 +70,10 @@ export const Layout: React.FC = () => {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-950 font-sans text-slate-100">
       {/* Sidebar */}
-      <aside className="w-64 flex flex-col bg-slate-900/60 backdrop-blur-xl shrink-0 z-20">
+      <aside className="w-64 flex flex-col bg-slate-950/80 backdrop-blur-xl shrink-0 z-20">
         {/* Logo & Brand */}
-        <div className="p-5 flex items-center justify-between">
+        <div className="p-5 flex items-center">
           <BrandLogo variant="full" showTagline={true} size={26} />
-          <span className="px-2 py-0.5 bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30 text-xs font-mono font-bold rounded">
-            v1.2
-          </span>
         </div>
 
         {/* Navigation items */}
@@ -109,15 +106,12 @@ export const Layout: React.FC = () => {
             );
           })}
         </nav>
-
-        {/* Sidebar Copyright Footer */}
-        <CopyrightFooter variant="sidebar" />
       </aside>
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header */}
-        <header className="h-16 border-b border-slate-800 bg-slate-900/40 backdrop-blur-lg flex items-center justify-between px-8 shrink-0 z-10">
+        <header className="h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur-xl flex items-center justify-between px-8 shrink-0 z-10">
           <div className="flex items-center gap-3 text-sm text-slate-300">
             <span className="font-semibold text-slate-200">DriftGuard Workspace</span>
             <CaretRight className="w-4 h-4 text-zinc-500" />
@@ -179,22 +173,22 @@ export const Layout: React.FC = () => {
                   </div>
 
                   {/* Auto-detected Region & Timezone */}
-                  <div className="space-y-2 p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 text-xs">
-                    <div className="flex items-center justify-between">
+                  <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 text-xs space-y-2">
+                    <div className="grid grid-cols-[100px_1fr] items-center gap-2">
                       <span className="flex items-center gap-1.5 text-zinc-400">
-                        <GlobeHemisphereWest className="w-4 h-4 text-[#c8ff00]" />
+                        <GlobeHemisphereWest className="w-4 h-4 text-[#c8ff00] shrink-0" />
                         <span>Region</span>
                       </span>
-                      <span className="text-zinc-200 font-semibold">
+                      <span className="text-zinc-200 font-semibold text-right truncate">
                         {geoInfo.region}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="grid grid-cols-[100px_1fr] items-center gap-2">
                       <span className="flex items-center gap-1.5 text-zinc-400">
-                        <Clock className="w-4 h-4 text-sky-400" />
-                        <span>Local Timezone</span>
+                        <Clock className="w-4 h-4 text-sky-400 shrink-0" />
+                        <span>Timezone</span>
                       </span>
-                      <span className="text-zinc-200 font-mono font-medium">
+                      <span className="text-zinc-200 font-mono font-medium text-right truncate">
                         {geoInfo.formattedTimezone}
                       </span>
                     </div>
@@ -203,7 +197,7 @@ export const Layout: React.FC = () => {
                   {/* Navigation Links */}
                   <div className="space-y-1 pt-1 border-t border-zinc-850">
                     <NavLink
-                      to="/setup"
+                      to="/setup?tab=settings&section=account"
                       onClick={() => setIsProfileOpen(false)}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors"
                     >

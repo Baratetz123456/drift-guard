@@ -15,6 +15,7 @@ import {
 import { usePageMetadata } from '../../hooks/usePageMetadata';
 import { BrandLogo } from '../../components/common/BrandLogo';
 import { CopyrightFooter } from '../../components/common/CopyrightFooter';
+import { Checkbox } from '../../components/common/Checkbox';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -137,35 +138,31 @@ export const RegisterPage: React.FC = () => {
             </div>
 
             {/* Terms and Privacy Policy Checkbox Agreement */}
-            <div className="flex items-start gap-2.5 pt-1">
-              <input
-                type="checkbox"
+            <div className="pt-1">
+              <Checkbox
                 id="terms-agreement"
                 required
                 checked={agreedToTerms}
                 onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-[#c8ff00] focus:ring-[#c8ff00]/40 focus:ring-offset-0 cursor-pointer accent-[#c8ff00]"
+                label={
+                  <span className="font-normal text-zinc-400">
+                    I agree to the{' '}
+                    <Link
+                      to="/terms"
+                      className="text-zinc-200 hover:text-[#c8ff00] underline font-semibold transition-colors"
+                    >
+                      Terms of service
+                    </Link>{' '}
+                    and{' '}
+                    <Link
+                      to="/privacy"
+                      className="text-zinc-200 hover:text-[#c8ff00] underline font-semibold transition-colors"
+                    >
+                      Privacy policy
+                    </Link>
+                  </span>
+                }
               />
-              <label
-                htmlFor="terms-agreement"
-                className="text-xs text-zinc-400 leading-normal select-none cursor-pointer"
-              >
-                I agree to the{' '}
-                <Link
-                  to="/terms"
-                  className="text-zinc-200 hover:text-[#c8ff00] underline font-semibold transition-colors"
-                >
-                  Terms of service
-                </Link>{' '}
-                and{' '}
-                <Link
-                  to="/privacy"
-                  className="text-zinc-200 hover:text-[#c8ff00] underline font-semibold transition-colors"
-                >
-                  Privacy policy
-                </Link>
-                .
-              </label>
             </div>
 
             <div className="pt-2">

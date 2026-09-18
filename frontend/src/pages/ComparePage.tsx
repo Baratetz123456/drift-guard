@@ -6,6 +6,7 @@ import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
 import { Select } from '../components/common/Select';
+import { Checkbox } from '../components/common/Checkbox';
 import { DateRangeFilter, DateRangeValue, isWithinDateRange } from '../components/common/DateRangeFilter';
 import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
 import {
@@ -270,29 +271,29 @@ export const ComparePage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveStep(1)}
-          className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 ${
+          className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
             activeStep === 1
-              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg'
+              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg ring-1 ring-[#c8ff00]/30'
               : selectedDevice
               ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700'
               : 'bg-zinc-950/40 border-zinc-900 text-zinc-500'
           }`}
         >
           <div
-            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
-              selectedDevice && activeStep !== 1
-                ? 'bg-[#c8ff00] text-zinc-950'
-                : activeStep === 1
-                ? 'bg-[#c8ff00] text-zinc-950'
-                : 'bg-zinc-800 text-zinc-400'
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${
+              activeStep === 1
+                ? 'bg-[#c8ff00] text-zinc-950 shadow-sm'
+                : selectedDevice && activeStep > 1
+                ? 'bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30'
+                : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
             }`}
           >
-            {selectedDevice && activeStep !== 1 ? <Check className="w-4 h-4" weight="bold" /> : '1'}
+            {selectedDevice && activeStep > 1 ? <Check className="w-4 h-4" weight="bold" /> : '1'}
           </div>
           <div className="truncate">
-            <div className="text-sm font-bold leading-tight">1. Choose Device</div>
-            <div className="text-xs text-zinc-300 truncate mt-0.5">
-              {selectedDevice ? selectedDevice.name : '100 nodes in inventory'}
+            <div className="text-sm font-bold leading-tight text-white">1. Choose Device</div>
+            <div className="text-xs text-zinc-400 truncate mt-1">
+              {selectedDevice ? `${selectedDevice.name} (${selectedDevice.hostname})` : `${devices.length} nodes in inventory`}
             </div>
           </div>
         </button>
@@ -302,38 +303,38 @@ export const ComparePage: React.FC = () => {
           type="button"
           disabled={!selectedDevice}
           onClick={() => selectedDevice && setActiveStep(2)}
-          className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3 ${
+          className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
             !selectedDevice
               ? 'bg-zinc-950/40 border-zinc-900 text-zinc-600 opacity-60 cursor-not-allowed'
               : activeStep === 2
-              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg cursor-pointer'
+              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg ring-1 ring-[#c8ff00]/30'
               : preSnapshot && postSnapshot
-              ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700 cursor-pointer'
-              : 'bg-zinc-900/30 border-zinc-800 text-zinc-400 cursor-pointer'
+              ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+              : 'bg-zinc-900/30 border-zinc-800 text-zinc-400'
           }`}
         >
           <div
-            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
-              preSnapshot && postSnapshot && activeStep !== 2
-                ? 'bg-[#c8ff00] text-zinc-950'
-                : activeStep === 2
-                ? 'bg-[#c8ff00] text-zinc-950'
-                : 'bg-zinc-800 text-zinc-400'
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${
+              activeStep === 2
+                ? 'bg-[#c8ff00] text-zinc-950 shadow-sm'
+                : preSnapshot && postSnapshot && activeStep > 2
+                ? 'bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30'
+                : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
             }`}
           >
-            {preSnapshot && postSnapshot && activeStep !== 2 ? (
+            {preSnapshot && postSnapshot && activeStep > 2 ? (
               <Check className="w-4 h-4" weight="bold" />
             ) : (
               '2'
             )}
           </div>
           <div className="truncate">
-            <div className="text-sm font-bold leading-tight">2. Select Timeline</div>
-            <div className="text-xs text-zinc-300 truncate mt-0.5">
+            <div className="text-sm font-bold leading-tight text-white">2. Select Timeline</div>
+            <div className="text-xs text-zinc-400 truncate mt-1">
               {preSnapshot && postSnapshot
-                ? 'Pre & Post points selected'
+                ? `${preSnapshot.snapshotId} ➔ ${postSnapshot.snapshotId}`
                 : selectedDevice
-                ? 'Pick baseline & verification'
+                ? `${deviceSnapshots.length} snapshot points recorded`
                 : 'Requires device selection'}
             </div>
           </div>
@@ -344,28 +345,32 @@ export const ComparePage: React.FC = () => {
           type="button"
           disabled={!preSnapshot || !postSnapshot}
           onClick={() => preSnapshot && postSnapshot && setActiveStep(3)}
-          className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3 ${
+          className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
             !preSnapshot || !postSnapshot
               ? 'bg-zinc-950/40 border-zinc-900 text-zinc-600 opacity-60 cursor-not-allowed'
               : activeStep === 3
-              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg cursor-pointer'
-              : 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700 cursor-pointer'
+              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg ring-1 ring-[#c8ff00]/30'
+              : 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700'
           }`}
         >
           <div
-            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${
               activeStep === 3
-                ? 'bg-[#c8ff00] text-zinc-950'
+                ? 'bg-[#c8ff00] text-zinc-950 shadow-sm'
                 : preSnapshot && postSnapshot
-                ? 'bg-zinc-800 text-zinc-300'
-                : 'bg-zinc-800 text-zinc-600'
+                ? 'bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30'
+                : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
             }`}
           >
-            3
+            {preSnapshot && postSnapshot && activeStep !== 3 ? (
+              <Check className="w-4 h-4" weight="bold" />
+            ) : (
+              '3'
+            )}
           </div>
           <div className="truncate">
-            <div className="text-sm font-bold leading-tight">3. Review & Compare</div>
-            <div className="text-xs text-zinc-300 truncate mt-0.5">
+            <div className="text-sm font-bold leading-tight text-white">3. Review & Compare</div>
+            <div className="text-xs text-zinc-400 truncate mt-1">
               {preSnapshot && postSnapshot ? 'Ready to compare diff' : 'Pending snapshot selection'}
             </div>
           </div>
@@ -529,10 +534,10 @@ export const ComparePage: React.FC = () => {
       {/* ========================================================================= */}
       {activeStep === 2 && selectedDevice && (
         <div className="space-y-4">
-          {/* Selected Device Context Card */}
-          <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+          {/* Selected Device Context Header */}
+          <div className="pb-4 border-b border-zinc-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-zinc-800/80 border border-zinc-700/80 flex items-center justify-center shrink-0">
                 <HardDrives className="w-5 h-5 text-zinc-300" weight="duotone" />
               </div>
               <div>
@@ -574,7 +579,7 @@ export const ComparePage: React.FC = () => {
           </div>
 
           {/* Date Range Selector */}
-          <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40">
+          <div className="py-2">
             <DateRangeFilter
               value={dateRange}
               onChange={(newRange) => {
@@ -767,10 +772,10 @@ export const ComparePage: React.FC = () => {
       {/* STEP 3: REVIEW & COMPARE PRE-CHECK                                        */}
       {/* ========================================================================= */}
       {activeStep === 3 && preSnapshot && postSnapshot && (
-        <div className="space-y-6 w-full">
-          {/* Side-by-Side Comparison Pre-check Card */}
-          <div className="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div className="space-y-6 w-full pt-1">
+          {/* Side-by-Side Comparison Pre-check */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-4">
               <div>
                 <h2 className="text-xl font-bold text-white">Review Comparison Specifications</h2>
                 <p className="text-sm text-zinc-300 mt-1">
@@ -827,7 +832,7 @@ export const ComparePage: React.FC = () => {
             </div>
 
             {/* Read-Only Safety Pre-check Banner */}
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950/80 flex items-center justify-between text-sm">
+            <div className="p-3.5 rounded-xl bg-zinc-900/40 border border-zinc-800/60 flex items-center justify-between text-sm">
               <div className="flex items-center gap-2 text-zinc-200">
                 <ShieldCheck className="w-5 h-5 text-[#c8ff00]" weight="fill" />
                 <span>DriftGuard verified: Both snapshots contain read-only Cisco show telemetry.</span>
@@ -836,7 +841,7 @@ export const ComparePage: React.FC = () => {
             </div>
 
             {/* Auto-run AI Analysis & Real-Time Model Availability */}
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950/80 space-y-3">
+            <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/60 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#c8ff00]/10 border border-[#c8ff00]/20 flex items-center justify-center shrink-0">
@@ -856,15 +861,10 @@ export const ComparePage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={autoRunAi}
-                      onChange={(e) => setAutoRunAi(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#c8ff00] peer-checked:after:bg-zinc-950"></div>
-                  </label>
+                  <Checkbox
+                    checked={autoRunAi}
+                    onChange={(e) => setAutoRunAi(e.target.checked)}
+                  />
                 </div>
               </div>
 

@@ -122,12 +122,16 @@ const SETTINGS_STORAGE_KEY = 'driftguard_settings';
 const API_KEY_STORAGE_KEY = 'driftguard_api_key';
 const AI_MODELS_STORAGE_KEY = 'driftguard_ai_models';
 
+const DEFAULT_ENV_MODEL = (import.meta.env.VITE_DEFAULT_AI_MODEL as string) || 'google/gemini-2.0-flash-lite:free';
+const DEFAULT_ENV_BASE_URL = (import.meta.env.VITE_DEFAULT_AI_BASE_URL as string) || 'https://openrouter.ai/api/v1';
+const DEFAULT_ENV_MODEL_NAME = (import.meta.env.VITE_DEFAULT_AI_MODEL_NAME as string) || 'DriftGuard AI Model';
+
 const initialAIModels: ConfiguredAIModel[] = [
   {
     id: 'model-gemini-free',
-    name: 'DriftGuard AI Model',
-    modelIdentifier: 'google/gemini-2.0-flash-lite:free',
-    baseUrl: 'https://openrouter.ai/api/v1',
+    name: DEFAULT_ENV_MODEL_NAME,
+    modelIdentifier: DEFAULT_ENV_MODEL,
+    baseUrl: DEFAULT_ENV_BASE_URL,
     isDefault: true,
     isActive: true,
     status: 'online',
@@ -182,12 +186,12 @@ try {
 
 const initialSettings: UserSettings = {
   userId: 'user-default',
-  aiBaseUrl: parsedSavedSettings.aiBaseUrl || 'https://openrouter.ai/api/v1',
+  aiBaseUrl: parsedSavedSettings.aiBaseUrl || DEFAULT_ENV_BASE_URL,
   hasApiKey: Boolean(savedApiKey),
   apiKeyPreview: savedApiKey
     ? `${savedApiKey.substring(0, 8)}...${savedApiKey.slice(-4)}`
     : undefined,
-  defaultModel: parsedSavedSettings.defaultModel || 'google/gemini-2.0-flash-lite:free',
+  defaultModel: parsedSavedSettings.defaultModel || DEFAULT_ENV_MODEL,
   defaultTimeoutSeconds: parsedSavedSettings.defaultTimeoutSeconds || 30,
   maskSecretsInDiffs: parsedSavedSettings.maskSecretsInDiffs ?? true,
   normalizeDynamicCounters: parsedSavedSettings.normalizeDynamicCounters ?? true,

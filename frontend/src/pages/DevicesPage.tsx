@@ -8,6 +8,7 @@ import { Modal } from '../components/common/Modal';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
 import { Select } from '../components/common/Select';
+import { Checkbox } from '../components/common/Checkbox';
 import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
 import { validateIpAddress, validateDeviceType, validateConnectionType } from '../utils/networkValidator';
 import {
@@ -968,11 +969,9 @@ export const DevicesPage: React.FC = () => {
                       className="flex items-center justify-between p-2 hover:bg-zinc-900/60 rounded-lg cursor-pointer transition-colors"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={isChecked}
                           onChange={() => handleToggleDeviceInGroup(device.deviceId)}
-                          className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-[#c8ff00] focus:ring-[#c8ff00] cursor-pointer"
                         />
                         <div className="min-w-0">
                           <div className="text-xs font-bold text-zinc-200 truncate">{device.name}</div>

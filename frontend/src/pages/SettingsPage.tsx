@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
+import { Checkbox } from '../components/common/Checkbox';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { detectUserTimezoneAndRegion } from '../utils/geoDetection';
 import { ConfiguredAIModel } from '../types';
@@ -39,7 +40,36 @@ export const SettingsPage: React.FC = () => {
     testAIModel,
   } = useAppStore();
 
-  const [activeTab, setActiveTab] = useState<'ai' | 'ssh' | 'diff' | 'account'>('ai');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedSection = (searchParams.get('section') || searchParams.get('subtab')) as
+    | 'ai'
+    | 'ssh'
+    | 'diff'
+    | 'account'
+    | null;
+
+  const [activeTab, setActiveTab] = useState<'ai' | 'ssh' | 'diff' | 'account'>(
+    requestedSection && ['ai', 'ssh', 'diff', 'account'].includes(requestedSection)
+      ? requestedSection
+      : 'ai'
+  );
+
+  useEffect(() => {
+    if (requestedSection && ['ai', 'ssh', 'diff', 'account'].includes(requestedSection)) {
+      setActiveTab(requestedSection);
+    }
+  }, [requestedSection]);
+
+  const handleTabChange = (tab: 'ai' | 'ssh' | 'diff' | 'account') => {
+    setActiveTab(tab);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', 'settings');
+      next.set('section', tab);
+      return next;
+    });
+  };
+
   const [isConfirmingSave, setIsConfirmingSave] = useState(false);
   const geoInfo = useMemo(() => detectUserTimezoneAndRegion(), []);
 
@@ -271,7 +301,7 @@ export const SettingsPage: React.FC = () => {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 isActive
                   ? 'bg-zinc-800 text-white border border-zinc-700/80 shadow-sm'
@@ -566,17 +596,17 @@ export const SettingsPage: React.FC = () => {
 
         {/* TAB 2: SSH & Transport */}
         {activeTab === 'ssh' && (
-          <div className="space-y-5">
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40">
+          <div className="space-y-6 w-full">
+            <div className="pb-3 border-b border-zinc-800/60">
               <h3 className="text-sm font-bold text-zinc-200">Netmiko SSH Transport Settings</h3>
-              <p className="text-xs text-zinc-400 mt-1">
+              <p className="text-xs text-zinc-400 mt-0.5">
                 Configure timing constraints for SSH handshakes and long CLI commands on enterprise Cisco gear.
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 pt-1">
               <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
+                <div className="flex items-center justify-between text-xs mb-2">
                   <span className="font-semibold text-zinc-300">Command Execution Timeout</span>
                   <span className="font-mono text-[#c8ff00] font-bold">{timeout}s</span>
                 </div>
@@ -589,7 +619,7 @@ export const SettingsPage: React.FC = () => {
                   onChange={(e) => setTimeoutVal(Number(e.target.value))}
                   className="w-full accent-[#c8ff00] bg-zinc-800 rounded-lg cursor-pointer"
                 />
-                <div className="flex justify-between text-xs text-zinc-400 font-mono mt-1">
+                <div className="flex justify-between text-xs text-zinc-400 font-mono mt-1.5">
                   <span>10s (Fast health check)</span>
                   <span>30s (Default)</span>
                   <span>120s (Large Running-Configs)</span>
@@ -601,87 +631,74 @@ export const SettingsPage: React.FC = () => {
 
         {/* TAB 3: Diff & Safety */}
         {activeTab === 'diff' && (
-          <div className="space-y-5">
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40">
+          <div className="space-y-6 w-full">
+            <div className="pb-3 border-b border-zinc-800/60">
               <h3 className="text-sm font-bold text-zinc-200">Diff Engine & Sanitization Policies</h3>
-              <p className="text-xs text-zinc-400 mt-1">
+              <p className="text-xs text-zinc-400 mt-0.5">
                 Prevent false-positive diff highlights and keep sensitive network credentials masked.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label className="flex items-start gap-3 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer">
-                <input
-                  type="checkbox"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <div className="p-4 rounded-xl bg-zinc-900/40 hover:bg-zinc-900/60 transition-colors">
+                <Checkbox
                   checked={maskSecrets}
                   onChange={(e) => setMaskSecrets(e.target.checked)}
-                  className="mt-0.5 rounded bg-zinc-950 border-zinc-700 text-white focus:ring-0"
+                  label="Mask Secrets & Password Hashes in Diffs"
+                  description="Replaces Cisco type 7/5/8 password hashes, BGP MD5 secrets, and SNMP community strings with [REDACTED_SECRET] before sending to the AI model."
                 />
-                <div>
-                  <div className="text-sm font-semibold text-zinc-200">
-                    Mask Secrets & Password Hashes in Diffs
-                  </div>
-                  <div className="text-xs text-zinc-300 mt-1 leading-relaxed">
-                    Replaces Cisco type 7/5/8 password hashes, BGP MD5 secrets, and SNMP community strings with `[REDACTED_SECRET]` before sending to the AI model.
-                  </div>
-                </div>
-              </label>
+              </div>
 
-              <label className="flex items-start gap-3 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer">
-                <input
-                  type="checkbox"
+              <div className="p-4 rounded-xl bg-zinc-900/40 hover:bg-zinc-900/60 transition-colors">
+                <Checkbox
                   checked={normalizeCounters}
                   onChange={(e) => setNormalizeCounters(e.target.checked)}
-                  className="mt-0.5 rounded bg-zinc-950 border-zinc-700 text-white focus:ring-0"
+                  label="Normalize Dynamic Timers & Packet Counters"
+                  description="Filters out benign timestamp shifts, BGP uptime tickers, and interface packet counters to prevent unnecessary diff noise."
                 />
-                <div>
-                  <div className="text-sm font-semibold text-zinc-200">
-                    Normalize Dynamic Timers & Packet Counters
-                  </div>
-                  <div className="text-xs text-zinc-300 mt-1 leading-relaxed">
-                    Filters out benign timestamp shifts, BGP uptime tickers, and interface packet counters to prevent unnecessary diff noise.
-                  </div>
-                </div>
-              </label>
+              </div>
             </div>
           </div>
         )}
 
         {/* TAB 4: Account */}
         {activeTab === 'account' && (
-          <div className="space-y-5">
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40">
-              <h3 className="text-sm font-bold text-zinc-200">Operator Profile</h3>
-              <p className="text-xs text-zinc-400 mt-1">
-                Authenticated session details and access permissions.
-              </p>
-            </div>
+          <div className="space-y-6 w-full">
+            {/* Operator Profile */}
+            <div className="space-y-3 pb-6 border-b border-zinc-800/60">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-200">Operator Profile</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Authenticated session details and access permissions.
+                </p>
+              </div>
 
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/20 space-y-3 text-sm">
-              <div className="flex justify-between py-1.5 border-b border-zinc-800">
-                <span className="text-zinc-400">Name</span>
-                <span className="text-zinc-200 font-semibold">{user?.name || 'Lead Architect'}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-zinc-800">
-                <span className="text-zinc-400">Email</span>
-                <span className="text-zinc-200 font-mono">{user?.email || 'operator@driftguard.local'}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-zinc-800">
-                <span className="text-zinc-400">Role</span>
-                <span className="text-zinc-200">{user?.role || 'Administrator'}</span>
-              </div>
-              <div className="flex justify-between py-1.5">
-                <span className="text-zinc-400">Session</span>
-                <span className="text-[#c8ff00] font-mono font-semibold">Cognito JWT active</span>
+              <div className="divide-y divide-zinc-800/60 text-sm">
+                <div className="flex justify-between py-2.5">
+                  <span className="text-zinc-400">Name</span>
+                  <span className="text-zinc-200 font-semibold">{user?.name || 'Lead Architect'}</span>
+                </div>
+                <div className="flex justify-between py-2.5">
+                  <span className="text-zinc-400">Email</span>
+                  <span className="text-zinc-200 font-mono">{user?.email || 'operator@driftguard.local'}</span>
+                </div>
+                <div className="flex justify-between py-2.5">
+                  <span className="text-zinc-400">Role</span>
+                  <span className="text-zinc-200">{user?.role || 'Administrator'}</span>
+                </div>
+                <div className="flex justify-between py-2.5">
+                  <span className="text-zinc-400">Session</span>
+                  <span className="text-[#c8ff00] font-mono font-semibold">Cognito JWT active</span>
+                </div>
               </div>
             </div>
 
             {/* Regional Localization & Telemetry */}
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 space-y-3">
+            <div className="space-y-3 pb-6 border-b border-zinc-800/60">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-zinc-200">Regional Localization & Telemetry</h3>
-                  <p className="text-xs text-zinc-400 mt-1">
+                  <p className="text-xs text-zinc-400 mt-0.5">
                     Automatically detected from browser client environment.
                   </p>
                 </div>
@@ -690,12 +707,12 @@ export const SettingsPage: React.FC = () => {
                 </Badge>
               </div>
 
-              <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-900/20 space-y-2.5 text-sm">
-                <div className="flex justify-between items-center py-1 border-b border-zinc-800">
+              <div className="divide-y divide-zinc-800/60 text-sm">
+                <div className="flex justify-between items-center py-2.5">
                   <span className="text-zinc-400">Operational Region</span>
                   <span className="text-zinc-200 font-semibold">{geoInfo.region} ({geoInfo.regionCode})</span>
                 </div>
-                <div className="flex justify-between items-center py-1">
+                <div className="flex justify-between items-center py-2.5">
                   <span className="text-zinc-400">Local Timezone</span>
                   <span className="text-zinc-200 font-mono">{geoInfo.formattedTimezone}</span>
                 </div>
@@ -703,16 +720,16 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* Legal & Compliance Reference */}
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 space-y-2">
-              <h3 className="text-sm font-bold text-zinc-200">Legal & compliance</h3>
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-zinc-200">Legal & Compliance</h3>
               <p className="text-xs text-zinc-400">
                 Review data collection standards, KMS envelope encryption architecture, and advisory AI terms.
               </p>
-              <div className="flex items-center gap-4 pt-1 text-sm">
-                <Link to="/terms" className="text-[#c8ff00] hover:underline font-semibold flex items-center gap-1">
+              <div className="flex items-center gap-4 pt-1 text-xs font-semibold">
+                <Link to="/terms" className="text-[#c8ff00] hover:underline flex items-center gap-1">
                   <span>Terms of service</span> &rarr;
                 </Link>
-                <Link to="/privacy" className="text-[#c8ff00] hover:underline font-semibold flex items-center gap-1">
+                <Link to="/privacy" className="text-[#c8ff00] hover:underline flex items-center gap-1">
                   <span>Privacy policy</span> &rarr;
                 </Link>
               </div>

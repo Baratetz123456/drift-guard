@@ -92,7 +92,7 @@ export const HistoryPage: React.FC = () => {
       </div>
 
       {/* Date Range Preset Selector */}
-      <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40">
+      <div>
         <DateRangeFilter
           value={dateRange}
           onChange={(newRange) => {

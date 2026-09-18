@@ -5,6 +5,7 @@ import { SnapshotType, Device, CommandSet } from '../types';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
+import { Checkbox } from '../components/common/Checkbox';
 import { Modal } from '../components/common/Modal';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
 import { Select } from '../components/common/Select';
@@ -517,17 +518,19 @@ export const CollectPage: React.FC = () => {
           onClick={() => setActiveStep(1)}
           className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
             activeStep === 1
-              ? 'bg-zinc-900 border-[#c8ff00]/60 ring-1 ring-[#c8ff00]/30 shadow-md'
-              : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700'
+              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg ring-1 ring-[#c8ff00]/30'
+              : activeTargetDevices.length > 0
+              ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+              : 'bg-zinc-950/40 border-zinc-900 text-zinc-500'
           }`}
         >
           <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${
               activeStep === 1
-                ? 'bg-[#c8ff00] text-zinc-950'
-                : activeTargetDevices.length > 0
-                ? 'bg-zinc-800 text-[#c8ff00]'
-                : 'bg-zinc-900 text-zinc-500'
+                ? 'bg-[#c8ff00] text-zinc-950 shadow-sm'
+                : activeTargetDevices.length > 0 && activeStep > 1
+                ? 'bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30'
+                : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
             }`}
           >
             {activeTargetDevices.length > 0 && activeStep > 1 ? (
@@ -559,21 +562,23 @@ export const CollectPage: React.FC = () => {
           onClick={() => setActiveStep(2)}
           className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
             activeStep === 2
-              ? 'bg-zinc-900 border-[#c8ff00]/60 ring-1 ring-[#c8ff00]/30 shadow-md'
-              : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed'
+              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg ring-1 ring-[#c8ff00]/30'
+              : selectedSet
+              ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+              : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed'
           }`}
         >
           <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${
               activeStep === 2
-                ? 'bg-[#c8ff00] text-zinc-950'
-                : selectedSet
-                ? 'bg-zinc-800 text-[#c8ff00]'
-                : 'bg-zinc-900 text-zinc-500'
+                ? 'bg-[#c8ff00] text-zinc-950 shadow-sm'
+                : selectedSet && activeStep > 2
+                ? 'bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30'
+                : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
             }`}
           >
             {selectedSet && activeStep > 2 ? (
-              <Check className="w-4 h-4 weight-bold" />
+              <Check className="w-4 h-4" weight="bold" />
             ) : (
               '2'
             )}
@@ -601,21 +606,23 @@ export const CollectPage: React.FC = () => {
           onClick={() => setActiveStep(3)}
           className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
             activeStep === 3
-              ? 'bg-zinc-900 border-[#c8ff00]/60 ring-1 ring-[#c8ff00]/30 shadow-md'
-              : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed'
+              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg ring-1 ring-[#c8ff00]/30'
+              : completedSnapshotIds.length > 0
+              ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+              : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed'
           }`}
         >
           <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${
               activeStep === 3
-                ? 'bg-[#c8ff00] text-zinc-950'
+                ? 'bg-[#c8ff00] text-zinc-950 shadow-sm'
                 : completedSnapshotIds.length > 0
-                ? 'bg-zinc-800 text-[#c8ff00]'
-                : 'bg-zinc-900 text-zinc-500'
+                ? 'bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30'
+                : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
             }`}
           >
             {completedSnapshotIds.length > 0 ? (
-              <Check className="w-4 h-4 weight-bold" />
+              <Check className="w-4 h-4" weight="bold" />
             ) : (
               '3'
             )}
@@ -635,13 +642,13 @@ export const CollectPage: React.FC = () => {
       {activeStep === 1 && (
         <div className="space-y-4 w-full">
           {/* Target Scope 3-Way Mode Selector */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-zinc-800 bg-zinc-900/40">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/60">
             <div className="text-xs text-zinc-300 font-semibold flex items-center gap-2">
               <HardDrives className="w-4 h-4 text-zinc-400" />
               <span>Choose Target Dispatch Mode</span>
             </div>
 
-            <div className="flex items-center gap-1.5 p-1 bg-zinc-950 border border-zinc-800 rounded-lg w-fit">
+            <div className="flex items-center gap-1.5 p-1 bg-zinc-900 border border-zinc-800 rounded-lg w-fit">
               <button
                 type="button"
                 disabled={isExecuting}
@@ -836,7 +843,7 @@ export const CollectPage: React.FC = () => {
 
           {/* DEVICE GROUP TARGET MODE */}
           {collectScope === 'group' && (
-            <Card className="p-6 space-y-4 border-zinc-800 bg-zinc-900/60">
+            <div className="space-y-4 pt-2">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -903,12 +910,12 @@ export const CollectPage: React.FC = () => {
                   )}
                 </div>
               )}
-            </Card>
+            </div>
           )}
 
           {/* CUSTOM BATCH TARGET MODE */}
           {collectScope === 'custom' && (
-            <Card className="p-6 space-y-4 border-zinc-800 bg-zinc-900/60">
+            <div className="space-y-4 pt-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3">
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -982,12 +989,10 @@ export const CollectPage: React.FC = () => {
                       className="flex items-center justify-between px-4 py-2.5 hover:bg-zinc-900/50 cursor-pointer text-xs transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           disabled={isExecuting}
                           checked={isChecked}
                           onChange={() => handleToggleDevice(dev.deviceId)}
-                          className="rounded bg-zinc-900 border-zinc-700 text-[#c8ff00] focus:ring-0 cursor-pointer"
                         />
                         <div className="truncate">
                           <span className="font-bold text-zinc-200">{dev.name}</span>
@@ -1001,11 +1006,11 @@ export const CollectPage: React.FC = () => {
                   );
                 })}
               </div>
-            </Card>
+            </div>
           )}
 
-          {/* Sticky Bottom Progression Bar for Step 1 */}
-          <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl">
+          {/* Fluid Bottom Progression Bar for Step 1 */}
+          <div className="pt-4 border-t border-zinc-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3 text-xs font-mono">
               <span className="text-zinc-400">Target Selected:</span>
               <span className="text-white font-bold">
@@ -1039,8 +1044,8 @@ export const CollectPage: React.FC = () => {
       {/* STEP 2: COMMAND SET & MAINTENANCE PARAMETERS                              */}
       {/* ========================================================================= */}
       {activeStep === 2 && (
-        <div className="space-y-5 w-full">
-          <Card className="p-6 space-y-6 border-zinc-800 bg-zinc-900/60">
+        <div className="space-y-6 w-full pt-2">
+          <div className="space-y-6">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
               <div>
                 <h2 className="text-base font-bold text-white">Configure Command Profile & Telemetry Parameters</h2>
@@ -1196,7 +1201,7 @@ export const CollectPage: React.FC = () => {
                 Proceed to Pre-flight & Run
               </Button>
             </div>
-          </Card>
+          </div>
         </div>
       )}
 
@@ -1208,7 +1213,7 @@ export const CollectPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Column: Pre-Flight Checklist & Control */}
             <div className="lg:col-span-6 space-y-5">
-              <Card className="p-6 space-y-5 border-zinc-800 bg-zinc-900/60">
+              <div className="space-y-5">
                 <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
                   <h3 className="font-bold text-sm text-zinc-200 flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-[#c8ff00]" weight="fill" />
@@ -1325,60 +1330,12 @@ export const CollectPage: React.FC = () => {
                   </div>
                   <span className="font-mono text-[#c8ff00] font-bold">100% Safe</span>
                 </div>
-
-                {/* Primary Execution Button & Back Button */}
-                <div className="space-y-2.5 pt-2">
-                  <Button
-                    variant="primary"
-                    isLoading={isExecuting}
-                    leftIcon={
-                      collectScope !== 'single' ? (
-                        <Lightning className="w-4 h-4" weight="bold" />
-                      ) : (
-                        <Play className="w-4 h-4" weight="bold" />
-                      )
-                    }
-                    onClick={
-                      collectScope === 'single'
-                        ? handleStartSingleCollection
-                        : handleStartBatchCollection
-                    }
-                    disabled={
-                      isExecuting ||
-                      activeTargetDevices.length === 0 ||
-                      !compatibility.isCompatible
-                    }
-                    className="w-full py-3 text-sm"
-                  >
-                    {isExecuting
-                      ? collectScope === 'single'
-                        ? 'Collecting from 1 device…'
-                        : `Collecting from ${activeTargetDevices.length} devices in parallel…`
-                      : !compatibility.isCompatible
-                      ? 'Collection blocked — Incompatible driver profile'
-                      : collectScope === 'single'
-                      ? 'Run collection'
-                      : `Run parallel collection (${activeTargetDevices.length} targets)`}
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={isExecuting}
-                    leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
-                    onClick={() => setActiveStep(2)}
-                    className="w-full"
-                  >
-                    Back to Parameters
-                  </Button>
-                </div>
-              </Card>
+              </div>
             </div>
 
             {/* Right Column: Execution Telemetry & Terminal Logs */}
             <div className="lg:col-span-6 space-y-5">
-              <Card className="p-6 flex flex-col h-full justify-between border-zinc-800 bg-zinc-900/60">
+              <div className="flex flex-col h-full justify-between space-y-5">
                 <div>
                   <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
                     <div className="flex items-center gap-2">
@@ -1525,8 +1482,55 @@ export const CollectPage: React.FC = () => {
                     </div>
                   </div>
                 )}
-              </Card>
+              </div>
             </div>
+          </div>
+
+          {/* Full-Width Action Bar: Back on left, Run collection on right */}
+          <div className="flex items-center justify-between pt-6 border-t border-zinc-800">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={isExecuting}
+              leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
+              onClick={() => setActiveStep(2)}
+            >
+              Back to Parameters
+            </Button>
+
+            <Button
+              variant="primary"
+              size="sm"
+              isLoading={isExecuting}
+              leftIcon={
+                collectScope !== 'single' ? (
+                  <Lightning className="w-4 h-4" weight="bold" />
+                ) : (
+                  <Play className="w-4 h-4" weight="bold" />
+                )
+              }
+              onClick={
+                collectScope === 'single'
+                  ? handleStartSingleCollection
+                  : handleStartBatchCollection
+              }
+              disabled={
+                isExecuting ||
+                activeTargetDevices.length === 0 ||
+                !compatibility.isCompatible
+              }
+            >
+              {isExecuting
+                ? collectScope === 'single'
+                  ? 'Collecting from 1 device…'
+                  : `Collecting from ${activeTargetDevices.length} devices in parallel…`
+                : !compatibility.isCompatible
+                ? 'Collection blocked — Incompatible driver profile'
+                : collectScope === 'single'
+                ? 'Run collection'
+                : `Run collection (${activeTargetDevices.length} targets)`}
+            </Button>
           </div>
         </div>
       )}
@@ -1594,8 +1598,7 @@ export const CollectPage: React.FC = () => {
                       className="flex items-center justify-between px-3 py-2 hover:bg-zinc-900/50 cursor-pointer text-xs"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={isChecked}
                           onChange={() => {
                             setNewGroupDeviceIds((prev) =>
@@ -1604,7 +1607,6 @@ export const CollectPage: React.FC = () => {
                                 : [...prev, dev.deviceId]
                             );
                           }}
-                          className="rounded bg-zinc-900 border-zinc-700 text-[#c8ff00] focus:ring-0 cursor-pointer"
                         />
                         <span className="font-semibold text-zinc-200">{dev.name}</span>
                       </div>
