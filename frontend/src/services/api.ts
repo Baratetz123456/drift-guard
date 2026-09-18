@@ -36,6 +36,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const api = {
+  // Auth & Bot Defense
+  register: (data: { name: string; email: string; password: string; operator_honeypot_code?: string; mount_time_ms?: number }) =>
+    request<{ token: string; user: any }>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  login: (data: { email: string; password: string; operator_honeypot_code?: string; mount_time_ms?: number }) =>
+    request<{ token: string; user: any }>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+
   // Devices
   getDevices: () => request<{ devices: Device[] }>('/devices'),
   getDevice: (id: string) => request<Device>(`/devices/${id}`),

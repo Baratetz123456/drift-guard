@@ -52,7 +52,7 @@ interface ParallelDeviceProgress {
 export const CollectPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { devices, deviceGroups, commandSets, snapshots, addSnapshot, addDeviceGroup } = useAppStore();
+  const { devices, deviceGroups, commandSets, snapshots, addSnapshot, addDeviceGroup, addToast } = useAppStore();
 
   // Active step in 3-step guided flow: 1. Target -> 2. Parameters -> 3. Execute
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
@@ -299,38 +299,28 @@ export const CollectPage: React.FC = () => {
             ...prev,
             `[LIVE] Authentic Cisco terminal capture completed in ${data.durationMs}ms.`,
           ]);
+        } else {
+          throw new Error('No command output returned from device.');
         }
       } else {
         const errData = await res.json().catch(() => ({}));
-        setTerminalLogs((prev) => [
-          ...prev,
-          `[WARN] Live collector warning: ${errData.detail || res.statusText}. Using fallback synthesis.`,
-        ]);
+        throw new Error(errData.detail || errData.error || `Collector returned HTTP ${res.status}`);
       }
     } catch (err: any) {
+      const errorMsg = err.message || 'SSH connection failure';
       setTerminalLogs((prev) => [
         ...prev,
-        `[WARN] Live collector bridge unreachable (${err.message}). Using local synthesis engine.`,
+        `[ERROR] Live SSH collection failed: ${errorMsg}`,
+        `[ABORT] Snapshot capture aborted. DriftGuard enforces authentic live data only.`,
       ]);
+      addToast('error', `SSH Collection failed for ${selectedDevice.name}: ${errorMsg}`);
+      setIsExecuting(false);
+      return;
     }
 
     if (!isLiveCollected) {
-      for (let i = 0; i < selectedSet.commands.length; i++) {
-        const cmd = selectedSet.commands[i];
-        await new Promise((r) => setTimeout(r, 400));
-        setTerminalLogs((prev) => [
-          ...prev,
-          `[CLI] Executing: ${cmd} (took ${Math.floor(Math.random() * 60) + 30}ms)`,
-        ]);
-
-        if (cmd.includes('interface')) {
-          outputs[cmd] = `Interface              IP-Address      OK? Method Status                Protocol\nGigabitEthernet0/0/0   10.200.1.1      YES NVRAM  up                    up      \nGigabitEthernet0/0/1   10.200.1.5      YES NVRAM  up                    up      \nLoopback0              10.255.255.1    YES NVRAM  up                    up`;
-        } else if (cmd.includes('bgp')) {
-          outputs[cmd] = `BGP router identifier 10.255.255.1, local AS number 65001\nNeighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd\n10.200.1.2      4        65001   14320   14318      490    0    0 04:18:20        18`;
-        } else {
-          outputs[cmd] = `Command output for "${cmd}" successfully captured.\nSystem status normal. CPU load 3%, Memory free 78%.`;
-        }
-      }
+      setIsExecuting(false);
+      return;
     }
 
     setCurrentStep(3);
@@ -341,7 +331,7 @@ export const CollectPage: React.FC = () => {
       `[STORE] Registering snapshot record in persistent state datastore...`,
     ]);
 
-    await new Promise((r) => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 600));
     setCurrentStep(4);
 
     const snap = addSnapshot({
@@ -359,7 +349,7 @@ export const CollectPage: React.FC = () => {
     setCompletedSnapshotIds([snap.snapshotId]);
     setTerminalLogs((prev) => [
       ...prev,
-      `[SUCCESS] Snapshot ${snap.snapshotId} generated and archived to vault. Ready for line-by-line diff.`,
+      `[SUCCESS] Authentic snapshot ${snap.snapshotId} generated and archived to vault. Ready for line-by-line diff.`,
     ]);
     setIsExecuting(false);
   };
@@ -370,7 +360,7 @@ export const CollectPage: React.FC = () => {
     if (targetDevices.length === 0 || !selectedSet || !compatibility.isCompatible) return;
 
     setIsExecuting(true);
-    setCurrentStep(1);
+    setCurrentStep(2);
     setCompletedSnapshotIds([]);
 
     const initialTracking: Record<string, ParallelDeviceProgress> = {};
@@ -396,50 +386,36 @@ export const CollectPage: React.FC = () => {
     await Promise.all(
       targetDevices.map(async (dev) => {
         try {
-          const connectDelay = Math.floor(Math.random() * 600) + 400;
-          await new Promise((r) => setTimeout(r, connectDelay));
-          const latency = Math.floor(Math.random() * 25) + 12;
-
           setParallelProgress((prev) => ({
             ...prev,
             [dev.deviceId]: {
               ...prev[dev.deviceId],
               status: 'executing',
-              latencyMs: latency,
             },
           }));
 
-          setTerminalLogs((prev) => [
-            ...prev,
-            `[SSH] Handshake established with ${dev.name} (${dev.hostname}) — ${latency}ms latency`,
-          ]);
+          const res = await fetch('/api/collect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              deviceId: dev.deviceId,
+              deviceName: dev.name,
+              hostname: dev.hostname,
+              port: dev.port || 22,
+              deviceType: dev.deviceType,
+              username: dev.username,
+              password: dev.password,
+              commands: selectedSet.commands,
+              snapshotType,
+              changeTicket: ticketNumber,
+              notes: `${notes} [Batch Parallel Capture]`,
+            }),
+          });
 
-          const outputs: Record<string, string> = {};
-          for (let i = 0; i < selectedSet.commands.length; i++) {
-            const cmd = selectedSet.commands[i];
-            const execDelay = Math.floor(Math.random() * 400) + 300;
-            await new Promise((r) => setTimeout(r, execDelay));
-
-            outputs[cmd] = `Show command output for "${cmd}" on ${dev.name}.\nCaptured successfully. System status nominal.`;
-
-            setParallelProgress((prev) => ({
-              ...prev,
-              [dev.deviceId]: {
-                ...prev[dev.deviceId],
-                currentCmdIndex: i + 1,
-              },
-            }));
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            throw new Error(data.detail || data.error || 'Live SSH capture failed');
           }
-
-          setParallelProgress((prev) => ({
-            ...prev,
-            [dev.deviceId]: {
-              ...prev[dev.deviceId],
-              status: 'archiving',
-            },
-          }));
-
-          await new Promise((r) => setTimeout(r, 400));
 
           const snap = addSnapshot({
             deviceId: dev.deviceId,
@@ -448,11 +424,10 @@ export const CollectPage: React.FC = () => {
             deviceType: dev.deviceType,
             snapshotType,
             commands: selectedSet.commands,
-            outputs,
+            outputs: data.outputs || {},
             changeTicket: ticketNumber,
             notes: `${notes} [Batch Parallel Capture]`,
           });
-
           createdSnapshots.push(snap.snapshotId);
 
           setParallelProgress((prev) => ({
@@ -469,17 +444,18 @@ export const CollectPage: React.FC = () => {
             `[SUCCESS] Snapshot ${snap.snapshotId} generated for ${dev.name} and committed to vault`,
           ]);
         } catch (err: any) {
+          const errMsg = err?.message || 'SSH connection failed';
           setParallelProgress((prev) => ({
             ...prev,
             [dev.deviceId]: {
               ...prev[dev.deviceId],
               status: 'failed',
-              error: 'SSH timeout on port 22',
+              error: errMsg,
             },
           }));
           setTerminalLogs((prev) => [
             ...prev,
-            `[ERROR] Failed collection for ${dev.name}: Connection timeout`,
+            `[ERROR] Failed collection for ${dev.name}: ${errMsg}`,
           ]);
         }
       })

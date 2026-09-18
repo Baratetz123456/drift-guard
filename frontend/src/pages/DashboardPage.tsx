@@ -29,7 +29,7 @@ export const DashboardPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-12 font-sans w-full max-w-6xl pb-16">
+    <div className="space-y-12 font-sans w-full pb-16">
       {/* ========================================================================= */}
       {/* 1. EDITORIAL HERO & ABOUT DRIFTGUARD                                      */}
       {/* ========================================================================= */}
@@ -121,7 +121,7 @@ export const DashboardPage: React.FC = () => {
           </button>
 
           <button
-            onClick={() => navigate('/analysis?tab=report')}
+            onClick={() => navigate('/analysis?tab=compare')}
             className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800/60 hover:border-zinc-700 text-left transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between text-zinc-400 group-hover:text-white mb-2.5">
@@ -331,7 +331,7 @@ export const DashboardPage: React.FC = () => {
                   Stage 4: Review Advisory AI Risk Synthesis & Audit Trail
                 </h3>
                 <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
-                  /analysis?tab=report
+                  /analysis?tab=compare
                 </span>
               </div>
               <p className="text-sm text-zinc-300 leading-relaxed">
@@ -373,7 +373,7 @@ export const DashboardPage: React.FC = () => {
                 variant="secondary"
                 size="sm"
                 rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-                onClick={() => navigate('/analysis?tab=report')}
+                onClick={() => navigate('/analysis?tab=compare')}
               >
                 Go to AI Risk Analysis
               </Button>
