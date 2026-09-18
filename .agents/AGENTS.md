@@ -219,3 +219,33 @@ All brand assets, color tokens, and logo geometry MUST strictly comply with the 
   - All headings, sub-headings, table headers, badges, and empty states MUST use sentence case conforming to shadcn/ui conventions.
 - **Consistent Terminology**:
   - Strictly use `snapshot`, `collection`, `baseline`, and `diff`.
+
+---
+
+## 7. AI Change Verification & Zero-Change Invariants
+
+- **The Prime Directive of Verification**:
+  - An empty diff, or a diff containing solely expected volatile drift (elapsed uptime between collections, packet/byte counters, interface rates, load average drift), is a **valid, correct, and successful analysis result**.
+  - System output for clean diffs MUST evaluate to severity **`Informational`** with an anchored risk score of **`0/100`**.
+  - Never inflate severity to appear thorough. A false alarm costs the operator more than a cosmetic volatile detail.
+
+- **Layer 1 Code Pre-Filtering (Safety Net & Cost Optimization)**:
+  - Code-level regex screening (`screen_diff_for_functional_changes`) MUST screen out directional volatile noise (elapsed uptime, packet counters, last input/output timestamps) before invoking LLM inference.
+  - If no functional signal remains after screening, the engine MUST early-exit, emit the canonical Informational payload, and report **`0 tokens (Layer 1 pre-filter)`** rather than consuming or hallucinating token usage.
+
+- **Outright Ban on Unanchored AI Numeric Scores**:
+  - LLM prompts MUST explicitly ban numeric scores, percentages, or ratings (`"Do not output numeric scores, percentages, or ratings of any kind."`).
+  - Models MUST output categorical `severity` (`Critical`, `High`, `Medium`, `Low`, `Informational`).
+  - Application code deterministically maps severity to anchored scores:
+    - `Critical` $\to$ **95/100**
+    - `High` $\to$ **80/100**
+    - `Medium` $\to$ **50/100**
+    - `Low` $\to$ **20/100**
+    - `Informational` $\to$ **0/100**
+
+- **Zero-Change Presentation Invariants**:
+  - **Strict Rollback Suppression**: The Automated Rollback & Remediation Runbook MUST NOT be displayed when severity is `Informational`, risk score is `0`, or no changes exist. Never suggest reverting configurations or soft-resetting routing sessions when no changes occurred.
+  - **Positive Baseline Congruent State**: When the findings count is 0, the UI MUST render a positive verification banner (**`Baseline Congruent`** with a **`Safe to Approve`** Voltage `#c8ff00` badge) confirming state congruence with the baseline.
+  - **Summary Envelope Invariant**: The summary field MUST begin with the exact string `AI analysis suggests ` and end with the exact string `Verify against raw output before approval.`
+  - **Verbatim Grounding**: Evidence excerpts MUST be copied verbatim from raw diffs and verified against raw diff lines.
+

@@ -14,6 +14,7 @@ import {
 } from '@phosphor-icons/react';
 import { usePageMetadata } from '../../hooks/usePageMetadata';
 import { BrandLogo } from '../../components/common/BrandLogo';
+import { CopyrightFooter } from '../../components/common/CopyrightFooter';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -193,15 +194,7 @@ export const RegisterPage: React.FC = () => {
                 Sign in
               </Link>
             </div>
-            <div className="flex items-center justify-center gap-3 text-xs text-zinc-400">
-              <Link to="/terms" className="hover:text-zinc-200 transition-colors">
-                Terms of service
-              </Link>
-              <span>•</span>
-              <Link to="/privacy" className="hover:text-zinc-200 transition-colors">
-                Privacy policy
-              </Link>
-            </div>
+            <CopyrightFooter variant="auth" />
           </div>
 
           {/* Micro Security Notice */}

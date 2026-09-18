@@ -223,7 +223,7 @@ export const TermsPage: React.FC = () => {
 
         {/* Document Footer */}
         <div className="pt-8 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400">
-          <span>&copy; {new Date().getFullYear()} DriftGuard Network Verification. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} DriftGuard. All rights reserved.</span>
           <div className="flex items-center gap-4">
             <Link to="/privacy" className="text-zinc-400 hover:text-white transition-colors">
               Privacy policy

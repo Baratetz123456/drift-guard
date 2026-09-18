@@ -21,10 +21,23 @@ from shared.constants import (
 from shared.exceptions import DependencyError, ExternalServiceError, ValidationError
 from shared.models import generate_id, utc_now, Severity, AnalysisStrategy
 
-from functions.ai_analyze.prompt_builder import build_analysis_prompt, SYSTEM_PROMPT
+from functions.ai_analyze.prompt_builder import (
+    build_analysis_prompt,
+    SYSTEM_PROMPT,
+    screen_diff_for_functional_changes,
+    generate_canned_informational_result,
+)
 from functions.ai_analyze.openai_client import call_openai
 
 logger = logging.getLogger(__name__)
+
+SEVERITY_RISK_SCORES: dict[str, int] = {
+    Severity.CRITICAL.value: 95,
+    Severity.HIGH.value: 80,
+    Severity.MEDIUM.value: 50,
+    Severity.LOW.value: 20,
+    Severity.INFORMATIONAL.value: 0,
+}
 
 
 class AIAnalyzeService:
@@ -86,32 +99,43 @@ class AIAnalyzeService:
             if device_item:
                 device_info["management_ip"] = device_item.get("managementIp", "")
 
-        prompt, strategy = build_analysis_prompt(
-            device_info=device_info,
-            diffs=resolved_diffs,
-            model=openai_config["model"],
-        )
+        # Layer 1 Pre-filtering: Screen for functional changes vs noise-only volatile drift
+        has_functional, screened_breakdown = screen_diff_for_functional_changes(resolved_diffs)
 
-        # Call OpenAI / OpenRouter
-        try:
-            result = call_openai(
-                api_key=openai_config["api_key"],
+        if not has_functional:
+            # Emit canned Informational result directly — skip AI inference
+            analysis_data = generate_canned_informational_result(screened_breakdown)
+            strategy = AnalysisStrategy.SINGLE_PASS.value
+            usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        else:
+            prompt, strategy = build_analysis_prompt(
+                device_info=device_info,
+                diffs=resolved_diffs,
                 model=openai_config["model"],
-                system_prompt=SYSTEM_PROMPT,
-                user_prompt=prompt,
-                max_tokens=openai_config["max_tokens"],
-                base_url=openai_config.get("base_url"),
             )
-        except Exception as e:
-            raise ExternalServiceError("AI Provider", str(e))
 
-        # Parse and validate response
-        analysis_data = result["analysis"]
+            # Call OpenAI / OpenRouter
+            try:
+                result = call_openai(
+                    api_key=openai_config["api_key"],
+                    model=openai_config["model"],
+                    system_prompt=SYSTEM_PROMPT,
+                    user_prompt=prompt,
+                    max_tokens=openai_config["max_tokens"],
+                    base_url=openai_config.get("base_url"),
+                )
+                analysis_data = result["analysis"]
+                usage = result.get("usage", {})
+            except Exception as e:
+                raise ExternalServiceError("AI Provider", str(e))
 
         # Validate severity
         severity = analysis_data.get("severity", "INFORMATIONAL").upper()
         if severity not in [s.value for s in Severity]:
             severity = "INFORMATIONAL"
+
+        # Deterministic severity to score mapping
+        risk_score = SEVERITY_RISK_SCORES.get(severity, 0)
 
         # Save analysis
         analysis_id = generate_id("analysis-")
@@ -132,13 +156,15 @@ class AIAnalyzeService:
             "deviceName": comparison.get("deviceName", ""),
             "changeLabel": comparison.get("changeLabel"),
             "model": openai_config["model"],
-            "promptTokens": result.get("usage", {}).get("prompt_tokens", 0),
-            "completionTokens": result.get("usage", {}).get("completion_tokens", 0),
-            "totalTokens": result.get("usage", {}).get("total_tokens", 0),
+            "promptTokens": usage.get("prompt_tokens", 0),
+            "completionTokens": usage.get("completion_tokens", 0),
+            "totalTokens": usage.get("total_tokens", 0),
             "severity": severity,
+            "riskScore": risk_score,
             "summary": analysis_data.get("summary", ""),
             "impactAnalysis": analysis_data.get("impactAnalysis", ""),
             "risks": analysis_data.get("risks", []),
+            "conflictsDetected": analysis_data.get("conflictsDetected", []),
             "recommendations": analysis_data.get("recommendations", []),
             "commandBreakdown": analysis_data.get("commandBreakdown", []),
             "processingStrategy": strategy,

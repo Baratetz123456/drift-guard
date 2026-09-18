@@ -288,11 +288,13 @@ class AIAnalysisResponse(BaseModel):
     completionTokens: int = 0
     totalTokens: int = 0
     severity: Severity
+    riskScore: int = 0
     summary: str
-    impactAnalysis: str
-    risks: list[str] = []
+    impactAnalysis: str = ""
+    risks: list[Any] = []
+    conflictsDetected: list[str] = []
     recommendations: list[str] = []
-    commandBreakdown: list[dict[str, str]] = []
+    commandBreakdown: list[dict[str, Any]] = []
     processingStrategy: AnalysisStrategy
     createdAt: str
 

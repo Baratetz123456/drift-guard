@@ -12,6 +12,7 @@ import {
   GearSix,
 } from '@phosphor-icons/react';
 import { BrandLogo } from '../common/BrandLogo';
+import { CopyrightFooter } from '../common/CopyrightFooter';
 import { ToastContainer } from '../common/ToastContainer';
 import { useAppStore } from '../../store/useAppStore';
 import { detectUserTimezoneAndRegion } from '../../utils/geoDetection';
@@ -69,9 +70,9 @@ export const Layout: React.FC = () => {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-950 font-sans text-slate-100">
       {/* Sidebar */}
-      <aside className="w-64 flex flex-col border-r border-slate-800 bg-slate-900/60 backdrop-blur-xl shrink-0 z-20">
+      <aside className="w-64 flex flex-col bg-slate-900/60 backdrop-blur-xl shrink-0 z-20">
         {/* Logo & Brand */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-5 flex items-center justify-between">
           <BrandLogo variant="full" showTagline={true} size={26} />
           <span className="px-2 py-0.5 bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30 text-xs font-mono font-bold rounded">
             v1.2
@@ -109,11 +110,8 @@ export const Layout: React.FC = () => {
           })}
         </nav>
 
-        {/* Minimal Footer */}
-        <div className="p-3.5 border-t border-slate-800/80 px-4 text-xs text-zinc-400 font-mono flex items-center justify-between">
-          <span>DriftGuard Platform</span>
-          <span className="text-xs text-[#c8ff00] font-semibold">Active</span>
-        </div>
+        {/* Sidebar Copyright Footer */}
+        <CopyrightFooter variant="sidebar" />
       </aside>
 
       {/* Main Container */}
@@ -234,6 +232,7 @@ export const Layout: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-8 relative">
           <div className="max-w-7xl mx-auto pb-12">
             <Outlet />
+            <CopyrightFooter variant="full" />
           </div>
         </main>
       </div>

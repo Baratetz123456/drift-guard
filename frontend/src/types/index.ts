@@ -129,6 +129,17 @@ export type RiskSeverity =
   | 'LOW'
   | 'SAFE';
 
+export interface FindingEvidence {
+  command: string;
+  excerpt: string;
+}
+
+export interface CommandBreakdownEntry {
+  command: string;
+  changeType: 'added' | 'removed' | 'modified' | 'error' | 'no-change';
+  details: string;
+}
+
 export interface AnalysisFinding {
   title: string;
   category: 'ROUTING' | 'INTERFACES' | 'SECURITY' | 'SYSTEM' | 'PERFORMANCE';
@@ -136,6 +147,7 @@ export interface AnalysisFinding {
   description: string;
   potentialImpact: string;
   recommendation: string;
+  evidence?: FindingEvidence[];
 }
 
 export interface AIAnalysis {
@@ -147,7 +159,11 @@ export interface AIAnalysis {
   riskScore: number; // 0 - 100
   summary: string;
   executiveSummary: string;
+  impactAnalysis?: string;
   findings: AnalysisFinding[];
+  conflictsDetected?: string[];
+  recommendations?: string[];
+  commandBreakdown?: CommandBreakdownEntry[];
   suggestedRollbackPlan?: string;
   tokenUsage?: {
     promptTokens: number;
