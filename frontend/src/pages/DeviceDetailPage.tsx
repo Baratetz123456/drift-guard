@@ -131,7 +131,7 @@ export const DeviceDetailPage: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.hostname.trim()) return;
+    if (!formData.name.trim()) return;
 
     const parsedTags = formData.tags
       .split(',')
@@ -140,7 +140,7 @@ export const DeviceDetailPage: React.FC = () => {
 
     updateDevice(device.deviceId, {
       name: formData.name.trim(),
-      hostname: formData.hostname.trim(),
+      hostname: formData.hostname.trim() || formData.name.trim(),
       port: formData.port,
       deviceType: formData.deviceType,
       connectionType: formData.connectionType,
@@ -401,12 +401,11 @@ export const DeviceDetailPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  IP Address or FQDN
+                  IP Address or FQDN (Optional)
                 </label>
                 <input
                   type="text"
-                  required
-                  placeholder="10.200.1.1"
+                  placeholder="e.g. 10.200.1.1 (Defaults to Device Name)"
                   value={formData.hostname}
                   onChange={(e) => setFormData({ ...formData, hostname: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"

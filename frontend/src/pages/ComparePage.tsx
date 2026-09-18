@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Device, Snapshot, DeviceType } from '../types';
 import { Badge } from '../components/common/Badge';
@@ -24,6 +24,9 @@ import {
   Ticket,
   ShieldCheck,
   CaretRight,
+  Sparkle,
+  XCircle,
+  CircleNotch,
 } from '@phosphor-icons/react';
 
 export const ComparePage: React.FC = () => {
@@ -32,10 +35,58 @@ export const ComparePage: React.FC = () => {
   const queryPre = searchParams.get('preSnapId');
   const queryPost = searchParams.get('postSnapId');
 
-  const { devices, snapshots, createComparison } = useAppStore();
+  const { devices, snapshots, createComparison, runAIAnalysis, settings, testAiConnection, addToast } = useAppStore();
 
   // Active step in the 3-step guided flow
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
+  const [autoRunAi, setAutoRunAi] = useState(false);
+  const [isLaunching, setIsLaunching] = useState(false);
+
+  // AI model availability test state in Step 3
+  const [aiAvailability, setAiAvailability] = useState<{
+    testing: boolean;
+    available: boolean | null;
+    latencyMs?: number;
+    model: string;
+    message?: string;
+  }>({
+    testing: false,
+    available: null,
+    model: settings.defaultModel || 'google/gemini-2.0-flash-lite:free',
+  });
+
+  const checkAiModelStatus = async (targetModel?: string) => {
+    const modelToTest = targetModel || settings.defaultModel || 'google/gemini-2.0-flash-lite:free';
+    setAiAvailability({
+      testing: true,
+      available: null,
+      model: modelToTest,
+    });
+    try {
+      const res = await testAiConnection(modelToTest);
+      setAiAvailability({
+        testing: false,
+        available: res.success,
+        latencyMs: res.latencyMs,
+        model: modelToTest,
+        message: res.message,
+      });
+    } catch (err: any) {
+      setAiAvailability({
+        testing: false,
+        available: false,
+        model: modelToTest,
+        message: err.message || 'Model unreachable',
+      });
+    }
+  };
+
+  // Event trigger: Automatically test AI model connection when redirected or navigated to Step 3 (Review & compare tab)
+  useEffect(() => {
+    if (activeStep === 3) {
+      checkAiModelStatus();
+    }
+  }, [activeStep, settings.defaultModel]);
 
   // Selected device
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
@@ -164,13 +215,23 @@ export const ComparePage: React.FC = () => {
   };
 
   // Step 3: Run compare
-  const handleLaunchComparison = () => {
+  const handleLaunchComparison = async () => {
     if (!preSnapId || !postSnapId) return;
+    setIsLaunching(true);
     try {
       const cmp = createComparison(preSnapId, postSnapId);
+      if (autoRunAi) {
+        try {
+          await runAIAnalysis(cmp.comparisonId);
+        } catch (err: any) {
+          console.error('AI Analysis background compilation warning:', err);
+        }
+      }
       navigate(`/analysis/comparisons/${cmp.comparisonId}`);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLaunching(false);
     }
   };
 
@@ -769,6 +830,85 @@ export const ComparePage: React.FC = () => {
               <span className="font-mono text-[#c8ff00] font-bold text-sm">100% Safe</span>
             </div>
 
+            {/* Auto-run AI Analysis & Real-Time Model Availability */}
+            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950/80 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#c8ff00]/10 border border-[#c8ff00]/20 flex items-center justify-center shrink-0">
+                    <Sparkle className="w-4 h-4 text-[#c8ff00]" weight="fill" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-white flex items-center gap-2">
+                      <span>Auto-run AI Analysis</span>
+                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                        {settings.hasApiKey ? 'Custom Key' : 'Default Free Tier'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-zinc-400">
+                      Automatically evaluate operational risk and generate remediation runbook upon comparison creation.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoRunAi}
+                      onChange={(e) => setAutoRunAi(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#c8ff00] peer-checked:after:bg-zinc-950"></div>
+                  </label>
+                </div>
+              </div>
+
+              {/* AI Model Live Availability Status Strip */}
+              <div className="pt-2.5 border-t border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-zinc-500">AI Model:</span>
+                  <span className="text-zinc-200 font-bold">{aiAvailability.model}</span>
+                  <span className="text-zinc-600">•</span>
+                  {aiAvailability.testing ? (
+                    <span className="flex items-center gap-1.5 text-zinc-400">
+                      <CircleNotch className="w-3.5 h-3.5 animate-spin text-[#c8ff00]" />
+                      Testing connection...
+                    </span>
+                  ) : aiAvailability.available ? (
+                    <span className="flex items-center gap-1 text-[#c8ff00]">
+                      <CheckCircle className="w-3.5 h-3.5" weight="fill" />
+                      Available
+                      {typeof aiAvailability.latencyMs === 'number' && (
+                        <span className="text-zinc-400">({aiAvailability.latencyMs}ms)</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-rose-400">
+                      <XCircle className="w-3.5 h-3.5" weight="fill" />
+                      Offline: {aiAvailability.message || 'Unavailable'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => checkAiModelStatus()}
+                    disabled={aiAvailability.testing}
+                    className="text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer underline text-[11px]"
+                  >
+                    Re-test
+                  </button>
+                  <Link
+                    to="/settings"
+                    className="text-zinc-400 hover:text-[#c8ff00] transition-colors text-[11px] underline"
+                  >
+                    Manage Models
+                  </Link>
+                </div>
+              </div>
+            </div>
+
             {/* Navigation & Launch */}
             <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
               <Button
@@ -785,10 +925,11 @@ export const ComparePage: React.FC = () => {
                 type="button"
                 variant="primary"
                 size="sm"
-                leftIcon={<GitDiff className="w-4 h-4" weight="bold" />}
+                disabled={isLaunching}
+                leftIcon={<GitDiff className={`w-4 h-4 ${isLaunching ? 'animate-spin' : ''}`} weight="bold" />}
                 onClick={handleLaunchComparison}
               >
-                Compare
+                {isLaunching ? 'Processing...' : 'Compare'}
               </Button>
             </div>
           </div>

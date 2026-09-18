@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { AIAnalysis, Comparison, AnalysisFinding } from '../types';
@@ -62,7 +61,7 @@ export const AIAnalysisPage: React.FC = () => {
 
   if (!activeAnalysis) {
     return (
-      <Card className="p-12 text-center text-zinc-400 font-sans">
+      <div className="p-12 text-center text-zinc-400 font-sans border border-zinc-800 rounded-2xl bg-zinc-900/40">
         <Sparkle className="w-10 h-10 text-zinc-600 mx-auto mb-3" weight="duotone" />
         <h3 className="text-base font-bold text-zinc-200">No AI analyses found</h3>
         <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto">
@@ -77,7 +76,7 @@ export const AIAnalysisPage: React.FC = () => {
             Compare
           </Button>
         </div>
-      </Card>
+      </div>
     );
   }
 
@@ -129,8 +128,8 @@ export const AIAnalysisPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Hero Severity & Risk Score Banner */}
-      <Card className="p-6 border-zinc-800 bg-zinc-900/60 relative overflow-hidden">
+      {/* Hero Severity & Risk Score Banner (Retained as Elevated Anchor) */}
+      <div className="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 relative overflow-hidden shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
@@ -187,78 +186,92 @@ export const AIAnalysisPage: React.FC = () => {
             </div>
           </div>
         </div>
-      </Card>
-
-      {/* Advisory Operational Disclaimer Banner */}
-      <div className="p-3.5 px-4 rounded-xl bg-zinc-900/80 border border-zinc-800 text-sm text-zinc-300 flex items-center gap-2.5">
-        <ShieldCheck className="w-4 h-4 text-[#c8ff00] shrink-0" weight="duotone" />
-        <span>Advisory analysis only. All findings and remediation runbooks require senior engineer verification prior to change execution.</span>
       </div>
 
-      {/* Executive Summary for CAB / Management */}
-      <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/30">
-        <div className="flex items-center gap-2 mb-2">
-          <Brain className="w-4 h-4 text-zinc-300" weight="duotone" />
-          <h3 className="font-bold text-base text-zinc-200">Executive summary (CAB report)</h3>
+      {/* Advisory Operational Disclaimer (Clean Unboxed Inline Notice) */}
+      <div className="flex items-center gap-2 text-xs text-zinc-400 py-0.5">
+        <ShieldCheck className="w-4 h-4 text-[#c8ff00] shrink-0" weight="duotone" />
+        <span>Senior engineer disclaimer: Advisory interpretations require verification prior to maintenance execution.</span>
+      </div>
+
+      {/* Executive Summary for CAB / Management (Unboxed with Accent Border) */}
+      <div className="space-y-1.5 border-l-2 border-zinc-700 pl-4 py-0.5">
+        <div className="flex items-center gap-2">
+          <Brain className="w-4 h-4 text-zinc-400" weight="duotone" />
+          <h3 className="font-semibold text-xs uppercase tracking-wider text-zinc-400 font-mono">
+            Executive Summary (CAB Report)
+          </h3>
         </div>
-        <p className="text-sm text-zinc-300 leading-relaxed">
+        <p className="text-sm text-zinc-200 leading-relaxed">
           {activeAnalysis.executiveSummary}
         </p>
       </div>
 
-      {/* Findings Breakdown (3-Part Diagnostic Model) */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-            <ShieldWarning className="w-5 h-5 text-amber-400" weight="duotone" />
-            <span>Identified risk findings ({activeAnalysis.findings.length})</span>
-          </h3>
+      {/* Findings Breakdown (Structured Flat Diagnostic List, Zero Nested Cards) */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
+          <div className="flex items-center gap-2">
+            <ShieldWarning className="w-4 h-4 text-amber-400" weight="duotone" />
+            <h3 className="text-sm font-bold text-zinc-100">
+              Identified Risk Findings ({activeAnalysis.findings.length})
+            </h3>
+          </div>
+          <span className="text-xs text-zinc-500 font-mono">3-Part Diagnostic Evaluation</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {activeAnalysis.findings.map((finding: AnalysisFinding, idx: number) => (
-            <Card key={idx} className="p-5 flex flex-col justify-between border-zinc-800 bg-zinc-900/40">
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="font-bold text-base text-zinc-200 flex-1">{finding.title}</h4>
-                  <Badge severity={finding.severity} size="sm">
-                    {finding.severity}
-                  </Badge>
-                </div>
-
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs bg-zinc-800 text-zinc-300 font-mono uppercase font-bold">
-                  Category: {finding.category}
+        <div className="divide-y divide-zinc-800/80 border-b border-zinc-800/80">
+          {activeAnalysis.findings.map((finding: AnalysisFinding, idx: number) => {
+            const isHighOrCritical = finding.severity === 'Critical' || finding.severity === 'High';
+            return (
+              <div
+                key={idx}
+                className={`py-4 transition-colors ${
+                  isHighOrCritical
+                    ? 'border-l-2 border-l-amber-500/80 pl-3.5'
+                    : 'border-l-2 border-l-transparent pl-3.5'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h4 className="font-bold text-sm text-zinc-100">{finding.title}</h4>
+                    <Badge severity={finding.severity} size="sm">
+                      {finding.severity}
+                    </Badge>
+                    <span className="px-2 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-400 font-mono uppercase font-semibold">
+                      {finding.category}
+                    </span>
+                  </div>
                 </div>
 
                 {/* 3-Part Diagnostic Pattern */}
-                <div className="p-3.5 rounded-lg bg-zinc-950/80 border border-zinc-800 space-y-2 text-sm">
-                  <div>
-                    <span className="font-semibold text-zinc-300">Observation: </span>
-                    <span className="text-zinc-400">{finding.description}</span>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                    <span className="font-mono text-zinc-500 font-semibold shrink-0 sm:w-32">Observation:</span>
+                    <span className="text-zinc-300 flex-1">{finding.description}</span>
                   </div>
-                  <div>
-                    <span className="font-semibold text-amber-300">Operational impact: </span>
-                    <span className="text-zinc-400">{finding.potentialImpact}</span>
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                    <span className="font-mono text-amber-400 font-semibold shrink-0 sm:w-32">Operational impact:</span>
+                    <span className="text-zinc-300 flex-1">{finding.potentialImpact}</span>
                   </div>
-                  <div>
-                    <span className="font-semibold text-[#c8ff00]">Actionable next step: </span>
-                    <span className="text-zinc-400">{finding.recommendation}</span>
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                    <span className="font-mono text-[#c8ff00] font-semibold shrink-0 sm:w-32">Actionable next step:</span>
+                    <span className="text-zinc-200 flex-1">{finding.recommendation}</span>
                   </div>
                 </div>
               </div>
-            </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* Suggested Rollback Runbook */}
+      {/* Suggested Rollback Runbook (Retained as Actionable CLI Terminal) */}
       {activeAnalysis.suggestedRollbackPlan && (
-        <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/30">
-          <div className="flex items-center justify-between mb-3 border-b border-zinc-800/80 pb-3">
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ArrowCounterClockwise className="w-4 h-4 text-rose-400" weight="bold" />
               <h3 className="font-bold text-sm text-zinc-200">
-                Automated rollback and remediation runbook (advisory)
+                Automated Rollback & Remediation Runbook (Advisory)
               </h3>
             </div>
             <Button
@@ -267,11 +280,11 @@ export const AIAnalysisPage: React.FC = () => {
               leftIcon={copiedRollback ? <Check className="w-3.5 h-3.5 text-[#c8ff00]" weight="bold" /> : <Copy className="w-3.5 h-3.5" />}
               onClick={handleCopyRollback}
             >
-              {copiedRollback ? 'Copied' : 'Copy'}
+              {copiedRollback ? 'Copied' : 'Copy Runbook'}
             </Button>
           </div>
 
-          <div className="bg-zinc-950 rounded-lg p-3.5 border border-zinc-800/80 font-mono text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed overflow-x-auto">
+          <div className="bg-zinc-950 rounded-xl p-4 border border-zinc-800 font-mono text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed shadow-lg overflow-x-auto">
             {activeAnalysis.suggestedRollbackPlan}
           </div>
         </div>

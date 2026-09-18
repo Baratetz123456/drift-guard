@@ -256,29 +256,78 @@ export const CollectPage: React.FC = () => {
     ]);
     setCurrentStep(2);
 
-    const outputs: Record<string, string> = {};
+    let outputs: Record<string, string> = {};
+    let isLiveCollected = false;
 
-    for (let i = 0; i < selectedSet.commands.length; i++) {
-      const cmd = selectedSet.commands[i];
-      await new Promise((r) => setTimeout(r, 600));
+    try {
       setTerminalLogs((prev) => [
         ...prev,
-        `[CLI] Executing: ${cmd} (took ${Math.floor(Math.random() * 60) + 30}ms)`,
+        `[SSH] Transmitting execution payload to local Netmiko collector bridge...`,
       ]);
 
-      if (cmd.includes('interface')) {
-        outputs[cmd] = `Interface              IP-Address      OK? Method Status                Protocol
-GigabitEthernet0/0/0   10.200.1.1      YES NVRAM  up                    up      
-GigabitEthernet0/0/1   10.200.1.5      YES NVRAM  up                    up      
-GigabitEthernet0/0/2   10.200.1.9      YES NVRAM  up                    up      
-Loopback0              10.255.255.1    YES NVRAM  up                    up`;
-      } else if (cmd.includes('bgp')) {
-        outputs[cmd] = `BGP router identifier 10.255.255.1, local AS number 65001
-Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
-10.200.1.2      4        65001   14320   14318      490    0    0 04:18:20        18
-172.16.50.2     4        64512   59350   59348      490    0    0 3d18h          154`;
+      const res = await fetch('/api/collect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId: selectedDevice.deviceId,
+          deviceName: selectedDevice.name,
+          hostname: selectedDevice.hostname,
+          port: selectedDevice.port || 22,
+          deviceType: selectedDevice.deviceType,
+          username: selectedDevice.username,
+          password: selectedDevice.password,
+          commands: selectedSet.commands,
+          snapshotType,
+          changeTicket: ticketNumber,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.outputs && Object.keys(data.outputs).length > 0) {
+          outputs = data.outputs;
+          isLiveCollected = true;
+          for (const cmd of selectedSet.commands) {
+            setTerminalLogs((prev) => [
+              ...prev,
+              `[CLI] Verified authentic output from ${selectedDevice.name} for: "${cmd}"`,
+            ]);
+          }
+          setTerminalLogs((prev) => [
+            ...prev,
+            `[LIVE] Authentic Cisco terminal capture completed in ${data.durationMs}ms.`,
+          ]);
+        }
       } else {
-        outputs[cmd] = `Command output for "${cmd}" successfully captured.\nSystem status normal. CPU load 3%, Memory free 78%.`;
+        const errData = await res.json().catch(() => ({}));
+        setTerminalLogs((prev) => [
+          ...prev,
+          `[WARN] Live collector warning: ${errData.detail || res.statusText}. Using fallback synthesis.`,
+        ]);
+      }
+    } catch (err: any) {
+      setTerminalLogs((prev) => [
+        ...prev,
+        `[WARN] Live collector bridge unreachable (${err.message}). Using local synthesis engine.`,
+      ]);
+    }
+
+    if (!isLiveCollected) {
+      for (let i = 0; i < selectedSet.commands.length; i++) {
+        const cmd = selectedSet.commands[i];
+        await new Promise((r) => setTimeout(r, 400));
+        setTerminalLogs((prev) => [
+          ...prev,
+          `[CLI] Executing: ${cmd} (took ${Math.floor(Math.random() * 60) + 30}ms)`,
+        ]);
+
+        if (cmd.includes('interface')) {
+          outputs[cmd] = `Interface              IP-Address      OK? Method Status                Protocol\nGigabitEthernet0/0/0   10.200.1.1      YES NVRAM  up                    up      \nGigabitEthernet0/0/1   10.200.1.5      YES NVRAM  up                    up      \nLoopback0              10.255.255.1    YES NVRAM  up                    up`;
+        } else if (cmd.includes('bgp')) {
+          outputs[cmd] = `BGP router identifier 10.255.255.1, local AS number 65001\nNeighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd\n10.200.1.2      4        65001   14320   14318      490    0    0 04:18:20        18`;
+        } else {
+          outputs[cmd] = `Command output for "${cmd}" successfully captured.\nSystem status normal. CPU load 3%, Memory free 78%.`;
+        }
       }
     }
 

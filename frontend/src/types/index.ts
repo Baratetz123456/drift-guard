@@ -181,3 +181,17 @@ export interface UserSettings {
   normalizeDynamicCounters: boolean;
   emailNotifications?: boolean;
 }
+
+export interface ConfiguredAIModel {
+  id: string;
+  name: string;
+  modelIdentifier: string;
+  baseUrl?: string;
+  apiKey?: string;
+  apiKeyPreview?: string;
+  isDefault?: boolean;
+  isActive: boolean;
+  latencyMs?: number;
+  status?: 'online' | 'offline' | 'untested';
+  lastTestedAt?: string;
+}
