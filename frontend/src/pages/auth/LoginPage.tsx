@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '../../store/useAppStore';
 import { Button } from '../../components/common/Button';
-import { Checkbox } from '../../components/common/Checkbox';
+import { CaptchaVerification } from '../../components/auth/CaptchaVerification';
 import { AuthVisualShowcase } from '../../components/auth/AuthVisualShowcase';
 import {
   Lock,
@@ -37,7 +37,9 @@ export const LoginPage: React.FC = () => {
   // Bot Defense States
   const mountTimeRef = useRef<number>(Date.now());
   const [honeypotValue, setHoneypotValue] = useState('');
-  const [isHumanVerified, setIsHumanVerified] = useState(false);
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [expectedCaptcha, setExpectedCaptcha] = useState('');
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
 
@@ -59,6 +61,7 @@ export const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setCaptchaError(null);
 
     if (lockoutSeconds > 0) {
       setErrorMessage(`Account locked due to consecutive failed attempts. Wait ${lockoutSeconds}s before retrying.`);
@@ -78,9 +81,10 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
-    // 3. Human verification token check
-    if (!isHumanVerified) {
-      setErrorMessage('Please check the operator verification box to confirm human authorization.');
+    // 3. CAPTCHA verification check
+    if (!captchaInput.trim() || captchaInput.trim().toUpperCase() !== expectedCaptcha.toUpperCase()) {
+      setCaptchaError('Invalid verification code. Please enter the characters shown in the image.');
+      setErrorMessage('Verification failed. Please enter the correct CAPTCHA code.');
       return;
     }
 
@@ -200,13 +204,21 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Interactive Human Operator Verification Check */}
+            {/* Interactive Visual CAPTCHA Verification */}
             <div className="pt-1">
-              <Checkbox
-                checked={isHumanVerified}
-                onChange={(e) => setIsHumanVerified(e.target.checked)}
-                label="Verify authorized human operator"
-                description="Prevents automated script abuse and credential brute-forcing"
+              <CaptchaVerification
+                userInput={captchaInput}
+                onUserInputChange={(val) => {
+                  setCaptchaInput(val);
+                  if (captchaError) setCaptchaError(null);
+                }}
+                onCodeChange={(code) => {
+                  setExpectedCaptcha(code);
+                  setCaptchaInput('');
+                  setCaptchaError(null);
+                }}
+                hasError={Boolean(captchaError)}
+                errorMessage={captchaError}
               />
             </div>
 

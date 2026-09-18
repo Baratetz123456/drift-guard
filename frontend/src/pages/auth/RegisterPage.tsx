@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '../../store/useAppStore';
 import { Button } from '../../components/common/Button';
+import { CaptchaVerification } from '../../components/auth/CaptchaVerification';
 import { AuthVisualShowcase } from '../../components/auth/AuthVisualShowcase';
 import {
   User,
@@ -40,7 +41,9 @@ export const RegisterPage: React.FC = () => {
   // Bot Defense States
   const mountTimeRef = useRef<number>(Date.now());
   const [honeypotValue, setHoneypotValue] = useState('');
-  const [isHumanVerified, setIsHumanVerified] = useState(false);
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [expectedCaptcha, setExpectedCaptcha] = useState('');
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -51,6 +54,7 @@ export const RegisterPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setCaptchaError(null);
 
     // 1. Honeypot check
     if (honeypotValue.trim()) {
@@ -65,9 +69,10 @@ export const RegisterPage: React.FC = () => {
       return;
     }
 
-    // 3. Human verification token check
-    if (!isHumanVerified) {
-      setErrorMessage('Please check the operator verification box to confirm human authorization.');
+    // 3. CAPTCHA verification check
+    if (!captchaInput.trim() || captchaInput.trim().toUpperCase() !== expectedCaptcha.toUpperCase()) {
+      setCaptchaError('Invalid verification code. Please enter the characters shown in the image.');
+      setErrorMessage('Verification failed. Please enter the correct CAPTCHA code.');
       return;
     }
 
@@ -188,13 +193,21 @@ export const RegisterPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Interactive Human Operator Verification Check */}
+            {/* Interactive Visual CAPTCHA Verification */}
             <div className="pt-1">
-              <Checkbox
-                checked={isHumanVerified}
-                onChange={(e) => setIsHumanVerified(e.target.checked)}
-                label="Verify authorized human operator"
-                description="Prevents automated script bot account generation"
+              <CaptchaVerification
+                userInput={captchaInput}
+                onUserInputChange={(val) => {
+                  setCaptchaInput(val);
+                  if (captchaError) setCaptchaError(null);
+                }}
+                onCodeChange={(code) => {
+                  setExpectedCaptcha(code);
+                  setCaptchaInput('');
+                  setCaptchaError(null);
+                }}
+                hasError={Boolean(captchaError)}
+                errorMessage={captchaError}
               />
             </div>
 
