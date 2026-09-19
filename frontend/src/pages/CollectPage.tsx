@@ -35,6 +35,7 @@ import {
   GitDiff,
   Database,
   ArrowsClockwise,
+  XCircle,
 } from '@phosphor-icons/react';
 
 interface ParallelDeviceProgress {
@@ -267,9 +268,15 @@ export const CollectPage: React.FC = () => {
         `[SSH] Transmitting execution payload to local Netmiko collector bridge...`,
       ]);
 
+      const token = sessionStorage.getItem('auth_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch('/api/collect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           deviceId: selectedDevice.deviceId,
           deviceName: selectedDevice.name,
@@ -286,7 +293,7 @@ export const CollectPage: React.FC = () => {
 
       if (res.ok) {
         const data = await res.json();
-        if (data.outputs && Object.keys(data.outputs).length > 0) {
+        if ((data.status === 'SUCCESS' || data.success) && data.outputs && Object.keys(data.outputs).length > 0) {
           outputs = data.outputs;
           isLiveCollected = true;
           for (const cmd of selectedSet.commands) {
@@ -304,7 +311,7 @@ export const CollectPage: React.FC = () => {
         }
       } else {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.error || `Collector returned HTTP ${res.status}`);
+        throw new Error(errData.detail || errData.error || errData.message || `Collector returned HTTP ${res.status}`);
       }
     } catch (err: any) {
       const errorMsg = err.message || 'SSH connection failure';
@@ -354,37 +361,61 @@ export const CollectPage: React.FC = () => {
     setIsExecuting(false);
   };
 
-  // Run parallel batch collection
-  const handleStartBatchCollection = async () => {
-    const targetDevices = collectScope === 'group' ? groupDevices : customDevices;
-    if (targetDevices.length === 0 || !selectedSet || !compatibility.isCompatible) return;
+  // Run parallel batch collection with target-level fault isolation
+  const executeBatchCollection = async (targetsToExecute: Device[], isRetry: boolean = false) => {
+    const allTargetDevices = collectScope === 'group' ? groupDevices : customDevices;
+    if (targetsToExecute.length === 0 || !selectedSet || !compatibility.isCompatible) return;
 
     setIsExecuting(true);
     setCurrentStep(2);
-    setCompletedSnapshotIds([]);
 
-    const initialTracking: Record<string, ParallelDeviceProgress> = {};
-    targetDevices.forEach((d) => {
-      initialTracking[d.deviceId] = {
-        deviceId: d.deviceId,
-        deviceName: d.name,
-        deviceHostname: d.hostname,
-        status: 'connecting',
-        currentCmdIndex: 0,
-        totalCmds: selectedSet.commands.length,
-      };
-    });
-    setParallelProgress(initialTracking);
-
-    setTerminalLogs([
-      `[PARALLEL] Dispatched concurrent collection across ${targetDevices.length} network targets...`,
-      `[ORCHESTRATION] Allocating dedicated SSH workers per target...`,
-    ]);
+    if (!isRetry) {
+      setCompletedSnapshotIds([]);
+      const initialTracking: Record<string, ParallelDeviceProgress> = {};
+      allTargetDevices.forEach((d) => {
+        initialTracking[d.deviceId] = {
+          deviceId: d.deviceId,
+          deviceName: d.name,
+          deviceHostname: d.hostname,
+          status: 'connecting',
+          currentCmdIndex: 0,
+          totalCmds: selectedSet.commands.length,
+        };
+      });
+      setParallelProgress(initialTracking);
+      setTerminalLogs([
+        `[PARALLEL] Dispatched concurrent collection across ${allTargetDevices.length} network targets...`,
+        `[ORCHESTRATION] Allocating dedicated SSH workers per target...`,
+      ]);
+    } else {
+      setParallelProgress((prev) => {
+        const updated = { ...prev };
+        targetsToExecute.forEach((d) => {
+          if (updated[d.deviceId]) {
+            updated[d.deviceId] = {
+              ...updated[d.deviceId],
+              status: 'connecting',
+              error: undefined,
+            };
+          }
+        });
+        return updated;
+      });
+      setTerminalLogs((prev) => [
+        ...prev,
+        `[RETRY] Re-dispatching isolated collection across ${targetsToExecute.length} failed targets...`,
+      ]);
+    }
 
     const createdSnapshots: string[] = [];
+    const token = sessionStorage.getItem('auth_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     await Promise.all(
-      targetDevices.map(async (dev) => {
+      targetsToExecute.map(async (dev) => {
         try {
           setParallelProgress((prev) => ({
             ...prev,
@@ -396,7 +427,7 @@ export const CollectPage: React.FC = () => {
 
           const res = await fetch('/api/collect', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
               deviceId: dev.deviceId,
               deviceName: dev.name,
@@ -413,8 +444,8 @@ export const CollectPage: React.FC = () => {
           });
 
           const data = await res.json();
-          if (!res.ok || !data.success) {
-            throw new Error(data.detail || data.error || 'Live SSH capture failed');
+          if (!res.ok || (data.status !== 'SUCCESS' && !data.success)) {
+            throw new Error(data.detail || data.error || data.message || 'Live SSH capture failed');
           }
 
           const snap = addSnapshot({
@@ -436,6 +467,7 @@ export const CollectPage: React.FC = () => {
               ...prev[dev.deviceId],
               status: 'completed',
               snapshotId: snap.snapshotId,
+              error: undefined,
             },
           }));
 
@@ -462,12 +494,36 @@ export const CollectPage: React.FC = () => {
     );
 
     setCurrentStep(4);
-    setCompletedSnapshotIds(createdSnapshots);
-    setTerminalLogs((prev) => [
-      ...prev,
-      `[BATCH COMPLETE] Parallel maintenance window collection finished. ${createdSnapshots.length} of ${targetDevices.length} snapshots stored.`,
-    ]);
+    setCompletedSnapshotIds((prev) => {
+      const merged = Array.from(new Set([...prev, ...createdSnapshots]));
+      return merged;
+    });
+
+    setTerminalLogs((prev) => {
+      const totalDone = Object.values(parallelProgress).filter(
+        (p) => p.status === 'completed' || createdSnapshots.includes(p.snapshotId || '')
+      ).length;
+      return [
+        ...prev,
+        `[BATCH COMPLETE] Parallel maintenance window collection finished. ${totalDone} of ${allTargetDevices.length} snapshots stored.`,
+      ];
+    });
     setIsExecuting(false);
+  };
+
+  const handleStartBatchCollection = () => {
+    const targetDevices = collectScope === 'group' ? groupDevices : customDevices;
+    executeBatchCollection(targetDevices, false);
+  };
+
+  const handleRetryFailedCollection = () => {
+    const allTargetDevices = collectScope === 'group' ? groupDevices : customDevices;
+    const failedTargets = allTargetDevices.filter(
+      (d) => parallelProgress[d.deviceId]?.status === 'failed'
+    );
+    if (failedTargets.length > 0) {
+      executeBatchCollection(failedTargets, true);
+    }
   };
 
   return (
@@ -1365,9 +1421,16 @@ export const CollectPage: React.FC = () => {
                           >
                             <div className="min-w-0 mr-2">
                               <div className="font-bold text-zinc-100 truncate">{worker.deviceName}</div>
-                              <div className="text-xs text-zinc-400 font-mono">
+                              <div
+                                className={`text-xs font-mono truncate max-w-xs ${
+                                  worker.status === 'failed' ? 'text-rose-400 font-medium' : 'text-zinc-400'
+                                }`}
+                                title={worker.error || worker.deviceHostname}
+                              >
                                 {worker.status === 'executing'
                                   ? `Cmd ${worker.currentCmdIndex}/${worker.totalCmds}`
+                                  : worker.status === 'failed' && worker.error
+                                  ? worker.error
                                   : worker.latencyMs ? `${worker.latencyMs}ms` : worker.deviceHostname}
                               </div>
                             </div>
@@ -1456,6 +1519,32 @@ export const CollectPage: React.FC = () => {
                         Compare
                       </Button>
                     </div>
+                  </div>
+                )}
+
+                {/* Partial Failure Warning Banner with Retry Action */}
+                {collectScope !== 'single' && !isExecuting && Object.values(parallelProgress).some((p) => p.status === 'failed') && (
+                  <div className="mt-4 p-4 rounded-xl bg-zinc-900 border border-rose-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                        <XCircle className="w-4 h-4 text-rose-500" weight="fill" />
+                        <span>
+                          {Object.values(parallelProgress).filter((p) => p.status === 'failed').length} of {activeTargetDevices.length} network targets failed
+                        </span>
+                      </div>
+                      <div className="text-xs text-zinc-400 font-mono mt-0.5">
+                        Completed snapshots are safe in vault. Retry executes only on failed targets.
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={<ArrowsClockwise className="w-3.5 h-3.5" />}
+                      onClick={handleRetryFailedCollection}
+                    >
+                      Retry failed devices
+                    </Button>
                   </div>
                 )}
               </div>

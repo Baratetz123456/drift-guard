@@ -88,9 +88,10 @@ DriftGuard functions as an engineered flight instrument panel — calm, technica
 
 ## Quickstart Guide
 
-DriftGuard supports two operational workflows:
+DriftGuard supports three operational workflows:
 1. **Local Simulation Mode**: Standalone React client with zero cloud dependencies and rich preloaded mock fleet data.
-2. **Production AWS Serverless Deployment**: Full cloud infrastructure deployed via AWS SAM CLI.
+2. **Local DynamoDB & Containerized Backend**: Full local single-table DynamoDB and FastAPI bridge via Docker Compose with DynamoDB Admin GUI.
+3. **Production AWS Serverless Deployment**: Full cloud infrastructure deployed via AWS SAM CLI.
 
 ### Option 1: Standalone Local Simulation (Fastest)
 
@@ -116,7 +117,7 @@ npm run dev
 
 The web application will be accessible at:
 ```text
-http://localhost:5180
+http://localhost:5173
 ```
 
 #### Preloaded Simulation Features
@@ -127,7 +128,39 @@ http://localhost:5180
 
 ---
 
-### Option 2: Production AWS Cloud Deployment
+### Option 2: Local DynamoDB & Containerized Stack (Architectural Parity)
+
+Ideal for end-to-end integration testing, Netmiko live SSH collection, and validating DynamoDB single-table access patterns without deploying to AWS.
+
+#### Prerequisites
+- Docker Desktop installed and running
+- Node.js 18+ or 20+
+
+#### Setup Steps
+
+```bash
+# 1. Start Amazon DynamoDB Local, DynamoDB Admin Web UI, and the Python Backend
+npm run docker:up
+
+# 2. Launch the frontend development server
+npm run dev
+```
+
+#### Service URLs
+- **Web Application**: `http://localhost:5173`
+- **FastAPI Collector Bridge**: `http://localhost:3000` (Health: `http://localhost:3000/health`)
+- **DynamoDB Admin Web GUI**: `http://localhost:8001` (inspect `DeltaNet-local` single-table items and GSIs)
+- **Amazon DynamoDB Local Endpoint**: `http://localhost:8000`
+
+#### Manage the Docker Stack
+```bash
+npm run docker:logs   # Stream live container logs
+npm run docker:down   # Stop and remove containers
+```
+
+---
+
+### Option 3: Production AWS Cloud Deployment
 
 Deploy the complete serverless backend to your AWS account.
 

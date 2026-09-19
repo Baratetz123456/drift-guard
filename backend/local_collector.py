@@ -11,18 +11,24 @@ import json
 import logging
 import os
 import re
-import sqlite3
+import sys
 import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
+# Ensure shared package is importable regardless of working directory
+_CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _CURRENT_DIR not in sys.path:
+    sys.path.insert(0, _CURRENT_DIR)
 
 from fastapi import FastAPI, HTTPException, Header, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from netmiko import ConnectHandler
 from pydantic import BaseModel
 
-import db
+from shared import dynamo, dynamo_store
+from shared.constants import TABLE_NAME, DYNAMODB_ENDPOINT_URL
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,10 +37,21 @@ logging.basicConfig(
 logger = logging.getLogger("driftguard.collector")
 
 app = FastAPI(
-    title="DriftGuard Local Collector & Database Bridge",
-    description="Real SSH collector bridge and SQLite persistence layer with per-user tenant isolation",
+    title="DriftGuard Local Collector & DynamoDB Bridge",
+    description="Real SSH collector bridge and DynamoDB single-table persistence layer with per-user tenant isolation",
     version="2.0.0",
 )
+
+@app.on_event("startup")
+def on_startup():
+    """Initialize DynamoDB single-table and default demo operator profile."""
+    logger.info("Initializing DriftGuard DynamoDB table and default environment...")
+    try:
+        dynamo.ensure_table_exists()
+        dynamo_store.bootstrap_demo_environment()
+        logger.info("DriftGuard DynamoDB initialized successfully.")
+    except Exception as e:
+        logger.warning(f"Note during DynamoDB startup: {e}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -91,9 +108,8 @@ def extract_user_id(authorization: Optional[str] = Header(None)) -> str:
             padding = "=" * (4 - len(parts[1]) % 4)
             decoded_bytes = base64.urlsafe_b64decode(parts[1] + padding)
             payload = json.loads(decoded_bytes)
-            user_id = payload.get("sub") or payload.get("email") or "user_default"
-            # Ensure user exists in SQLite
-            db.get_or_create_user(
+            # Ensure user exists in DynamoDB
+            dynamo_store.get_or_create_user(
                 user_id=user_id,
                 email=payload.get("email", f"{user_id}@driftguard.local"),
                 name=payload.get("name", "Network Architect"),
@@ -164,22 +180,22 @@ class CommandSetCreateRequest(BaseModel):
 
 
 class DeviceTestRequest(BaseModel):
-    hostname: str
+    hostname: Optional[str] = None
     port: Optional[int] = 22
     deviceType: Optional[str] = "cisco_xe"
-    username: str
-    password: str
+    username: Optional[str] = None
+    password: Optional[str] = None
     enableSecret: Optional[str] = None
 
 
 class CollectRequest(BaseModel):
     deviceId: Optional[str] = None
     deviceName: Optional[str] = None
-    hostname: str
+    hostname: Optional[str] = None
     port: Optional[int] = 22
     deviceType: Optional[str] = "cisco_xe"
-    username: str
-    password: str
+    username: Optional[str] = None
+    password: Optional[str] = None
     enableSecret: Optional[str] = None
     commands: List[str]
     snapshotType: Optional[str] = "baseline"
@@ -297,56 +313,41 @@ def register_operator(req: AuthRegisterRequest, request: Request):
             logger.warning(f"Bot detected: Submission too fast ({elapsed}ms)")
             raise HTTPException(status_code=400, detail="Submission rejected: Bot-like speed detected.")
 
-    conn = db.get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT id FROM users WHERE email = ?", (req.email,))
-        if cur.fetchone():
-            raise HTTPException(status_code=409, detail="Operator email already registered.")
+    existing_user = dynamo_store.get_user_by_email(req.email)
+    if existing_user:
+        raise HTTPException(status_code=409, detail="Operator email already registered.")
 
-        user_id = f"usr_{uuid.uuid4().hex[:12]}"
-        now_iso = datetime.now(timezone.utc).isoformat()
-        today = db.get_current_utc_date()
+    user_id = f"usr_{uuid.uuid4().hex[:12]}"
+    user = dynamo_store.get_or_create_user(
+        user_id=user_id,
+        email=req.email,
+        name=req.name,
+        role="Network Architect",
+    )
 
-        cur.execute(
-            """
-            INSERT INTO users (id, email, name, password_hash, role, created_at, daily_ai_count, daily_collect_count, quota_reset_date)
-            VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?)
-            """,
-            (user_id, req.email, req.name, "hashed_pw", "Network Architect", now_iso, today),
-        )
-        cur.execute(
-            """
-            INSERT INTO user_settings (user_id, updated_at)
-            VALUES (?, ?)
-            """,
-            (user_id, now_iso),
-        )
+    starter_cmd_id = f"cmd_{uuid.uuid4().hex[:8]}"
+    starter_cmds = ["show ip interface brief", "show ip bgp summary", "show ip route summary"]
+    dynamo_store.create_command_set(
+        user_id=user_id,
+        data={
+            "setId": starter_cmd_id,
+            "name": "Standard Telemetry",
+            "driver": "cisco_xe",
+            "commands": starter_cmds,
+            "description": "Core baseline show commands",
+        },
+    )
 
-        # Starter command set
-        starter_cmd_id = f"cmd_{uuid.uuid4().hex[:8]}"
-        starter_cmds = ["show ip interface brief", "show ip bgp summary", "show ip route summary"]
-        cur.execute(
-            """
-            INSERT INTO command_sets (id, user_id, name, driver, commands_json, description, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (starter_cmd_id, user_id, "Standard Telemetry", "cisco_xe", json.dumps(starter_cmds), "Core baseline show commands", now_iso),
-        )
-
-        conn.commit()
-        token = generate_mock_jwt(user_id, req.email, req.name)
-        return {
-            "token": token,
-            "user": {
-                "id": user_id,
-                "email": req.email,
-                "name": req.name,
-                "role": "Network Architect",
-            },
-        }
-    finally:
-        conn.close()
+    token = generate_mock_jwt(user_id, req.email, req.name)
+    return {
+        "token": token,
+        "user": {
+            "id": user_id,
+            "email": req.email,
+            "name": req.name,
+            "role": "Network Architect",
+        },
+    }
 
 
 @app.post("/auth/login")
@@ -373,28 +374,28 @@ def login_operator(req: AuthLoginRequest, request: Request):
         remaining = int(lockout_record["locked_until"] - time.time())
         raise HTTPException(status_code=429, detail=f"Account locked: Too many failed attempts. Try again in {remaining}s.")
 
-    conn = db.get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM users WHERE email = ?", (req.email,))
-        row = cur.fetchone()
+    user = dynamo_store.get_user_by_email(req.email)
+    if not user:
+        # If demo login or first-time, auto-create user gracefully in DynamoDB
+        user_id = f"usr_{uuid.uuid4().hex[:12]}"
+        name = req.email.split("@")[0].capitalize()
+        user = dynamo_store.get_or_create_user(user_id, req.email, name)
 
-        if not row:
-            # If demo login or first-time, auto-create user gracefully
-            user_id = f"usr_{uuid.uuid4().hex[:12]}"
-            name = req.email.split("@")[0].capitalize()
-            user = db.get_or_create_user(user_id, req.email, name)
-            token = generate_mock_jwt(user["id"], req.email, name)
-            return {"token": token, "user": user}
+    uid = user.get("userId") or user.get("id") or f"usr_{uuid.uuid4().hex[:12]}"
+    token = generate_mock_jwt(uid, user["email"], user["name"], user.get("role", "Network Architect"))
+    # Reset failed attempts
+    if ip in FAILED_LOGIN_ATTEMPTS:
+        del FAILED_LOGIN_ATTEMPTS[ip]
 
-        user = dict(row)
-        token = generate_mock_jwt(user["id"], user["email"], user["name"], user.get("role", "Network Architect"))
-        # Reset failed attempts
-        if ip in FAILED_LOGIN_ATTEMPTS:
-            del FAILED_LOGIN_ATTEMPTS[ip]
-        return {"token": token, "user": user}
-    finally:
-        conn.close()
+    return {
+        "token": token,
+        "user": {
+            "id": uid,
+            "email": user["email"],
+            "name": user["name"],
+            "role": user.get("role", "Network Architect"),
+        },
+    }
 
 
 # =============================================================================
@@ -405,159 +406,48 @@ def login_operator(req: AuthLoginRequest, request: Request):
 @app.get("/api/devices")
 def get_user_devices(user_id: str = Depends(extract_user_id)):
     """Retrieve all network devices belonging strictly to the authenticated user."""
-    conn = db.get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM devices WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
-        rows = cur.fetchall()
-        devices = []
-        for r in rows:
-            devices.append({
-                "deviceId": r["id"],
-                "name": r["name"],
-                "hostname": r["hostname"],
-                "port": r["port"],
-                "driver": r["driver"],
-                "status": r["status"],
-                "authMode": r["auth_mode"],
-                "username": r["username"],
-                "groupId": r["group_id"],
-                "createdAt": r["created_at"],
-            })
-        return {"devices": devices}
-    finally:
-        conn.close()
+    devices = dynamo_store.list_devices(user_id)
+    return {"devices": devices}
 
 
 @app.post("/devices")
 @app.post("/api/devices")
 def create_user_device(req: DeviceCreateRequest, user_id: str = Depends(extract_user_id)):
     """Create a new network device strictly scoped to the authenticated user."""
-    conn = db.get_connection()
-    try:
-        dev_id = f"dev_{uuid.uuid4().hex[:8]}"
-        now_iso = datetime.now(timezone.utc).isoformat()
-        cur = conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO devices (id, user_id, name, hostname, port, driver, status, auth_mode, username, encrypted_password, enable_secret, group_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, 'ONLINE', ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (dev_id, user_id, req.name, req.hostname, req.port or 22, req.driver or "cisco_xe", req.authMode or "Password", req.username, req.password, req.enableSecret, req.groupId, now_iso, now_iso),
-        )
-        conn.commit()
-        return {
-            "deviceId": dev_id,
-            "name": req.name,
-            "hostname": req.hostname,
-            "port": req.port or 22,
-            "driver": req.driver,
-            "status": "ONLINE",
-            "authMode": req.authMode,
-            "createdAt": now_iso,
-        }
-    finally:
-        conn.close()
+    created = dynamo_store.create_device(user_id, req.dict())
+    return created
 
 
 @app.delete("/devices/{device_id}")
 @app.delete("/api/devices/{device_id}")
 def delete_user_device(device_id: str, user_id: str = Depends(extract_user_id)):
     """Delete a device strictly scoped to the authenticated user."""
-    conn = db.get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute("DELETE FROM devices WHERE id = ? AND user_id = ?", (device_id, user_id))
-        conn.commit()
-        return {"success": True, "deletedDeviceId": device_id}
-    finally:
-        conn.close()
+    dynamo_store.delete_device(user_id, device_id)
+    return {"success": True, "deletedDeviceId": device_id}
 
 
 @app.get("/commands")
 @app.get("/api/commands")
 def get_user_command_sets(user_id: str = Depends(extract_user_id)):
     """Retrieve all command sets belonging strictly to the authenticated user."""
-    conn = db.get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM command_sets WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
-        rows = cur.fetchall()
-        command_sets = []
-        for r in rows:
-            command_sets.append({
-                "setId": r["id"],
-                "name": r["name"],
-                "driver": r["driver"],
-                "deviceType": r["driver"],
-                "commands": json.loads(r["commands_json"]),
-                "description": r["description"],
-                "createdAt": r["created_at"],
-            })
-        return {"commandSets": command_sets}
-    finally:
-        conn.close()
+    command_sets = dynamo_store.list_command_sets(user_id)
+    return {"commandSets": command_sets}
 
 
 @app.post("/commands")
 @app.post("/api/commands")
 def create_user_command_set(req: CommandSetCreateRequest, user_id: str = Depends(extract_user_id)):
     """Create a new command set strictly scoped to the authenticated user."""
-    conn = db.get_connection()
-    try:
-        set_id = f"cmd_{uuid.uuid4().hex[:8]}"
-        now_iso = datetime.now(timezone.utc).isoformat()
-        cur = conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO command_sets (id, user_id, name, driver, commands_json, description, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (set_id, user_id, req.name, req.driver or "cisco_xe", json.dumps(req.commands), req.description, now_iso),
-        )
-        conn.commit()
-        return {
-            "setId": set_id,
-            "name": req.name,
-            "driver": req.driver,
-            "commands": req.commands,
-            "description": req.description,
-            "createdAt": now_iso,
-        }
-    finally:
-        conn.close()
+    created = dynamo_store.create_command_set(user_id, req.dict())
+    return created
 
 
 @app.get("/snapshots")
 @app.get("/api/snapshots")
 def get_user_snapshots(deviceId: Optional[str] = None, user_id: str = Depends(extract_user_id)):
     """Retrieve all snapshots belonging strictly to the authenticated user."""
-    conn = db.get_connection()
-    try:
-        cur = conn.cursor()
-        if deviceId:
-            cur.execute("SELECT * FROM snapshots WHERE user_id = ? AND device_id = ? ORDER BY created_at DESC", (user_id, deviceId))
-        else:
-            cur.execute("SELECT * FROM snapshots WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
-        rows = cur.fetchall()
-        snapshots = []
-        for r in rows:
-            snapshots.append({
-                "snapshotId": r["id"],
-                "deviceId": r["device_id"],
-                "deviceName": r["device_name"],
-                "deviceHostname": r["device_hostname"],
-                "deviceType": r["device_type"],
-                "snapshotType": r["snapshot_type"],
-                "changeTicket": r["change_ticket"],
-                "notes": r["notes"],
-                "commands": json.loads(r["commands_json"]),
-                "outputs": json.loads(r["outputs_json"]),
-                "createdAt": r["created_at"],
-            })
-        return {"snapshots": snapshots}
-    finally:
-        conn.close()
+    snapshots = dynamo_store.list_snapshots(user_id, device_id=deviceId)
+    return {"snapshots": snapshots}
 
 
 @app.post("/collect")
@@ -565,57 +455,89 @@ def get_user_snapshots(deviceId: Optional[str] = None, user_id: str = Depends(ex
 def run_collection_endpoint(req: CollectRequest, user_id: str = Depends(extract_user_id)):
     """Execute show commands over SSH with daily quota check and database persistence."""
     # Enforce Daily Collection Quota (100 / day)
-    allowed, count, quota = db.check_and_increment_quota(user_id, "collect")
+    allowed, count, quota = dynamo_store.check_and_increment_quota(user_id, "collect")
     if not allowed:
         raise HTTPException(
             status_code=429,
             detail=f"Daily collection quota exceeded: Max {quota} collections per day utilized. Quota resets at 00:00 UTC.",
         )
 
+    # Auto-hydrate credentials from DynamoDB if deviceId is provided
+    host = req.hostname
+    port = req.port or 22
+    platform = req.deviceType or "cisco_xe"
+    username = req.username
+    password = req.password
+    secret = req.enableSecret
+    dev_name = req.deviceName or req.hostname
+
+    if req.deviceId:
+        stored_device = dynamo_store.get_device(user_id, req.deviceId)
+        if stored_device:
+            host = host or stored_device.get("hostname")
+            port = port or stored_device.get("port") or 22
+            platform = platform or stored_device.get("driver") or "cisco_xe"
+            username = username or stored_device.get("username")
+            password = password or stored_device.get("password")
+            secret = secret or stored_device.get("enableSecret")
+            dev_name = dev_name or stored_device.get("name")
+
+    if not host:
+        raise HTTPException(status_code=400, detail="Missing target hostname for collection.")
+    if not username or not password:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing SSH credentials for network target '{host}'. Configure credentials in Device settings.",
+        )
+
     start_time = time.time()
     try:
         outputs = execute_ssh_collection(
-            host=req.hostname,
-            port=req.port or 22,
-            platform=req.deviceType or "cisco_xe",
-            username=req.username,
-            password=req.password,
+            host=host,
+            port=port,
+            platform=platform,
+            username=username,
+            password=password,
             commands=req.commands,
-            secret=req.enableSecret,
+            secret=secret,
         )
         duration_ms = round((time.time() - start_time) * 1000)
 
-        # Save snapshot in database
+        # Save snapshot in DynamoDB
         snap_id = f"snap-{req.snapshotType or 'base'}-{uuid.uuid4().hex[:6]}"
         now_iso = datetime.now(timezone.utc).isoformat()
 
-        conn = db.get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                INSERT INTO snapshots (id, user_id, device_id, device_name, device_hostname, device_type, snapshot_type, change_ticket, notes, commands_json, outputs_json, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (snap_id, user_id, req.deviceId or "dev-unknown", req.deviceName or req.hostname, req.hostname, req.deviceType or "cisco_xe", req.snapshotType or "baseline", req.changeTicket, req.notes, json.dumps(req.commands), json.dumps(outputs), now_iso),
-            )
-            # Log audit
-            cur.execute(
-                """
-                INSERT INTO audit_logs (id, user_id, action, target, result, details, timestamp)
-                VALUES (?, ?, 'COLLECT', ?, 'SUCCESS', ?, ?)
-                """,
-                (f"aud_{uuid.uuid4().hex[:8]}", user_id, req.deviceName or req.hostname, f"Captured {len(req.commands)} commands in {duration_ms}ms", now_iso),
-            )
-            conn.commit()
-        finally:
-            conn.close()
+        dynamo_store.create_snapshot(
+            user_id=user_id,
+            data={
+                "snapshotId": snap_id,
+                "deviceId": req.deviceId or "dev-unknown",
+                "deviceName": dev_name,
+                "deviceHostname": host,
+                "deviceType": platform,
+                "snapshotType": req.snapshotType or "baseline",
+                "changeTicket": req.changeTicket,
+                "notes": req.notes,
+                "commands": req.commands,
+                "outputs": outputs,
+            },
+        )
+
+        # Log audit in DynamoDB
+        dynamo_store.add_audit_log(
+            user_id=user_id,
+            action="COLLECT",
+            target=dev_name,
+            result="SUCCESS",
+            details=f"Captured {len(req.commands)} commands in {duration_ms}ms",
+        )
 
         return {
+            "success": True,
             "status": "SUCCESS",
             "snapshotId": snap_id,
             "deviceId": req.deviceId or "dev-unknown",
-            "deviceName": req.deviceName or req.hostname,
+            "deviceName": dev_name,
             "durationMs": duration_ms,
             "commands": req.commands,
             "outputs": outputs,
@@ -626,7 +548,7 @@ def run_collection_endpoint(req: CollectRequest, user_id: str = Depends(extract_
     except Exception as e:
         duration_ms = round((time.time() - start_time) * 1000)
         err_msg = f"{type(e).__name__}: {str(e)}"
-        logger.error(f"Collection FAILED for {req.hostname}: {err_msg}")
+        logger.error(f"Collection FAILED for {host}: {err_msg}")
         raise HTTPException(status_code=500, detail=f"SSH Collection failure: {err_msg}")
 
 
@@ -634,147 +556,83 @@ def run_collection_endpoint(req: CollectRequest, user_id: str = Depends(extract_
 @app.get("/api/compare")
 def get_user_comparisons(user_id: str = Depends(extract_user_id)):
     """Retrieve all comparisons belonging strictly to the authenticated user."""
-    conn = db.get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM comparisons WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
-        rows = cur.fetchall()
-        comparisons = []
-        for r in rows:
-            comparisons.append({
-                "comparisonId": r["id"],
-                "deviceId": r["device_id"],
-                "deviceName": r["device_name"],
-                "preSnapshotId": r["pre_snapshot_id"],
-                "postSnapshotId": r["post_snapshot_id"],
-                "changeLabel": r["change_label"],
-                "commandDiffs": json.loads(r["command_diffs_json"]),
-                "createdAt": r["created_at"],
-            })
-        return {"comparisons": comparisons}
-    finally:
-        conn.close()
+    comparisons = dynamo_store.list_comparisons(user_id)
+    return {"comparisons": comparisons}
+
+
+@app.post("/compare")
+@app.post("/api/compare")
+def create_user_comparison(req: CompareRequest, user_id: str = Depends(extract_user_id)):
+    """Store or record a comparison diff between two snapshots."""
+    created = dynamo_store.create_comparison(user_id, req.dict())
+    return created
 
 
 @app.get("/settings")
 @app.get("/api/settings")
 def get_user_settings(user_id: str = Depends(extract_user_id)):
-    """Retrieve user-specific settings from the database."""
-    conn = db.get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM user_settings WHERE user_id = ?", (user_id,))
-        row = cur.fetchone()
-        if not row:
-            now_iso = datetime.now(timezone.utc).isoformat()
-            cur.execute("INSERT INTO user_settings (user_id, updated_at) VALUES (?, ?)", (user_id, now_iso))
-            conn.commit()
-            return {
-                "userId": user_id,
-                "aiBaseUrl": "https://openrouter.ai/api/v1",
-                "defaultModel": "google/gemini-2.0-flash-lite:free",
-                "defaultTimeoutSeconds": 30,
-                "maskSecretsInDiffs": True,
-                "normalizeDynamicCounters": True,
-                "dailyAiQuota": 50,
-                "dailyCollectQuota": 100,
-            }
-        r = dict(row)
-        return {
-            "userId": user_id,
-            "aiBaseUrl": r["ai_base_url"] or "https://openrouter.ai/api/v1",
-            "defaultModel": r["default_model"] or "google/gemini-2.0-flash-lite:free",
-            "defaultTimeoutSeconds": r["default_timeout"] or 30,
-            "maskSecretsInDiffs": bool(r["mask_secrets"]),
-            "normalizeDynamicCounters": bool(r["normalize_counters"]),
-            "dailyAiQuota": r["daily_ai_quota"] or 50,
-            "dailyCollectQuota": r["daily_collect_quota"] or 100,
-            "hasApiKey": bool(r["api_key"]),
-        }
-    finally:
-        conn.close()
+    """Retrieve user-specific settings from DynamoDB."""
+    return dynamo_store.get_user_settings(user_id)
 
 
 @app.put("/settings")
 @app.put("/api/settings")
 def update_user_settings(body: Dict[str, Any], user_id: str = Depends(extract_user_id)):
     """Update settings strictly for the authenticated user."""
-    conn = db.get_connection()
-    try:
-        cur = conn.cursor()
-        now_iso = datetime.now(timezone.utc).isoformat()
-        cur.execute(
-            """
-            UPDATE user_settings
-            SET ai_base_url = COALESCE(?, ai_base_url),
-                default_model = COALESCE(?, default_model),
-                default_timeout = COALESCE(?, default_timeout),
-                mask_secrets = COALESCE(?, mask_secrets),
-                normalize_counters = COALESCE(?, normalize_counters),
-                api_key = COALESCE(?, api_key),
-                updated_at = ?
-            WHERE user_id = ?
-            """,
-            (
-                body.get("aiBaseUrl"),
-                body.get("defaultModel"),
-                body.get("defaultTimeoutSeconds"),
-                1 if body.get("maskSecretsInDiffs") else 0 if "maskSecretsInDiffs" in body else None,
-                1 if body.get("normalizeDynamicCounters") else 0 if "normalizeDynamicCounters" in body else None,
-                body.get("openaiApiKey"),
-                now_iso,
-                user_id,
-            ),
-        )
-        conn.commit()
-        return get_user_settings(user_id)
-    finally:
-        conn.close()
+    return dynamo_store.update_user_settings(user_id, body)
 
 
 @app.get("/audit-logs")
 @app.get("/api/audit-logs")
 def get_user_audit_logs(user_id: str = Depends(extract_user_id)):
     """Retrieve audit logs strictly for the authenticated user."""
-    conn = db.get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM audit_logs WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50", (user_id,))
-        rows = cur.fetchall()
-        logs = []
-        for r in rows:
-            logs.append({
-                "id": r["id"],
-                "action": r["action"],
-                "target": r["target"],
-                "result": r["result"],
-                "details": r["details"],
-                "timestamp": r["timestamp"],
-            })
-        return {"logs": logs}
-    finally:
-        conn.close()
+    logs = dynamo_store.list_audit_logs(user_id)
+    return {"logs": logs}
 
 
 @app.post("/devices/{device_id}/test")
 @app.post("/api/devices/{device_id}/test")
-def test_device_connection(device_id: str, req: DeviceTestRequest):
+def test_device_connection(device_id: str, req: DeviceTestRequest, user_id: str = Depends(extract_user_id)):
     """Test live SSH authentication against real network equipment."""
+    host = req.hostname
+    port = req.port or 22
+    platform = req.deviceType or "cisco_xe"
+    username = req.username
+    password = req.password
+    secret = req.enableSecret
+
+    if device_id and device_id != "new":
+        stored = dynamo_store.get_device(user_id, device_id)
+        if stored:
+            host = host or stored.get("hostname")
+            port = port or stored.get("port") or 22
+            platform = platform or stored.get("driver") or "cisco_xe"
+            username = username or stored.get("username")
+            password = password or stored.get("password")
+            secret = secret or stored.get("enableSecret")
+
+    if not host or not username or not password:
+        return {
+            "success": False,
+            "latencyMs": 0,
+            "error": "Incomplete connection parameters: Target host, username, and password are required.",
+        }
+
     start_time = time.time()
     try:
         device_params = {
-            "device_type": sanitize_platform(req.deviceType),
-            "host": req.hostname,
-            "port": req.port or 22,
-            "username": req.username,
-            "password": req.password,
+            "device_type": sanitize_platform(platform),
+            "host": host,
+            "port": port,
+            "username": username,
+            "password": password,
             "timeout": 5,
             "conn_timeout": 5,
         }
-        if req.enableSecret:
-            device_params["secret"] = req.enableSecret
+        if secret:
+            device_params["secret"] = secret
 
-        logger.info(f"Testing live SSH connection to {req.hostname}:{req.port or 22}...")
+        logger.info(f"Testing live SSH connection to {host}:{port}...")
         with ConnectHandler(**device_params) as net_connect:
             prompt = net_connect.find_prompt()
             latency_ms = round((time.time() - start_time) * 1000)
@@ -801,8 +659,9 @@ def test_device_connection(device_id: str, req: DeviceTestRequest):
 def health_check():
     return {
         "status": "HEALTHY",
-        "service": "DriftGuard Local Collector & SQLite Database Bridge",
-        "database": "SQLite (driftguard.db)",
+        "service": "DriftGuard Local Collector & DynamoDB Database Bridge",
+        "database": f"Amazon DynamoDB Local ({TABLE_NAME})",
+        "endpoint": DYNAMODB_ENDPOINT_URL or "AWS Managed DynamoDB",
         "engine": "Netmiko 4.7.0",
         "timestamp": time.time(),
     }
