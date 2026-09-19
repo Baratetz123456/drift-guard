@@ -17,7 +17,6 @@ import {
   ArrowsLeftRight,
   Copy,
   Check,
-  Printer,
 } from '@phosphor-icons/react';
 
 export const ComparisonDetailPage: React.FC = () => {
@@ -230,26 +229,6 @@ export const ComparisonDetailPage: React.FC = () => {
           <div className="flex items-center gap-2.5 shrink-0">
             <Button
               type="button"
-              variant="secondary"
-              size="sm"
-              leftIcon={<Printer className="w-4 h-4" weight="bold" />}
-              onClick={() => window.open(`/reports/${matchingAnalysis.analysisId}`, '_blank')}
-            >
-              Print Report
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={isAnalyzing}
-              leftIcon={<Sparkle className={`w-4 h-4 text-zinc-300 ${isAnalyzing ? 'animate-spin' : ''}`} weight="fill" />}
-              onClick={handleRunAnalysis}
-              title="Re-run drift verification analysis with currently active model"
-            >
-              {isAnalyzing ? 'Analyzing...' : 'Re-run Analysis'}
-            </Button>
-            <Button
-              type="button"
               variant="primary"
               size="sm"
               leftIcon={<Sparkle className="w-4 h-4 text-zinc-950" weight="fill" />}
@@ -277,10 +256,10 @@ export const ComparisonDetailPage: React.FC = () => {
           </span>
           <div className="flex items-baseline gap-1.5">
             <span className="font-extrabold text-zinc-100 text-xl">
-              {comparison.diffSummary.changedCommands}
+              {comparison.diffSummary?.changedCommands ?? (diffList.filter(d => d.hasDiff).length)}
             </span>
             <span className="text-xs font-normal text-zinc-400">
-              of {comparison.diffSummary.totalCommands} profiles
+              of {comparison.diffSummary?.totalCommands ?? (diffList.length || 1)} profiles
             </span>
           </div>
         </div>
@@ -291,7 +270,7 @@ export const ComparisonDetailPage: React.FC = () => {
           </span>
           <div className="flex items-baseline gap-1.5">
             <span className="font-extrabold text-[#c8ff00] text-xl">
-              +{comparison.diffSummary.totalAdditions}
+              +{comparison.diffSummary?.totalAdditions ?? (diffList.reduce((acc, d) => acc + (d.additions || 0), 0))}
             </span>
             <span className="text-xs font-normal text-zinc-400">lines</span>
           </div>
@@ -303,7 +282,7 @@ export const ComparisonDetailPage: React.FC = () => {
           </span>
           <div className="flex items-baseline gap-1.5">
             <span className="font-extrabold text-rose-400 text-xl">
-              -{comparison.diffSummary.totalDeletions}
+              -{comparison.diffSummary?.totalDeletions ?? (diffList.reduce((acc, d) => acc + (d.deletions || 0), 0))}
             </span>
             <span className="text-xs font-normal text-zinc-400">lines</span>
           </div>

@@ -23,29 +23,149 @@ export const SUPPORTED_DEVICE_TYPES: {
   {
     id: 'cisco_xe',
     label: 'Cisco IOS-XE',
-    aliases: ['cisco_xe', 'ios-xe', 'ios_xe', 'xe', 'ciscoxe'],
+    aliases: [
+      'cisco_xe',
+      'cisco_ios_xe',
+      'cisco ios xe',
+      'cisco-ios-xe',
+      'ciscoiosxe',
+      'ios-xe',
+      'ios_xe',
+      'ios xe',
+      'iosxe',
+      'xe',
+      'ciscoxe',
+      'cisco ios-xe',
+    ],
   },
   {
     id: 'cisco_ios',
     label: 'Cisco IOS',
-    aliases: ['cisco_ios', 'ios', 'cisco-ios', 'ciscoios'],
+    aliases: [
+      'cisco_ios',
+      'cisco ios',
+      'cisco-ios',
+      'ciscoios',
+      'ios',
+      'classic-ios',
+      'ios-classic',
+      'cisco-classic',
+      'cisco classic',
+      'cisco_classic',
+    ],
   },
   {
     id: 'cisco_nxos',
     label: 'Cisco NX-OS',
-    aliases: ['cisco_nxos', 'nx-os', 'nxos', 'cisco-nxos', 'cisconxos'],
+    aliases: [
+      'cisco_nxos',
+      'cisco nxos',
+      'cisco nx-os',
+      'cisco_nx_os',
+      'nx-os',
+      'nxos',
+      'nx_os',
+      'nx os',
+      'cisco-nxos',
+      'cisconxos',
+    ],
   },
   {
     id: 'cisco_xr',
     label: 'Cisco IOS-XR',
-    aliases: ['cisco_xr', 'ios-xr', 'ios_xr', 'xr', 'ciscoxr'],
+    aliases: [
+      'cisco_xr',
+      'cisco ios xr',
+      'cisco_ios_xr',
+      'cisco-ios-xr',
+      'ciscoiosxr',
+      'cisco xr',
+      'ios-xr',
+      'ios_xr',
+      'ios xr',
+      'xr',
+      'ciscoxr',
+    ],
   },
   {
     id: 'cisco_asa',
     label: 'Cisco ASA',
-    aliases: ['cisco_asa', 'asa', 'cisco-asa', 'ciscoasa'],
+    aliases: [
+      'cisco_asa',
+      'cisco asa',
+      'cisco-asa',
+      'ciscoasa',
+      'asa',
+      'asa-firewall',
+      'cisco-asa-firewall',
+    ],
   },
 ];
+
+/**
+ * Canonical normalizer for Cisco platform driver identifiers.
+ * Strips whitespace, hyphens, and underscores, mapping strings like "cisco ios xe",
+ * "cisco_ios_xe", "ios-xe", "Cisco IOS-XE" to the canonical ID "cisco_xe".
+ */
+export function normalizeDeviceType(rawType: string | undefined | null): DeviceType | null {
+  if (!rawType) return null;
+  const trimmed = rawType.trim().toLowerCase();
+  if (!trimmed) return null;
+
+  // Direct canonical match
+  for (const platform of SUPPORTED_DEVICE_TYPES) {
+    if (platform.id === trimmed) {
+      return platform.id;
+    }
+  }
+
+  // Check aliases directly with normalized underscores
+  const withUnderscores = trimmed.replace(/[\s-]+/g, '_');
+  for (const platform of SUPPORTED_DEVICE_TYPES) {
+    if (platform.id === withUnderscores) {
+      return platform.id;
+    }
+    if (
+      platform.aliases.some(
+        (alias) =>
+          alias.toLowerCase() === trimmed ||
+          alias.toLowerCase() === withUnderscores
+      )
+    ) {
+      return platform.id;
+    }
+  }
+
+  // Aggressive alphanumeric compaction check (e.g. "ciscoiosxe" -> "cisco_xe")
+  const stripped = trimmed.replace(/[^a-z0-9]/g, '');
+  for (const platform of SUPPORTED_DEVICE_TYPES) {
+    if (platform.id.replace(/[^a-z0-9]/g, '') === stripped) {
+      return platform.id;
+    }
+    if (
+      platform.aliases.some(
+        (alias) => alias.replace(/[^a-z0-9]/g, '') === stripped
+      )
+    ) {
+      return platform.id;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Returns a human-friendly display label for a given device type or raw string.
+ * e.g. "cisco_xe" -> "Cisco IOS-XE", "cisco ios xe" -> "Cisco IOS-XE"
+ */
+export function getDeviceTypeLabel(rawType: string | undefined | null): string {
+  const normalized = normalizeDeviceType(rawType);
+  if (normalized) {
+    const platform = SUPPORTED_DEVICE_TYPES.find((p) => p.id === normalized);
+    if (platform) return platform.label;
+  }
+  return rawType || 'Unknown Device Type';
+}
 
 /**
  * Live validator for IPv4 (RFC 791) and IPv6 (RFC 4291) addresses.
@@ -58,40 +178,29 @@ export function validateIpAddress(rawIp: string): IpValidationResult {
   }
 
   // 1. IPv4 Validation
-  const ipv4Pattern = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-  const ipv4Match = ip.match(ipv4Pattern);
+  const ipv4Parts = ip.split('.');
+  if (ipv4Parts.length === 4) {
+    const areAllOctetsValid = ipv4Parts.every((part) => {
+      if (!/^\d+$/.test(part)) return false;
+      const num = parseInt(part, 10);
+      return num >= 0 && num <= 255 && (part === '0' || !part.startsWith('0'));
+    });
 
-  if (ipv4Match) {
-    const octets = [
-      Number(ipv4Match[1]),
-      Number(ipv4Match[2]),
-      Number(ipv4Match[3]),
-      Number(ipv4Match[4]),
-    ];
-
-    // Check for leading zeros (e.g. 01.02.03.04 is invalid)
-    for (let i = 1; i <= 4; i++) {
-      if (ipv4Match[i].length > 1 && ipv4Match[i].startsWith('0')) {
-        return {
-          isValid: false,
-          error: `Octet ${ipv4Match[i]} contains illegal leading zero`,
-        };
+    if (areAllOctetsValid) {
+      // Prohibit common invalid broadcast / zero octets for host addresses
+      const first = parseInt(ipv4Parts[0], 10);
+      if (first === 0 || first === 255) {
+        return { isValid: false, error: 'Invalid leading octet for host address' };
       }
-    }
-
-    // Check bounds 0-255
-    const outOfBounds = octets.find((o) => o < 0 || o > 255);
-    if (outOfBounds !== undefined) {
       return {
-        isValid: false,
-        error: `Octet ${outOfBounds} out of bounds (0–255)`,
+        isValid: true,
+        version: 'IPv4',
+        normalized: ip,
       };
     }
-
     return {
-      isValid: true,
-      version: 'IPv4',
-      normalized: ip,
+      isValid: false,
+      error: 'Invalid IPv4 octet. Each octet must be an integer between 0 and 255 with no leading zeros',
     };
   }
 
@@ -117,33 +226,28 @@ export function validateIpAddress(rawIp: string): IpValidationResult {
  * Live availability validator for Cisco operating system drivers.
  */
 export function validateDeviceType(rawType: string): DeviceTypeValidationResult {
-  const normalized = rawType.trim().toLowerCase().replace(/[\s_-]+/g, '_');
+  const normalized = normalizeDeviceType(rawType);
 
   if (!normalized) {
+    if (!rawType || !rawType.trim()) {
+      return {
+        isValid: false,
+        deviceType: null,
+        error: 'Empty device type',
+      };
+    }
     return {
       isValid: false,
       deviceType: null,
-      error: 'Empty device type',
+      error: `Unsupported device type "${rawType}". Supported: cisco_xe, cisco_ios, cisco_nxos, cisco_xr, cisco_asa`,
     };
   }
 
-  for (const platform of SUPPORTED_DEVICE_TYPES) {
-    if (
-      platform.id === normalized ||
-      platform.aliases.some((alias) => alias.toLowerCase() === normalized)
-    ) {
-      return {
-        isValid: true,
-        deviceType: platform.id,
-        label: platform.label,
-      };
-    }
-  }
-
+  const platform = SUPPORTED_DEVICE_TYPES.find((p) => p.id === normalized)!;
   return {
-    isValid: false,
-    deviceType: null,
-    error: `Unsupported device type "${rawType}". Supported: cisco_xe, cisco_ios, cisco_nxos, cisco_xr, cisco_asa`,
+    isValid: true,
+    deviceType: platform.id,
+    label: platform.label,
   };
 }
 

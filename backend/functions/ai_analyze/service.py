@@ -167,6 +167,11 @@ class AIAnalyzeService:
             "conflictsDetected": analysis_data.get("conflictsDetected", []),
             "recommendations": analysis_data.get("recommendations", []),
             "commandBreakdown": analysis_data.get("commandBreakdown", []),
+            "suggestedRollbackPlan": (
+                analysis_data.get("suggestedRollbackPlan")
+                if severity != "INFORMATIONAL" and has_functional and analysis_data.get("suggestedRollbackPlan")
+                else None
+            ),
             "processingStrategy": strategy,
             "createdAt": now,
         }

@@ -1225,11 +1225,12 @@ process restart, state transition, or failure.
 
 - **Empty diff after volatile screen, or no functional change**: severity
   \`Informational\`; \`risks\`, \`conflictsDetected\`, \`recommendations\` all \`[]\`;
+  \`suggestedRollbackPlan: null\`;
   \`commandBreakdown\` lists every command with \`changeType: "no-change"\`;
   summary exactly:
   \`Verification analysis suggests no functional configuration changes detected. Verify against raw output before approval.\`
 - **Malformed or missing input**: still return valid JSON with severity
-  \`Informational\` and a summary stating that analysis could not be performed.
+  \`Informational\`, \`suggestedRollbackPlan: null\`, and a summary stating that analysis could not be performed.
 
 # Output
 
@@ -1255,7 +1256,8 @@ Do not output numeric scores, percentages, or ratings of any kind.
   "recommendations": ["string"],
   "commandBreakdown": [
     { "command": "show ...", "changeType": "added | removed | modified | error | no-change", "details": "string" }
-  ]
+  ],
+  "suggestedRollbackPlan": "string | null"
 }
 
 # Field rules
@@ -1266,7 +1268,15 @@ Do not output numeric scores, percentages, or ratings of any kind.
 - Each \`evidence.excerpt\` MUST be copied verbatim from the diff. Excerpts are
   programmatically verified against the diff; fabricated excerpts invalidate
   the entire analysis.
-- \`impactAnalysis\` MUST NOT restate the summary; it synthesizes across commands.`;
+- \`impactAnalysis\` MUST NOT restate the summary; it synthesizes across commands.
+- \`suggestedRollbackPlan\` MUST be null when severity is \`Informational\` or when no functional configuration changes occurred.
+- When severity is \`Critical\`, \`High\`, \`Medium\`, or \`Low\` and functional changes exist, \`suggestedRollbackPlan\` MUST be a step-by-step Cisco CLI remediation runbook string formatted with operational comments (#).
+- Every command in \`suggestedRollbackPlan\` MUST be strictly grounded in the provided diff (copying exact interface names, IP addresses, subnets, route statements, and ASNs). Never invent interfaces, IP addresses, or subnets.
+- Structure \`suggestedRollbackPlan\` into:
+  1. Non-disruptive pre-checks (diagnostic show commands)
+  2. Exact configuration reversal steps (e.g. configure terminal blocks, no ip route ..., no shutdown)
+  3. Post-remediation verification commands (show commands to confirm baseline restoration)
+- Destructive system commands (\`reload\`, \`write erase\`, \`erase startup-config\`) are strictly prohibited in the runbook.`;
 
     const VOLATILE_NOISE_PATTERNS = [
       /^\s*[-+]\s*.*(?:uptime is|uptime for this|router uptime|system uptime)/i,
@@ -1329,6 +1339,7 @@ Do not output numeric scores, percentages, or ratings of any kind.
         conflictsDetected: [],
         recommendations: [],
         commandBreakdown: screenedBreakdown,
+        suggestedRollbackPlan: null,
       };
     } else {
       const userPromptPayload = Object.entries(comparison.commandDiffs || {}).map(([cmd, d]) => ({
@@ -1552,8 +1563,9 @@ Do not output numeric scores, percentages, or ratings of any kind.
       suggestedRollbackPlan:
         severity === 'Informational' || severity === 'SAFE' || !hasFunctionalSignal
           ? undefined
-          : parsedResult?.suggestedRollbackPlan ||
-            '# Recommended Rollback Runbook (Advisory)\n# Engineer verification required prior to script execution.\n1. Revert modified configurations\n2. Clear routing session soft-reset\n3. Capture post-rollback snapshot to verify baseline restore.',
+          : (typeof parsedResult?.suggestedRollbackPlan === 'string' && parsedResult.suggestedRollbackPlan.trim()
+              ? parsedResult.suggestedRollbackPlan.trim()
+              : undefined),
       modelUsed: currentModel,
       tokenUsage: {
         promptTokens: usedLiveApi ? 1150 : 0,

@@ -11,6 +11,7 @@ import { PaginationToolbar } from '../components/common/PaginationToolbar';
 import { Select } from '../components/common/Select';
 import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
 import { validateCommandSetCompatibility, isCommandSetCompatible } from '../utils/compatibilityValidator';
+import { normalizeDeviceType, getDeviceTypeLabel } from '../utils/networkValidator';
 import {
   Camera,
   HardDrives,
@@ -167,7 +168,10 @@ export const CollectPage: React.FC = () => {
         d.deviceId.toLowerCase().includes(deviceSearch.toLowerCase());
 
       const matchesPlatform =
-        devicePlatformFilter === 'ALL' || d.deviceType === devicePlatformFilter;
+        devicePlatformFilter === 'ALL' ||
+        d.deviceType === devicePlatformFilter ||
+        (normalizeDeviceType(d.deviceType) &&
+          normalizeDeviceType(d.deviceType) === normalizeDeviceType(devicePlatformFilter));
 
       const matchesStatus =
         deviceStatusFilter === 'ALL' ||
@@ -187,8 +191,11 @@ export const CollectPage: React.FC = () => {
   // Single target selection action with auto driver matching
   const handleSelectSingleDevice = (dev: Device) => {
     setSelectedDeviceId(dev.deviceId);
-    // Find compatible command set for device driver
-    const matchingSet = commandSets.find((cs) => cs.deviceType === dev.deviceType);
+    // Find compatible command set for device driver using canonical normalization
+    const devDriver = normalizeDeviceType(dev.deviceType) || dev.deviceType;
+    const matchingSet = commandSets.find(
+      (cs) => (normalizeDeviceType(cs.deviceType) || cs.deviceType) === devDriver
+    );
     if (matchingSet) {
       setSelectedSetId(matchingSet.setId);
     }
@@ -1098,7 +1105,7 @@ export const CollectPage: React.FC = () => {
                 </label>
                 {selectedSet && (
                   <span className="text-xs font-mono text-zinc-400">
-                    Target Driver: <span className="text-[#c8ff00] font-semibold">{selectedSet.deviceType}</span>
+                    Target Driver: <span className="text-[#c8ff00] font-semibold">{getDeviceTypeLabel(selectedSet.deviceType)}</span>
                   </span>
                 )}
               </div>
@@ -1112,9 +1119,10 @@ export const CollectPage: React.FC = () => {
               >
                 {commandSets.map((s: CommandSet) => {
                   const isComp = isCommandSetCompatible(s, activeTargetDevices);
+                  const driverLabel = getDeviceTypeLabel(s.deviceType);
                   return (
                     <option key={s.setId} value={s.setId}>
-                      {s.name} ({s.commands.length} cmds) — {s.deviceType} {isComp ? '✓ Compatible' : `[Mismatched Driver: ${s.deviceType}]`}
+                      {s.name} ({s.commands.length} cmds) — {driverLabel} {isComp ? '✓ Compatible' : `[Mismatched Driver: ${driverLabel}]`}
                     </option>
                   );
                 })}
@@ -1314,7 +1322,7 @@ export const CollectPage: React.FC = () => {
                     </span>
                   </div>
                   <span className="text-xs font-mono px-2 py-0.5 rounded bg-zinc-900/80 border border-zinc-700/60">
-                    Required: {selectedSet?.deviceType}
+                    Required: {getDeviceTypeLabel(selectedSet?.deviceType)}
                   </span>
                 </div>
                 <p className="text-xs leading-relaxed text-zinc-300">
@@ -1341,7 +1349,7 @@ export const CollectPage: React.FC = () => {
                           key={dev.deviceId}
                           className="px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-xs font-mono text-rose-200"
                         >
-                          {dev.name} ({dev.deviceType})
+                          {dev.name} ({getDeviceTypeLabel(dev.deviceType)})
                         </span>
                       ))}
                     </div>

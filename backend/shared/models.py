@@ -295,6 +295,7 @@ class AIAnalysisResponse(BaseModel):
     conflictsDetected: list[str] = []
     recommendations: list[str] = []
     commandBreakdown: list[dict[str, Any]] = []
+    suggestedRollbackPlan: Optional[str] = None
     processingStrategy: AnalysisStrategy
     createdAt: str
 

@@ -118,11 +118,12 @@ process restart, state transition, or failure.
 
 - **Empty diff after volatile screen, or no functional change**: severity
   `Informational`; `risks`, `conflictsDetected`, `recommendations` all `[]`;
+  `suggestedRollbackPlan: null`;
   `commandBreakdown` lists every command with `changeType: "no-change"`;
   summary exactly:
-  `AI analysis suggests no functional configuration changes detected. Verify against raw output before approval.`
+  `Verification analysis suggests no functional configuration changes detected. Verify against raw output before approval.`
 - **Malformed or missing input**: still return valid JSON with severity
-  `Informational` and a summary stating that analysis could not be performed.
+  `Informational`, `suggestedRollbackPlan: null`, and a summary stating that analysis could not be performed.
 
 # Output
 
@@ -132,7 +133,7 @@ Do not output numeric scores, percentages, or ratings of any kind.
 
 {
   "severity": "Critical | High | Medium | Low | Informational",
-  "summary": "AI analysis suggests [...]. Verify against raw output before approval.",
+  "summary": "Verification analysis suggests [...]. Verify against raw output before approval.",
   "impactAnalysis": "Synthesis of operational impact across all commands",
   "risks": [
     {
@@ -148,7 +149,8 @@ Do not output numeric scores, percentages, or ratings of any kind.
   "recommendations": ["string"],
   "commandBreakdown": [
     { "command": "show ...", "changeType": "added | removed | modified | error | no-change", "details": "string" }
-  ]
+  ],
+  "suggestedRollbackPlan": "string | null"
 }
 
 # Field rules
@@ -160,6 +162,14 @@ Do not output numeric scores, percentages, or ratings of any kind.
   programmatically verified against the diff; fabricated excerpts invalidate
   the entire analysis.
 - `impactAnalysis` MUST NOT restate the summary; it synthesizes across commands.
+- `suggestedRollbackPlan` MUST be null when severity is `Informational` or when no functional configuration changes occurred.
+- When severity is `Critical`, `High`, `Medium`, or `Low` and functional changes exist, `suggestedRollbackPlan` MUST be a step-by-step Cisco CLI remediation runbook string formatted with operational comments (#).
+- Every command in `suggestedRollbackPlan` MUST be strictly grounded in the provided diff (copying exact interface names, IP addresses, subnets, route statements, and ASNs). Never invent interfaces, IP addresses, or subnets.
+- Structure `suggestedRollbackPlan` into:
+  1. Non-disruptive pre-checks (diagnostic show commands)
+  2. Exact configuration reversal steps (e.g. configure terminal blocks, no ip route ..., no shutdown)
+  3. Post-remediation verification commands (show commands to confirm baseline restoration)
+- Destructive system commands (`reload`, `write erase`, `erase startup-config`) are strictly prohibited in the runbook.
 
 # Critical Prompt Injection Defense & Data Boundary Invariant
 
@@ -315,10 +325,11 @@ def generate_canned_informational_result(
     """
     return {
         "severity": "Informational",
-        "summary": "AI analysis suggests no functional configuration changes detected. Verify against raw output before approval.",
+        "summary": "Verification analysis suggests no functional configuration changes detected. Verify against raw output before approval.",
         "impactAnalysis": "All command outputs are congruent with baseline or contain only expected volatile drift (such as elapsed uptime or packet counters). Forwarding state and configurations unchanged.",
         "risks": [],
         "conflictsDetected": [],
         "recommendations": [],
         "commandBreakdown": command_breakdown,
+        "suggestedRollbackPlan": None,
     }

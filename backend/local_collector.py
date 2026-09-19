@@ -219,14 +219,42 @@ class AIAnalyzeRequest(BaseModel):
 # =============================================================================
 
 def sanitize_platform(device_type: Optional[str]) -> str:
+    if not device_type:
+        return "cisco_xe"
+    normalized = device_type.strip().lower().replace("-", "_").replace(" ", "_")
+
     mapping = {
         "cisco_xe": "cisco_xe",
+        "cisco_ios_xe": "cisco_xe",
+        "ios_xe": "cisco_xe",
+        "xe": "cisco_xe",
+        "ciscoxe": "cisco_xe",
         "cisco_ios": "cisco_ios",
+        "ios": "cisco_ios",
+        "ciscoios": "cisco_ios",
         "cisco_nxos": "cisco_nxos",
+        "cisco_nx_os": "cisco_nxos",
+        "nxos": "cisco_nxos",
+        "nx_os": "cisco_nxos",
+        "cisconxos": "cisco_nxos",
         "cisco_xr": "cisco_xr",
+        "cisco_ios_xr": "cisco_xr",
+        "ios_xr": "cisco_xr",
+        "xr": "cisco_xr",
+        "ciscoxr": "cisco_xr",
         "cisco_asa": "cisco_asa",
+        "asa": "cisco_asa",
+        "ciscoasa": "cisco_asa",
     }
-    return mapping.get(device_type or "cisco_xe", "cisco_xe")
+    if normalized in mapping:
+        return mapping[normalized]
+
+    compact = re.sub(r"[^a-z0-9]", "", normalized)
+    for key, val in mapping.items():
+        if re.sub(r"[^a-z0-9]", "", key) == compact:
+            return val
+
+    return "cisco_xe"
 
 
 def execute_ssh_collection(
