@@ -1227,7 +1227,7 @@ The build output will be in `frontend/dist/`.
 
 ### 11.6 Configure SPA Routing
 
-React Router handles client-side navigation. Without this step, direct URL access returns a 403 or 404 from CloudFront.
+React Router handles client-side navigation across both core application modules and standalone printable dossier paths (such as `/reports/analysis/:id`, `/reports/snapshot/:id`, `/reports/audit/:id`, and `/reports/audit/ledger`). Without this custom error response configuration, direct URL access or hard browser refreshes on any deep link returns a 403 or 404 from CloudFront.
 
 1. Navigate to **CloudFront** → your distribution → **Error pages** tab → **Create custom error response**.
 2. Create the first error response:

@@ -1,6 +1,6 @@
 """
 DriftGuard Local Collector Bridge & Database API Server.
-Executes authentic Cisco show commands over SSH (Netmiko) and provides real SQLite database persistence,
+Executes authentic Cisco show commands over SSH (Netmiko) and provides real Amazon DynamoDB single-table persistence,
 per-user tenant data isolation, multi-layer bot defense, and abuse quota enforcement.
 """
 

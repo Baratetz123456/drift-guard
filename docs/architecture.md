@@ -27,14 +27,14 @@ The DriftGuard architecture spans client-side desktop execution, edge content de
 
 | Subsystem | Technology | Responsibility |
 | :--- | :--- | :--- |
-| **Desktop Web UI** | React 19, TypeScript, Tailwind CSS, Zustand | Interactive network dashboard, unified diff viewer, AI card inspector, and mock/API dual-mode data provider. |
-| **CDN & Edge Delivery** | Amazon CloudFront + S3 OAC | Global caching of compiled static SPA assets with custom 404/403 rewrite rules to `index.html`. |
+| **Desktop Web UI** | React 19, TypeScript, Tailwind CSS, Zustand | Interactive network dashboard, unified diff viewer, AI card inspector, mock/API dual-mode data provider, and standalone 1:1 A4 publication dossier suite (`/reports/:type/:id`). |
+| **CDN & Edge Delivery** | Amazon CloudFront + S3 OAC | Global caching of compiled static SPA assets with custom 404/403 rewrite rules to `index.html` covering both app routes and standalone reports. |
 | **User Identity** | Amazon Cognito User Pool | Secure authentication via SRP (Secure Remote Password), user session lifecycle, and JWT issuance (ID, Access, Refresh). |
 | **API Ingress** | Amazon API Gateway (REST v1) | Request routing, CORS headers enforcement, Cognito token validation, and method-level rate limiting / burst throttling. |
 | **Synchronous Compute** | AWS Lambda (Python 3.12, ARM64) | Low-latency CRUD operations for devices, command sets, settings, snapshot queries, and audit logs. |
 | **Workflow Engine** | AWS Step Functions | Distributed state machine coordinating multi-device parallel SSH collection jobs with retries, catch blocks, and status updates. |
-| **Device Automation** | Lambda + Netmiko Layer | Connects to Cisco/Arista/Juniper hardware over SSH (port 22), issues read-only inspection commands, and parses terminal outputs. |
-| **Primary Database** | Amazon DynamoDB (Pay-Per-Request) | Single-table schema supporting sub-millisecond lookups for devices, collections, snapshots, comparisons, and audit trails. |
+| **Device Automation** | Lambda + Netmiko Layer / Local Collector | Connects to Cisco hardware over SSH (port 22) concurrently with target-level fault isolation, issuing read-only inspection commands and streaming terminal outputs. |
+| **Primary Database** | Amazon DynamoDB (Pay-Per-Request / Local) | Single-table schema (`DeltaNet-${Environment}` / `DeltaNet-local`) supporting sub-millisecond lookups for devices, collections, snapshots, comparisons, and audit trails. |
 | **Payload Storage** | Amazon S3 | Secure bucket for raw CLI captures and large diff payloads exceeding the 4 KB DynamoDB inline threshold. |
 | **Cryptography** | AWS Key Management Service (KMS) | AES-256 envelope encryption for device credentials and AI provider access tokens. |
 | **Reasoning Engine** | LLM (OpenRouter / OpenAI) | Structured risk evaluation, operational impact assessment, and remediation command generation. |
@@ -176,11 +176,54 @@ if (!response.ok) {
 
 ---
 
-## 5. Data Architecture & Storage Strategy
+## 5. Unified Standalone Printable Engineering Dossier Architecture
 
-### 5.1 DynamoDB Single-Table Schema
+DriftGuard provides a publication-grade document generation suite designed for Change Advisory Boards (CAB), operational compliance archives, and physical maintenance binders.
 
-DriftGuard utilizes an optimized single-table design (`DeltaNet-${Environment}`) with two Global Secondary Indexes (`GSI1`, `GSI2`) to satisfy all access patterns in sub-10ms latency:
+### 5.1 Decoupled Standalone Route Architecture
+
+Printable reports are completely decoupled from the main application shell (`AppLayout`), eliminating sidebar navigation, application headers, and dashboard chrome:
+
+```text
+https://driftguard.company.com/reports/:type/:id
+  ├── /reports/analysis/:id    ──> PrintableAIReport (Advisory impact & blast radius)
+  ├── /reports/snapshot/:id    ──> PrintableSnapshotReport (Raw CLI configuration capture)
+  ├── /reports/audit/:id       ──> PrintableAuditEventReport (Single forensic security event)
+  └── /reports/audit/ledger    ──> PrintableAuditLedgerReport (Comprehensive operational log)
+```
+
+- **Top-Level Isolation**: Handled by [PrintableReportPage.tsx](file:///d:/DriftGuard/drift-guard/frontend/src/pages/PrintableReportPage.tsx) outside the main layout hierarchy.
+- **Direct Navigation & Deep Linking**: Any report can be directly bookmarked, emailed, or linked from external ticketing systems (Jira, ServiceNow) without requiring prior application state.
+- **Automated Print Invocation**: The document shell automatically detects user intent and initiates `window.print()` upon mounting while providing interactive zoom and print controls.
+
+### 5.2 Physical 1:1 ISO A4 Publication Geometry & Typography
+
+Unlike web dashboards that rely on cards and modals, the dossier suite adheres to strict physical publishing conventions:
+
+- **Master Document Shell**: [PrintableDocumentShell.tsx](file:///d:/DriftGuard/drift-guard/frontend/src/components/analysis/PrintableDocumentShell.tsx) enforces standard ISO A4 paper geometry (`210mm × 297mm`) with `@page { size: A4 portrait; margin: 12mm 15mm 15mm 15mm; }`.
+- **Card-Free Ruled Format**: All UI containers, rounded cards, background tint rectangles, and shadow boxes are eliminated in favor of ruled hairline horizontal dividers (`border-slate-200`, `border-slate-800`), dense metadata key-value grids, and high-legibility tabular alignments.
+- **Dual-Surface Fidelity**:
+  - **Screen Preview**: Renders as a physical A4 white paper sheet with authentic document drop shadows over an obsidian desk canvas (`bg-slate-900/90`).
+  - **Print Output**: Strips all screen-only background artifacts, displaying pristine black text on white canvas with exact page break handling (`page-break-inside: avoid;`).
+- **Typography & Brand Consistency**: Combines Inter for structured section headings and JetBrains Mono for configuration listings, diff snippets, and cryptographic hashes.
+- **Light-Canvas Contrast Rule**: In accordance with DriftGuard brand standards, electric lime (`#c8ff00`) is mapped to deep forest lime (`#4d7c0f` / Lime-700) for text, badges, and thin strokes on physical paper, achieving AAA contrast compliance.
+
+### 5.3 Engineering Dossier Archetypes
+
+| Dossier Archetype | Component | Operational Purpose & Included Telemetry |
+| :--- | :--- | :--- |
+| **AI Analysis Dossier** | [PrintableAIReport.tsx](file:///d:/DriftGuard/drift-guard/frontend/src/components/analysis/PrintableAIReport.tsx) | Change Advisory Board (CAB) review packet including executive summary, categorical severity, anchored risk score (0–100), blast radius badge, verbatim CLI diff snippets, and automated rollback/remediation runbook (automatically suppressed on zero-risk baselines). |
+| **Snapshot Profile Dossier** | [PrintableSnapshotReport.tsx](file:///d:/DriftGuard/drift-guard/frontend/src/components/analysis/PrintableSnapshotReport.tsx) | Raw configuration archive containing device hardware attributes, capture duration, collection status, and full verbatim CLI outputs for diagnostic commands. |
+| **Audit Event Dossier** | [PrintableAuditEventReport.tsx](file:///d:/DriftGuard/drift-guard/frontend/src/components/analysis/PrintableAuditEventReport.tsx) | Forensic compliance record detailing actor username, client IP, action type, cryptographic event hash, and complete parameter delta payload. |
+| **Audit Ledger Dossier** | [PrintableAuditLedgerReport.tsx](file:///d:/DriftGuard/drift-guard/frontend/src/components/analysis/PrintableAuditLedgerReport.tsx) | Chronological compliance ledger tracking all snapshot collections, diff analyses, and credential modifications across maintenance windows. |
+
+---
+
+## 6. Data Architecture & Storage Strategy
+
+### 6.1 DynamoDB Single-Table Schema
+
+DriftGuard utilizes an optimized single-table design (`DeltaNet-${Environment}` in production, `DeltaNet-local` in local development) with two Global Secondary Indexes (`GSI1`, `GSI2`) to satisfy all access patterns in sub-10ms latency:
 
 | Entity | PK (Partition Key) | SK (Sort Key) | GSI1PK | GSI1SK | GSI2PK | GSI2SK |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -193,18 +236,20 @@ DriftGuard utilizes an optimized single-table design (`DeltaNet-${Environment}`)
 | **AI Analysis** | `USER#{userId}` | `ANALYSIS#{analysisId}`| `USER#{userId}` | `#ANALYSES#{timestamp}`| `COMP#{comparisonId}` | `ANALYSIS#{ts}` |
 | **Audit Log** | `USER#{userId}` | `AUDIT#{timestamp}` | `USER#{userId}` | `#AUDIT#{action}` | — | — |
 
+- **Local Architecture Parity**: The local Docker Compose environment runs official Amazon DynamoDB Local (`localhost:8000`) alongside the DynamoDB Admin Web UI (`localhost:8001`), providing 100% functional and query parity with AWS cloud deployments via [dynamo_store.py](file:///d:/DriftGuard/drift-guard/backend/shared/dynamo_store.py).
+
 ---
 
-### 5.2 Hybrid S3 Data Tiering
+### 6.2 Hybrid S3 Data Tiering
 
 To maintain low storage costs and sub-millisecond database response times, DriftGuard enforces a strict **4 KB threshold rule** ([constants.py](file:///d:/DriftGuard/drift-guard/backend/shared/constants.py)):
 
-```
+```text
                       +-----------------------------+
                       |     CLI Output Captured     |
                       +--------------+--------------+
                                      |
-                          Is Payload <= 4 KB?
+                           Is Payload <= 4 KB?
                                      |
                      +---------------+---------------+
                      |                               |
@@ -224,9 +269,9 @@ To maintain low storage costs and sub-millisecond database response times, Drift
 
 ---
 
-## 6. Security Architecture & Cisco Read-Only Enforcement
+## 7. Security Architecture & Cisco Read-Only Enforcement
 
-### 6.1 Command Safety Engine
+### 7.1 Command Safety Engine
 
 DriftGuard enforces a strict read-only execution policy. All commands scheduled in command sets or initiated through manual collections are validated against the blocked pattern registry ([constants.py](file:///d:/DriftGuard/drift-guard/backend/shared/constants.py)):
 
@@ -241,7 +286,7 @@ BLOCKED_COMMAND_PATTERNS = [
 
 Any command containing a blocked pattern substring is rejected at API submission time with an `HTTP 400 Bad Request` before any SSH connection can be established.
 
-### 6.2 Credential Protection via KMS Envelope Encryption
+### 7.2 Credential Protection via KMS Envelope Encryption
 
 Device passwords, SSH private keys, and external AI provider tokens are encrypted prior to database insertion:
 
@@ -251,11 +296,57 @@ Device passwords, SSH private keys, and external AI provider tokens are encrypte
 
 ---
 
-## 7. Architecture Summary & Verification Checklist
+## 8. Concurrent Multi-Device SSH Collection Engine & Fault Isolation
 
-- [x] **Zero Mutating Commands**: Enforced by code-level regex/substring inspection.
-- [x] **Envelope Encryption**: Enforced by AWS KMS CMKs on all credentials.
-- [x] **Rate Limiting**: Configured in API Gateway `MethodSettings` (20 req/s baseline, 2 req/s heavy).
-- [x] **Free-Tier Protection**: Throttling shields DynamoDB, Lambda, and API Gateway budgets.
-- [x] **Resilient UI**: React 19 client gracefully handles HTTP 429 status with informative feedback.
+Network maintenance windows typically encompass multiple switches, routers, and firewalls requiring simultaneous baseline and verification captures.
+
+```text
+[Operator / API Client]
+         │
+         ▼ Dispatched Collection Request (N Devices)
++─────────────────────────────────────────────────────────────+
+|           Parallel Netmiko Orchestration Layer              |
++──────────────┬───────────────────────────────┬──────────────+
+               │                               │
+       Worker 1 (Target A)             Worker 2 (Target B)
+               │                               │
+       SSH Handshake: OK              SSH Handshake: FAILED
+       Execute Show Commands          (Auth / Timeout Error)
+       Parse & Save Snapshot                   │
+               │                               ▼
+               │                     [Fault Isolated]
+               │                     Log Failure & Telemetry
+               ▼                               │
+   +───────────────────────+                   │
+   | Snapshot A Stored     |                   ▼
+   +───────────────────────+         +────────────────────────+
+                                     | Failed Node Flagged    |
+                                     | Available for Retry    |
+                                     +────────────────────────+
+```
+
+### 8.1 Parallel Worker Allocation
+- **Production AWS Serverless**: AWS Step Functions executes a `Map` state distributed across concurrent `CollectionWorker` Lambda microservices.
+- **Local / Containerized Execution**: The local collector bridge ([local_collector.py](file:///d:/DriftGuard/drift-guard/backend/local_collector.py)) employs a Python `concurrent.futures.ThreadPoolExecutor` to execute parallel Netmiko SSH sessions without blocking the API loop.
+
+### 8.2 Target-Level Fault Isolation
+- **Independent Session Lifecycles**: Each network target executes within an isolated `try/except` boundary.
+- **Resilience to Transient Errors**: If one network node encounters an authentication failure (`NetmikoAuthenticationException`), SSH key rejection, or reachability timeout, the remaining nodes in the collection batch continue unaffected.
+- **Batch Result Granularity**: The collection completion event reports exact metrics (`X of Y snapshots stored`), ensuring operators retain all successful captures even if a subset of devices is offline.
+
+### 8.3 Full-Width Execution Telemetry & One-Click Retry
+- **Step 3 High-Density Telemetry**: The capture interface ([CollectPage.tsx](file:///d:/DriftGuard/drift-guard/frontend/src/pages/CollectPage.tsx)) renders a full-width real-time execution console displaying live terminal feeds, per-target status indicators, and elapsed timings.
+- **Targeted Recovery**: When failures occur, the interface dynamically surfaces a **Retry failed devices** action, allowing engineers to re-attempt collection solely on unsuccessful nodes without repeating captures on validated hardware.
+
+---
+
+## 9. Architecture Summary & Verification Checklist
+
+- [x] **Zero Mutating Commands**: Enforced by code-level regex/substring inspection across all tiers.
+- [x] **Envelope Encryption**: Enforced by AWS KMS CMKs on all credentials and provider keys.
+- [x] **Rate Limiting & Abuse Shielding**: Configured in API Gateway `MethodSettings` (20 req/s baseline, 2 req/s heavy).
+- [x] **Standalone Printable Dossier Suite**: Decoupled `/reports/:type/:id` routes delivering 1:1 ISO A4 publication fidelity.
+- [x] **Parallel Collection & Fault Isolation**: Multi-target concurrency with per-device error isolation and one-click retry.
+- [x] **DynamoDB Single-Table Parity**: Production AWS and local Docker Compose environments both utilize unified single-table schemas.
+- [x] **Resilient UI**: React 19 client gracefully handles HTTP 429 status and network timeouts.
 - [x] **Dual-Mode Execution**: Operates in standalone local mock mode or live serverless cloud mode.

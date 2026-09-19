@@ -25,11 +25,12 @@
 
 **DriftGuard** is an enterprise desktop verification instrument designed for network operations centers (NOC) and network engineering teams managing mission-critical Cisco infrastructure.
 
-During live maintenance windows, undocumented configuration drift, routing convergence anomalies, and flapping adjacencies introduce unacceptable risk. DriftGuard enforces a disciplined, 3-beat operational workflow:
+During live maintenance windows, undocumented configuration drift, routing convergence anomalies, and flapping adjacencies introduce unacceptable risk. DriftGuard enforces a disciplined, 4-phase operational lifecycle:
 
-1. **Before**: Collect structured `show` command baselines prior to maintenance.
-2. **After**: Capture post-change verification snapshots across your fleet.
-3. **Understood**: Compute line-by-line CLI diffs and generate structured, advisory AI impact assessments categorized by blast radius and severity.
+1. **Phase 1: Inventory**: Register Cisco hardware fleet, organize device groups, curate diagnostic show command sets, and manage KMS-encrypted credentials.
+2. **Phase 2: Capture**: Execute high-speed baseline and post-maintenance snapshots with parallel Netmiko SSH collection workers and live terminal telemetry.
+3. **Phase 3: Verification**: Compute deterministic line-by-line CLI diffs highlighting routing table changes, interface flapping, and BGP adjacency divergence.
+4. **Phase 4: Synthesis**: Generate advisory AI impact assessments and export physical 1:1 A4 standalone engineering publication dossiers for compliance and CAB approvals.
 
 DriftGuard functions as an engineered flight instrument panel — calm, technical, desktop-first, and strictly read-only.
 
@@ -67,6 +68,25 @@ DriftGuard functions as an engineered flight instrument panel — calm, technica
 - **AWS KMS Envelope Encryption**: Fleet SSH credentials, private keys, and AI provider API keys are encrypted with customer-managed keys (CMK) before storage in DynamoDB.
 - **Pre-Inference Secret Scrubbing**: High-entropy strings, MD5 authentication keys, SNMP communities, and passwords (`password 7`, `secret 5/8/9`) are regex-scrubbed before sending to AI evaluation models.
 - **Immutable Audit Logging**: Every snapshot capture, diff inspection, and export event is cryptographically recorded in an immutable audit ledger.
+
+### 6. Unified Standalone Printable Engineering Dossiers
+- **Physical 1:1 A4 Publication Standard**: Generates card-free, ruled engineering documents adhering strictly to international ISO A4 dimensions (`210mm × 297mm`) with `@media print` pagination and exact print-canvas fidelity.
+- **Decoupled Route Architecture**: Printable reports render outside the application shell at dedicated URLs (`/reports/analysis/:id`, `/reports/snapshot/:id`, `/reports/audit/:id`, `/reports/audit/ledger`), eliminating sidebar, header, and navigation clutter.
+- **Four Core Engineering Dossier Archetypes**:
+  - **AI Analysis Dossier**: Executive summary, risk score, blast radius badge, structured advisory findings, remediation runbook, and senior engineer verification disclaimer.
+  - **Snapshot Profile Dossier**: Complete device configuration capture, collection metadata, duration, command outputs, and verbatim CLI transcripts.
+  - **Audit Event Dossier**: Single-event security inspection displaying cryptographic hashes, actor IP, affected target, and parameter payloads.
+  - **Audit Ledger Dossier**: Multi-record compliance log documenting operational events across maintenance windows.
+
+### 7. Concurrent Multi-Device SSH Collection Engine & Fault Isolation
+- **Parallel Dispatch**: Orchestrates concurrent non-mutating SSH collection jobs across multi-device maintenance batches via dedicated worker allocation.
+- **Target-Level Fault Isolation**: Independent try/catch execution prevents individual host authentication errors (`NetmikoAuthenticationException`) or unreachable devices from failing other fleet captures.
+- **Full-Width Execution Telemetry**: High-density stacked layout featuring live execution telemetry, individual node status pills, and one-click "Retry failed devices" recovery actions.
+
+### 8. Amazon DynamoDB Single-Table Parity
+- **Production-Identical Local Architecture**: Replaces legacy SQLite with Amazon DynamoDB Local (`DeltaNet-local`), providing complete parity with production AWS serverless deployments.
+- **Single-Table Design**: Unified Boto3 access layer ([dynamo_store.py](file:///d:/DriftGuard/drift-guard/backend/shared/dynamo_store.py)) mapping devices, command sets, snapshots, comparisons, and audit records with sub-millisecond query performance.
+- **Integrated Admin Web GUI**: Local Docker Compose stack exposes DynamoDB Admin GUI at `http://localhost:8001` for real-time item and index inspection.
 
 ---
 
@@ -225,7 +245,7 @@ Comprehensive operational and engineering guides:
 ## Repository Structure
 
 ```text
-d:\DeltaNet/
+d:\DriftGuard\drift-guard/
 ├── .agents/                      # Multi-agent operating protocol and skills
 │   ├── AGENTS.md                 # Autonomous multi-agent software engineering protocol
 │   └── skills/                   # Specialist skill definitions
@@ -234,7 +254,7 @@ d:\DeltaNet/
 │       ├── agent-implementer/    # Python Lambda & React 19/TS components
 │       ├── agent-tester/         # Terminal execution & automated verification
 │       └── agent-reviewer/       # Cisco read-only & KMS envelope security review
-├── backend/                      # AWS Serverless SAM microservices
+├── backend/                      # AWS Serverless SAM microservices & local collector
 │   ├── functions/                # Lambda function handlers
 │   │   ├── devices/              # Device inventory & credential management
 │   │   ├── commands/             # Show command profile catalog
@@ -244,13 +264,16 @@ d:\DeltaNet/
 │   │   ├── ai_analyze/           # Secret scrubbing & AI impact reasoning
 │   │   ├── audit/                # Immutable compliance audit logger
 │   │   └── settings/             # Operator preferences & model keys
-│   ├── shared/                   # Shared Pydantic models, KMS cryptography, S3 helpers
+│   ├── shared/                   # Shared Pydantic models, DynamoDB store, KMS, S3 helpers
 │   ├── state_machines/           # AWS Step Functions JSON definitions
+│   ├── docker-compose.yml        # Amazon DynamoDB Local & DynamoDB Admin stack
+│   ├── local_collector.py        # Local FastAPI Netmiko bridge with DynamoDB single-table
 │   └── template.yaml             # Complete AWS SAM infrastructure-as-code
 ├── frontend/                     # React 19 + Vite desktop application
 │   ├── public/                   # Favicon, OpenGraph card, robots.txt, sitemap.xml, llms.txt
 │   ├── src/
 │   │   ├── components/           # Modular UI components
+│   │   │   ├── analysis/         # Standalone printable engineering dossiers & master shell
 │   │   │   ├── auth/             # 2-column operator authentication & showcases
 │   │   │   ├── common/           # BrandLogo, Badge, Card, ToastContainer, Pagination
 │   │   │   ├── diff/             # LineByLineDiffViewer, SideBySideDiffViewer
@@ -258,12 +281,23 @@ d:\DeltaNet/
 │   │   ├── pages/                # Page controllers
 │   │   │   ├── auth/             # LoginPage, RegisterPage
 │   │   │   ├── legal/            # PrivacyPolicyPage, TermsPage
-│   │   │   ├── DashboardPage.tsx # Fleet status, KPI cards, recent snapshots
-│   │   │   ├── CollectPage.tsx   # "Run collection" execution & streaming logs
-│   │   │   ├── ComparePage.tsx   # Snapshot selector & live CLI diff viewer
-│   │   │   ├── AIAnalysisPage.tsx# DriftGuard Analysis advisory report
-│   │   │   ├── CommandSetsPage.tsx# Show command sequence profiles
-│   │   │   ├── DevicesPage.tsx   # Cisco device fleet inventory
+│   │   │   ├── DashboardPage.tsx # Fleet status, KPI telemetry, 4-phase operational guide
+│   │   │   ├── OperationsPage.tsx# Phase 2 module (Pre-flight, Capture, History)
+│   │   │   ├── AnalysisPage.tsx  # Phase 3/4 module (Diff Viewer, AI Analysis)
+│   │   │   ├── CollectPage.tsx   # Multi-device collection & full-width execution telemetry
+│   │   │   ├── ComparePage.tsx   # Snapshot comparison & live CLI diff viewer
+│   │   │   ├── AIAnalysisPage.tsx# DriftGuard Analysis advisory report & dossier export
+│   │   │   ├── DevicesPage.tsx   # Cisco device fleet inventory & group management
+│   │   │   ├── DeviceDetailPage.tsx # Individual device profile & direct collection
+│   │   │   ├── DeviceGroupDetailPage.tsx # Group profile & batch collection
+│   │   │   ├── CommandSetsPage.tsx # Diagnostic show command sequence profiles
+│   │   │   ├── CommandSetDetailPage.tsx # Command set profile & inspection
+│   │   │   ├── SnapshotsPage.tsx # Temporal snapshot index
+│   │   │   ├── SnapshotDetailPage.tsx # Snapshot detail & standalone dossier export
+│   │   │   ├── ComparisonDetailPage.tsx # Saved comparison inspection
+│   │   │   ├── AuditPage.tsx     # Immutable audit trail & ledger dossier export
+│   │   │   ├── AuditLogDetailPage.tsx # Event security detail & standalone dossier export
+│   │   │   ├── PrintableReportPage.tsx # Decoupled standalone A4 publication renderer
 │   │   │   └── SettingsPage.tsx  # AI model configuration & KMS settings
 │   │   ├── store/                # Zustand application store & demo fixtures
 │   │   └── index.css             # shadcn/ui-compatible HSL theme tokens & Voltage rules
@@ -277,7 +311,7 @@ d:\DeltaNet/
 
 ## Multi-Agent Autonomous Engineering Protocol
 
-This repository is governed by the multi-agent operating protocol codified in [.agents/AGENTS.md](file:///.agents/AGENTS.md). 
+This repository is governed by the multi-agent operating protocol codified in [.agents/AGENTS.md](file:///d:/DriftGuard/drift-guard/.agents/AGENTS.md). 
 
 Every engineering task enters through the **Lead Orchestrator** and progresses sequentially through specialized personas:
 
@@ -353,4 +387,4 @@ pytest
 ## License
 
 Copyright © 2026 DriftGuard Network Systems. All rights reserved.
-For licensing and commercial terms, review [Terms of Service](file:///frontend/src/pages/legal/TermsPage.tsx) and [Privacy Policy](file:///frontend/src/pages/legal/PrivacyPolicyPage.tsx).
+For licensing and commercial terms, review [Terms of Service](file:///d:/DriftGuard/drift-guard/frontend/src/pages/legal/TermsPage.tsx) and [Privacy Policy](file:///d:/DriftGuard/drift-guard/frontend/src/pages/legal/PrivacyPolicyPage.tsx).
