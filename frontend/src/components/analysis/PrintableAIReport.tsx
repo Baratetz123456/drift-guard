@@ -45,7 +45,7 @@ export const PrintableAIReport: React.FC<PrintableAIReportProps> = ({
 
   return (
     <div
-      id="printable-ai-report"
+      id="printable-verification-report"
       className={`w-[210mm] min-h-[297mm] mx-auto bg-white text-zinc-950 p-[14mm] font-sans box-border text-[12px] leading-normal print:w-full print:min-h-0 print:p-0 print:m-0 ${className}`}
       style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}
     >
@@ -157,7 +157,7 @@ export const PrintableAIReport: React.FC<PrintableAIReportProps> = ({
           <div className="p-2">
             <span className="text-zinc-500 uppercase block text-[9px]">Inference Engine</span>
             <span className="text-xs font-bold text-zinc-900 block mt-0.5 truncate">
-              DriftGuard AI Engine
+              {analysis.modelUsed || 'DriftGuard Verification Engine'}
             </span>
           </div>
           <div className="p-2">
@@ -182,7 +182,7 @@ export const PrintableAIReport: React.FC<PrintableAIReportProps> = ({
             Summary Envelope Interpretation
           </div>
           <p className="text-[11px] leading-relaxed text-zinc-900 font-medium">
-            {analysis.summary}
+            {analysis.summary?.replace(/^AI analysis suggests\s*/i, 'Verification analysis suggests ')}
           </p>
         </div>
       </div>
@@ -441,7 +441,7 @@ export const PrintableAIReport: React.FC<PrintableAIReportProps> = ({
             </tr>
             <tr>
               <td colSpan={3} className="p-2 text-[9px] text-zinc-600 bg-zinc-50">
-                <strong>Engineer Statement: </strong> I confirm that I have evaluated the syntactic CLI state diffs, verified AI advisory interpretations against raw telemetry, and authorized the marked disposition in accordance with change governance policies.
+                <strong>Engineer Statement: </strong> I confirm that I have evaluated the syntactic CLI state diffs, verified automated advisory interpretations against raw telemetry, and authorized the marked disposition in accordance with change governance policies.
               </td>
             </tr>
           </tbody>

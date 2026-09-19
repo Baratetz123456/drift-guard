@@ -37,7 +37,12 @@ export const ComparePage: React.FC = () => {
   const queryPre = searchParams.get('preSnapId');
   const queryPost = searchParams.get('postSnapId');
 
-  const { devices, snapshots, createComparison, runAIAnalysis, settings, testAiConnection, addToast } = useAppStore();
+  const { devices, snapshots, createComparison, runAIAnalysis, settings, aiModels, testAiConnection, addToast } = useAppStore();
+
+  const activeModel = useMemo(
+    () => aiModels.find((m) => m.isActive) || aiModels[0] || null,
+    [aiModels]
+  );
 
   // Active step in the 3-step guided flow
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
@@ -54,18 +59,22 @@ export const ComparePage: React.FC = () => {
   }>({
     testing: false,
     available: null,
-    model: settings.defaultModel || 'google/gemini-2.0-flash-lite:free',
+    model: activeModel?.modelIdentifier || settings.defaultModel || 'google/gemini-2.0-flash-lite:free',
   });
 
   const checkAiModelStatus = async (targetModel?: string) => {
-    const modelToTest = targetModel || settings.defaultModel || 'google/gemini-2.0-flash-lite:free';
+    const currentActive = aiModels.find((m) => m.isActive) || aiModels[0];
+    const modelToTest = targetModel || currentActive?.modelIdentifier || settings.defaultModel || 'google/gemini-2.0-flash-lite:free';
+    const apiKey = currentActive?.apiKey || settings.apiKey;
+    const baseUrl = currentActive?.baseUrl || settings.aiBaseUrl;
+
     setAiAvailability({
       testing: true,
       available: null,
       model: modelToTest,
     });
     try {
-      const res = await testAiConnection(modelToTest);
+      const res = await testAiConnection(modelToTest, apiKey, baseUrl);
       setAiAvailability({
         testing: false,
         available: res.success,
@@ -88,7 +97,7 @@ export const ComparePage: React.FC = () => {
     if (activeStep === 3) {
       checkAiModelStatus();
     }
-  }, [activeStep, settings.defaultModel]);
+  }, [activeStep, activeModel?.id, activeModel?.modelIdentifier, settings.defaultModel]);
 
   // Selected device
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
@@ -840,7 +849,7 @@ export const ComparePage: React.FC = () => {
               <span className="font-mono text-[#c8ff00] font-bold text-sm">100% Safe</span>
             </div>
 
-            {/* Auto-run AI Analysis & Real-Time Model Availability */}
+            {/* Auto-run Drift Analysis & Real-Time Model Availability */}
             <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/60 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -849,9 +858,9 @@ export const ComparePage: React.FC = () => {
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-white flex items-center gap-2">
-                      <span>Auto-run AI Analysis</span>
+                      <span>Auto-run Drift Analysis</span>
                       <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
-                        {settings.hasApiKey ? 'Custom Key' : 'Built-in Engine'}
+                        {settings.hasApiKey || activeModel?.apiKey ? 'Model Configured' : 'Key Required'}
                       </span>
                     </div>
                     <div className="text-xs text-zinc-400">
@@ -868,15 +877,21 @@ export const ComparePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* AI Model Live Availability Status Strip */}
+              {/* Model Live Availability Status Strip */}
               <div className="pt-2.5 border-t border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-zinc-500">AI Model:</span>
+                  <span className="text-zinc-500">Inference Engine:</span>
                   <span className="text-zinc-200 font-bold">
-                    {aiAvailability.model?.includes('gemini') || aiAvailability.model?.includes('free')
-                      ? 'DriftGuard AI Model'
-                      : aiAvailability.model}
+                    {activeModel?.name || (aiAvailability.model?.includes('gemini') || aiAvailability.model?.includes('free') ? 'DriftGuard Verification Engine' : aiAvailability.model)}
                   </span>
+                  <span className="px-1.5 py-0.5 rounded bg-zinc-800/80 border border-zinc-700/60 text-zinc-300 font-mono text-[10px]">
+                    {activeModel?.modelIdentifier || aiAvailability.model}
+                  </span>
+                  {activeModel?.baseUrl && !activeModel.isDefault && (
+                    <span className="text-[10px] text-zinc-500 hidden md:inline truncate max-w-[180px]" title={activeModel.baseUrl}>
+                      {activeModel.baseUrl.replace(/^https?:\/\//, '')}
+                    </span>
+                  )}
                   <span className="text-zinc-600">•</span>
                   {aiAvailability.testing ? (
                     <span className="flex items-center gap-1.5 text-zinc-400">

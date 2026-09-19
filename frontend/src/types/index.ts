@@ -165,6 +165,7 @@ export interface AIAnalysis {
   recommendations?: string[];
   commandBreakdown?: CommandBreakdownEntry[];
   suggestedRollbackPlan?: string;
+  modelUsed?: string;
   tokenUsage?: {
     promptTokens: number;
     completionTokens: number;
@@ -190,6 +191,7 @@ export interface UserSettings {
   userId: string;
   aiBaseUrl: string;
   hasApiKey: boolean;
+  apiKey?: string;
   apiKeyPreview?: string;
   defaultModel: string;
   defaultTimeoutSeconds: number;

@@ -59,7 +59,7 @@ export const AIAnalysisPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `driftguard-ai-analysis-${activeAnalysis.analysisId}.json`;
+    a.download = `driftguard-analysis-${activeAnalysis.analysisId}.json`;
     a.click();
     addToast('info', 'Analysis report downloaded as JSON');
   };
@@ -68,7 +68,7 @@ export const AIAnalysisPage: React.FC = () => {
     return (
       <div className="p-12 text-center text-zinc-400 font-sans border border-zinc-800 rounded-2xl bg-zinc-900/40">
         <Sparkle className="w-10 h-10 text-zinc-600 mx-auto mb-3" weight="duotone" />
-        <h3 className="text-base font-bold text-zinc-200">No AI analyses found</h3>
+        <h3 className="text-base font-bold text-zinc-200">No drift analyses found</h3>
         <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto">
           No automated risk assessment has been performed yet. Run a collection and compare pre- and post-change snapshots to establish analysis.
         </p>
@@ -153,17 +153,17 @@ export const AIAnalysisPage: React.FC = () => {
                 Analysis ID: {activeAnalysis.analysisId}
               </span>
               <span className="text-xs text-zinc-400">
-                Model:{' '}
+                Inference Engine:{' '}
                 <strong className="text-zinc-200 font-mono">
-                  {settings.defaultModel?.includes('gemini') || settings.defaultModel?.includes('free')
-                    ? 'DriftGuard AI Model'
-                    : settings.defaultModel}
+                  {activeAnalysis.modelUsed || settings.defaultModel || 'DriftGuard Verification Engine'}
                 </strong>
               </span>
             </div>
 
             <h2 className="text-xl font-bold text-white leading-snug">
-              {activeAnalysis.summary?.replace(/Senior engineer/gi, 'Engineer')}
+              {activeAnalysis.summary
+                ?.replace(/Senior engineer/gi, 'Engineer')
+                ?.replace(/^AI analysis suggests\s*/i, 'Verification analysis suggests ')}
             </h2>
 
             <div className="flex items-center gap-4 text-xs text-zinc-400 font-mono">

@@ -27,6 +27,7 @@ def call_openai(
     max_tokens: int = 4096,
     base_url: str | None = None,
     extra_headers: dict[str, str] | None = None,
+    timeout: float = 60.0,
 ) -> dict[str, Any]:
     """
     Call the OpenAI or OpenRouter Chat Completions API with retry logic.
@@ -39,6 +40,7 @@ def call_openai(
         max_tokens: Token generation limit
         base_url: Optional API base URL (e.g. 'https://openrouter.ai/api/v1')
         extra_headers: Optional HTTP headers (e.g. HTTP-Referer, X-Title for OpenRouter)
+        timeout: Request timeout in seconds (default: 60.0)
 
     Returns:
         {
@@ -60,7 +62,7 @@ def call_openai(
     if extra_headers:
         headers.update(extra_headers)
 
-    client_kwargs: dict[str, Any] = {"api_key": api_key}
+    client_kwargs: dict[str, Any] = {"api_key": api_key, "timeout": timeout}
     if base_url:
         client_kwargs["base_url"] = base_url
         client_kwargs["default_headers"] = headers

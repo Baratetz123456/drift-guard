@@ -52,7 +52,7 @@ export const PrintableReportPage: React.FC = () => {
       ? targetId === 'ledger'
         ? 'Audit Trail Ledger Dossier'
         : 'Security Audit Event Record'
-      : 'AI Verification Dossier';
+      : 'Drift Verification Dossier';
 
   useEffect(() => {
     document.title = `DriftGuard — ${documentTitle} (${documentRef})`;

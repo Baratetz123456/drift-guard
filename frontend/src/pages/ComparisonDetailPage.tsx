@@ -147,15 +147,28 @@ export const ComparisonDetailPage: React.FC = () => {
 
         <div className="flex items-center gap-2.5">
           {matchingAnalysis ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              leftIcon={<Sparkle className="w-4 h-4 text-amber-400" weight="fill" />}
-              onClick={() => navigate(`/analysis?tab=report&analysisId=${matchingAnalysis.analysisId}`)}
-            >
-              AI Report
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                leftIcon={<Sparkle className="w-4 h-4 text-amber-400" weight="fill" />}
+                onClick={() => navigate(`/analysis?tab=report&analysisId=${matchingAnalysis.analysisId}`)}
+              >
+                Drift Report
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={isAnalyzing}
+                leftIcon={<Sparkle className={`w-4 h-4 text-zinc-300 ${isAnalyzing ? 'animate-spin' : ''}`} weight="fill" />}
+                onClick={handleRunAnalysis}
+                title="Re-run drift verification analysis with active model"
+              >
+                {isAnalyzing ? 'Analyzing...' : 'Re-run Analysis'}
+              </Button>
+            </>
           ) : (
             <Button
               type="button"
@@ -193,7 +206,7 @@ export const ComparisonDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Prominent AI Analysis Report Callout Card */}
+      {/* Prominent Drift Analysis Report Callout Card */}
       {matchingAnalysis ? (
         <div className="p-4 rounded-xl border border-[#c8ff00]/40 bg-zinc-900/90 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 backdrop-blur-sm">
           <div className="flex items-center gap-3.5">
@@ -202,7 +215,7 @@ export const ComparisonDetailPage: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-bold text-white">AI Analysis Report Available</h3>
+                <h3 className="text-sm font-bold text-white">Drift Analysis Report Available</h3>
                 <Badge severity={matchingAnalysis.overallRisk} size="sm">
                   {matchingAnalysis.overallRisk} RISK
                 </Badge>
@@ -226,12 +239,23 @@ export const ComparisonDetailPage: React.FC = () => {
             </Button>
             <Button
               type="button"
+              variant="secondary"
+              size="sm"
+              disabled={isAnalyzing}
+              leftIcon={<Sparkle className={`w-4 h-4 text-zinc-300 ${isAnalyzing ? 'animate-spin' : ''}`} weight="fill" />}
+              onClick={handleRunAnalysis}
+              title="Re-run drift verification analysis with currently active model"
+            >
+              {isAnalyzing ? 'Analyzing...' : 'Re-run Analysis'}
+            </Button>
+            <Button
+              type="button"
               variant="primary"
               size="sm"
               leftIcon={<Sparkle className="w-4 h-4 text-zinc-950" weight="fill" />}
               onClick={() => navigate(`/analysis?tab=report&analysisId=${matchingAnalysis.analysisId}`)}
             >
-              View AI Report
+              View Drift Report
             </Button>
           </div>
         </div>
@@ -239,7 +263,7 @@ export const ComparisonDetailPage: React.FC = () => {
         <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 flex items-center gap-3">
           <Sparkle className="w-5 h-5 text-[#c8ff00] animate-spin shrink-0" weight="fill" />
           <div>
-            <div className="text-sm font-semibold text-white">Generating AI Verification Analysis...</div>
+            <div className="text-sm font-semibold text-white">Generating Drift Verification Analysis...</div>
             <div className="text-xs text-zinc-400 mt-0.5">Evaluating operational risk, routing state divergence, and blast radius.</div>
           </div>
         </div>

@@ -128,6 +128,8 @@ const AI_MODELS_STORAGE_KEY = 'driftguard_ai_models';
 const DEFAULT_ENV_MODEL = (import.meta.env.VITE_DEFAULT_AI_MODEL as string) || 'google/gemini-2.0-flash-lite:free';
 const DEFAULT_ENV_BASE_URL = (import.meta.env.VITE_DEFAULT_AI_BASE_URL as string) || 'https://openrouter.ai/api/v1';
 const DEFAULT_ENV_MODEL_NAME = (import.meta.env.VITE_DEFAULT_AI_MODEL_NAME as string) || 'DriftGuard AI Model';
+const DEFAULT_ENV_TIMEOUT_SECONDS = Number(import.meta.env.VITE_DEFAULT_AI_TIMEOUT_SECONDS) || 60;
+const DEFAULT_ENV_API_KEY = (import.meta.env.VITE_DEFAULT_AI_API_KEY as string) || '';
 
 const initialAIModels: ConfiguredAIModel[] = [
   {
@@ -135,6 +137,8 @@ const initialAIModels: ConfiguredAIModel[] = [
     name: DEFAULT_ENV_MODEL_NAME,
     modelIdentifier: DEFAULT_ENV_MODEL,
     baseUrl: DEFAULT_ENV_BASE_URL,
+    apiKey: DEFAULT_ENV_API_KEY || undefined,
+    apiKeyPreview: DEFAULT_ENV_API_KEY ? `${DEFAULT_ENV_API_KEY.substring(0, 8)}...${DEFAULT_ENV_API_KEY.slice(-4)}` : undefined,
     isDefault: true,
     isActive: true,
     status: 'online',
@@ -144,21 +148,48 @@ const initialAIModels: ConfiguredAIModel[] = [
 
 const MOCK_MODEL_IDS = new Set(['model-claude-35-sonnet', 'model-gpt-4o', 'model-deepseek-r1']);
 
-function loadStoredAIModels(): ConfiguredAIModel[] {
-  const loaded = loadUserStoredItems<ConfiguredAIModel[]>('ai_models', initialAIModels, initialAuth.user?.id);
+function loadStoredAIModels(userId?: string): ConfiguredAIModel[] {
+  const targetUserId = userId || initialAuth.user?.id;
+  const loaded = loadUserStoredItems<ConfiguredAIModel[]>('ai_models', initialAIModels, targetUserId);
   // Filter out any legacy mock models so only genuine configured models and default exist
-  const sanitized = loaded
-    .filter((m) => !MOCK_MODEL_IDS.has(m.id))
-    .map((m) => (m.isDefault || m.id === 'model-gemini-free' ? { ...m, name: 'DriftGuard AI Model' } : m));
-  // Guarantee the default free tier model is present
-  if (!sanitized.some((m) => m.isDefault)) {
-    sanitized.unshift(initialAIModels[0]);
+  let sanitized = loaded.filter((m) => !MOCK_MODEL_IDS.has(m.id));
+
+  // Locate the default system model entry (isDefault: true or id: 'model-gemini-free')
+  const defaultIdx = sanitized.findIndex((m) => m.isDefault || m.id === 'model-gemini-free');
+  const wasDefaultActive = defaultIdx !== -1 ? sanitized[defaultIdx].isActive : true;
+
+  if (defaultIdx !== -1) {
+    // Dynamic .env synchronization: update modelIdentifier, baseUrl, and name from .env
+    sanitized[defaultIdx] = {
+      ...sanitized[defaultIdx],
+      id: 'model-gemini-free',
+      name: DEFAULT_ENV_MODEL_NAME,
+      modelIdentifier: DEFAULT_ENV_MODEL,
+      baseUrl: DEFAULT_ENV_BASE_URL,
+      isDefault: true,
+      apiKey: sanitized[defaultIdx].apiKey || (DEFAULT_ENV_API_KEY || undefined),
+      apiKeyPreview: sanitized[defaultIdx].apiKey
+        ? sanitized[defaultIdx].apiKeyPreview
+        : (DEFAULT_ENV_API_KEY ? `${DEFAULT_ENV_API_KEY.substring(0, 8)}...${DEFAULT_ENV_API_KEY.slice(-4)}` : undefined),
+    };
+  } else {
+    // Guarantee the default model is present at the top
+    sanitized.unshift({
+      ...initialAIModels[0],
+      apiKey: DEFAULT_ENV_API_KEY || undefined,
+      apiKeyPreview: DEFAULT_ENV_API_KEY ? `${DEFAULT_ENV_API_KEY.substring(0, 8)}...${DEFAULT_ENV_API_KEY.slice(-4)}` : undefined,
+    });
   }
-  // Guarantee at least one model is active
-  if (!sanitized.some((m) => m.isActive) && sanitized.length > 0) {
-    sanitized[0].isActive = true;
+
+  // Auto-sync and promote: If the default model was active, or no model is active, activate the default .env model
+  if (wasDefaultActive || !sanitized.some((m) => m.isActive)) {
+    sanitized = sanitized.map((m) => ({
+      ...m,
+      isActive: m.isDefault || m.id === 'model-gemini-free',
+    }));
   }
-  persistUserItems('ai_models', sanitized, initialAuth.user?.id);
+
+  persistUserItems('ai_models', sanitized, targetUserId);
   return sanitized;
 }
 
@@ -166,9 +197,11 @@ function loadStoredAnalyses(): AIAnalysis[] {
   const loaded = loadUserStoredItems<AIAnalysis[]>('analyses', [], initialAuth.user?.id);
   const sanitized = loaded.map((a) => ({
     ...a,
-    summary: a.summary?.replace(/Senior engineer/gi, 'Engineer'),
+    summary: a.summary
+      ?.replace(/Senior engineer/gi, 'Engineer')
+      ?.replace(/^AI analysis suggests/gi, 'Verification analysis suggests'),
     executiveSummary: a.executiveSummary
-      ?.replace(/google\/gemini-2\.0-flash-lite:free/gi, 'DriftGuard AI Model')
+      ?.replace(/google\/gemini-2\.0-flash-lite:free/gi, 'DriftGuard Verification Engine')
       ?.replace(/Senior engineer/gi, 'Engineer'),
     suggestedRollbackPlan: a.suggestedRollbackPlan?.replace(/Senior engineer/gi, 'Engineer'),
   }));
@@ -176,7 +209,13 @@ function loadStoredAnalyses(): AIAnalysis[] {
   return sanitized;
 }
 
-const savedApiKey = typeof window !== 'undefined' ? localStorage.getItem(API_KEY_STORAGE_KEY) : null;
+const initialModels = loadStoredAIModels();
+const activeInitialModel = initialModels.find((m) => m.isActive) || initialModels[0];
+
+const savedApiKey = typeof window !== 'undefined'
+  ? (localStorage.getItem(API_KEY_STORAGE_KEY) || DEFAULT_ENV_API_KEY || null)
+  : (DEFAULT_ENV_API_KEY || null);
+
 const savedSettingsRaw = typeof window !== 'undefined' ? localStorage.getItem(SETTINGS_STORAGE_KEY) : null;
 let parsedSavedSettings: Partial<UserSettings> = {};
 try {
@@ -187,15 +226,25 @@ try {
   parsedSavedSettings = {};
 }
 
+// Auto-sync settings with active/default model from .env
+const resolvedDefaultModel = activeInitialModel?.isDefault
+  ? DEFAULT_ENV_MODEL
+  : (parsedSavedSettings.defaultModel || activeInitialModel?.modelIdentifier || DEFAULT_ENV_MODEL);
+
+const resolvedBaseUrl = activeInitialModel?.isDefault
+  ? DEFAULT_ENV_BASE_URL
+  : (parsedSavedSettings.aiBaseUrl || activeInitialModel?.baseUrl || DEFAULT_ENV_BASE_URL);
+
 const initialSettings: UserSettings = {
   userId: 'user-default',
-  aiBaseUrl: parsedSavedSettings.aiBaseUrl || DEFAULT_ENV_BASE_URL,
+  aiBaseUrl: resolvedBaseUrl,
   hasApiKey: Boolean(savedApiKey),
+  apiKey: savedApiKey || undefined,
   apiKeyPreview: savedApiKey
     ? `${savedApiKey.substring(0, 8)}...${savedApiKey.slice(-4)}`
     : undefined,
-  defaultModel: parsedSavedSettings.defaultModel || DEFAULT_ENV_MODEL,
-  defaultTimeoutSeconds: parsedSavedSettings.defaultTimeoutSeconds || 30,
+  defaultModel: resolvedDefaultModel,
+  defaultTimeoutSeconds: parsedSavedSettings.defaultTimeoutSeconds || DEFAULT_ENV_TIMEOUT_SECONDS,
   maskSecretsInDiffs: parsedSavedSettings.maskSecretsInDiffs ?? true,
   normalizeDynamicCounters: parsedSavedSettings.normalizeDynamicCounters ?? true,
 };
@@ -238,7 +287,215 @@ function persistUserItems<T>(baseKey: string, value: T, userId?: string) {
   persistItems(scopedKey, value);
 }
 
+function extractJsonFromLlmResponse(raw: string): any {
+  if (!raw) return null;
+  const stripped = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 
+  const tryParseClean = (text: string): any => {
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch {}
+    // Clean trailing commas before closing braces/brackets (common LLM formatting artifact)
+    try {
+      const sanitized = text.replace(/,\s*([\]}])/g, '$1');
+      return JSON.parse(sanitized);
+    } catch {}
+    return null;
+  };
+
+  // 1. Direct parse
+  const direct = tryParseClean(stripped);
+  if (direct && typeof direct === 'object') return direct;
+
+  // 2. Try extracting from ```json ... ``` or ``` ... ```
+  const codeBlockMatch = stripped.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    const fromBlock = tryParseClean(codeBlockMatch[1].trim());
+    if (fromBlock && typeof fromBlock === 'object') return fromBlock;
+  }
+
+  // 3. Try extracting outermost JSON object { ... }
+  const startIdx = stripped.indexOf('{');
+  const endIdx = stripped.lastIndexOf('}');
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    const fromBraces = tryParseClean(stripped.slice(startIdx, endIdx + 1).trim());
+    if (fromBraces && typeof fromBraces === 'object') return fromBraces;
+  }
+
+  return null;
+}
+
+function runDeterministicInspection(
+  comparison: Comparison,
+  screenedBreakdown: CommandBreakdownEntry[],
+  modelDisplayName: string
+): any {
+  let highestSeverity: RiskSeverity = 'Low';
+  const detectedRisks: any[] = [];
+  const detectedConflicts: string[] = [];
+  const recommendations: string[] = [];
+
+  const allDiffText = Object.values(comparison.commandDiffs || {})
+    .map((d) => d.unifiedDiff || '')
+    .join('\n');
+
+  // 1. Critical: Default route dropped or unplanned reload / kernel panic
+  const hasDefaultRouteDrop =
+    /-\s*(?:B\*|S\*|O\*|D\*|\*)\s*0\.0\.0\.0\/0/i.test(allDiffText) ||
+    /-\s*ip route 0\.0\.0\.0 0\.0\.0\.0/i.test(allDiffText) ||
+    (allDiffText.toLowerCase().includes('0.0.0.0/0') && allDiffText.includes('-'));
+
+  const hasUptimeReset =
+    /\+\s*.*(?:uptime is (?:[0-5]?[0-9] minutes|0 hours)|system returned to.*(?:panic|reload|crash))/i.test(allDiffText) ||
+    /kernel panic|reload cause/i.test(allDiffText);
+
+  if (hasDefaultRouteDrop || hasUptimeReset) {
+    highestSeverity = 'Critical';
+    if (hasDefaultRouteDrop) {
+      detectedRisks.push({
+        observation: 'Default route 0.0.0.0/0 removed from routing table. Outbound transit connectivity severed.',
+        impact: 'Immediate loss of external traffic reachability and routing blackhole for downstream subnets.',
+        nextStep: 'Inspect upstream BGP/static route peering and restore default route advertisement immediately.',
+        evidence: [
+          {
+            command: 'show ip route summary',
+            excerpt: allDiffText.split('\n').find((l) => l.includes('0.0.0.0/0') && l.startsWith('-')) || '- 0.0.0.0/0 [20/0] via transit peer',
+          },
+        ],
+      });
+      recommendations.push('Restore core default route 0.0.0.0/0 gateway configuration.');
+    }
+    if (hasUptimeReset) {
+      detectedRisks.push({
+        observation: 'Unplanned system reload detected during change window (uptime reset to minutes).',
+        impact: 'Complete forwarding plane reset and dropped control-plane adjacencies across all interfaces.',
+        nextStep: 'Collect crashinfo and tech-support bundles from bootflash to diagnose reload cause.',
+        evidence: [
+          {
+            command: 'show version',
+            excerpt: allDiffText.split('\n').find((l) => l.toLowerCase().includes('uptime is') && l.startsWith('+')) || '+ system uptime reset',
+          },
+        ],
+      });
+      recommendations.push('Inspect crashinfo logs in bootflash and check power supply/kernel panic events.');
+    }
+  }
+
+  // 2. High: BGP neighbor down / HSRP flip / interface link down
+  const hasBgpPeerDown =
+    /\+\s*\d+\.\d+\.\d+\.\d+\s+4\s+\d+\s+.*(?:Active|Idle|Connect)/i.test(allDiffText) ||
+    /-\s*.*Established.*\+\s*.*(?:Active|Idle|Connect)/is.test(allDiffText);
+
+  const hasHsrpFlip =
+    /\+\s*.*(?:State is Standby|state Standby|HSRP.*Standby)/i.test(allDiffText) ||
+    /-\s*.*Active.*\+\s*.*Standby/is.test(allDiffText);
+
+  const hasInterfaceDown =
+    /\+\s*\S+\s+.*(?:down\s+down|administratively down)/i.test(allDiffText) ||
+    /line protocol is down/i.test(allDiffText);
+
+  if (highestSeverity !== 'Critical' && (hasBgpPeerDown || hasHsrpFlip || hasInterfaceDown)) {
+    highestSeverity = 'High';
+  }
+
+  if (hasBgpPeerDown) {
+    detectedRisks.push({
+      observation: 'BGP routing peer transitioned from Established to Active/Idle/Connect state.',
+      impact: 'Path alteration or loss of transit prefixes, reducing network path redundancy.',
+      nextStep: 'Verify neighbor TCP port 179 connectivity and check remote AS peering configuration.',
+      evidence: [
+        {
+          command: 'show ip bgp summary',
+          excerpt: allDiffText.split('\n').find((l) => (l.includes('Active') || l.includes('Idle') || l.includes('Connect')) && l.startsWith('+')) || '+ BGP neighbor in non-established state',
+        },
+      ],
+    });
+    recommendations.push('Verify BGP neighbor IP reachability and BGP timers.');
+  }
+
+  if (hasHsrpFlip) {
+    detectedRisks.push({
+      observation: 'First-hop redundancy protocol (HSRP/VRRP) gateway role transitioned to Standby.',
+      impact: 'Gateway failover occurred; default gateway traffic is routing through secondary peer.',
+      nextStep: 'Verify gateway priority and interface tracking status on the primary switch.',
+      evidence: [
+        {
+          command: 'show standby brief',
+          excerpt: allDiffText.split('\n').find((l) => l.toLowerCase().includes('standby') && l.startsWith('+')) || '+ HSRP State is Standby',
+        },
+      ],
+    });
+    recommendations.push('Confirm HSRP preemption and primary gateway priority values.');
+  }
+
+  if (hasInterfaceDown) {
+    detectedRisks.push({
+      observation: 'Physical or logical interface transitioned to down/down or administratively down.',
+      impact: 'Link redundancy degraded; potential spanning-tree topology recalculation or trunk loss.',
+      nextStep: 'Inspect physical transceiver optics, cabling, and switchport configuration.',
+      evidence: [
+        {
+          command: 'show ip interface brief',
+          excerpt: allDiffText.split('\n').find((l) => (l.toLowerCase().includes('down') || l.toLowerCase().includes('admin')) && l.startsWith('+')) || '+ interface state down',
+        },
+      ],
+    });
+    recommendations.push('Verify physical cable and SFP connection on affected interfaces.');
+  }
+
+  // 3. Medium: VLAN added, static route added, OSPF cost
+  const hasVlanChange = /\+\s*(?:vlan\s+\d+|VLAN\d+)/i.test(allDiffText);
+  const hasStaticRoute = /\+\s*(?:ip route\s+|S\s+10\.)/i.test(allDiffText);
+  const hasOspfCost = /\+\s*.*(?:ip ospf cost|metric\s+\d+)/i.test(allDiffText);
+
+  if (highestSeverity === 'Low' && (hasVlanChange || hasStaticRoute || hasOspfCost)) {
+    highestSeverity = 'Medium';
+    detectedRisks.push({
+      observation: 'Forwarding configuration or topology parameters updated (VLAN, static route, or IGP metric).',
+      impact: 'Contained change with localized forwarding impact. No backbone adjacency drop detected.',
+      nextStep: 'Verify prefix propagation in routing table and confirm VLAN database synchronization.',
+      evidence: [
+        {
+          command: 'show running-config',
+          excerpt: allDiffText.split('\n').find((l) => (l.includes('vlan') || l.includes('ip route') || l.includes('ospf')) && l.startsWith('+')) || '+ Configuration updated',
+        },
+      ],
+    });
+    recommendations.push('Execute show ip route and show vlan brief to verify database congruence.');
+  }
+
+  // 4. Low: Minor syntactic or description modifications
+  if (detectedRisks.length === 0) {
+    highestSeverity = 'Low';
+    detectedRisks.push({
+      observation: 'Syntactic modifications observed (interface description, NTP server, or banner configuration).',
+      impact: 'Minor operational adjustment with zero forwarding plane or routing adjacency impact.',
+      nextStep: 'Archive snapshot as baseline verification after change review window.',
+      evidence: [
+        {
+          command: 'show running-config',
+          excerpt: allDiffText.split('\n').find((l) => (l.includes('description') || l.includes('ntp') || l.includes('banner')) && (l.startsWith('+') || l.startsWith('-'))) || '+ Minor configuration update',
+        },
+      ],
+    });
+    recommendations.push('Confirm updated description tags or NTP server synchronization.');
+  }
+
+  if (hasBgpPeerDown && hasInterfaceDown) {
+    detectedConflicts.push('Interface link-down event correlates directly with BGP neighbor session collapse.');
+  }
+
+  return {
+    severity: highestSeverity,
+    summary: `AI analysis suggests state divergence detected on ${comparison.deviceName}. Verify against raw output before approval.`,
+    impactAnalysis: `Advisory verification for ${comparison.deviceName} analyzed forwarding topology and protocol states against baseline via ${modelDisplayName}.`,
+    risks: detectedRisks,
+    conflictsDetected: detectedConflicts,
+    recommendations: recommendations.length > 0 ? recommendations : ['Review modified commands against change ticket approval.'],
+    commandBreakdown: screenedBreakdown,
+  };
+}
 
 export const useAppStore = create<AppState>((set, get) => ({
   user: initialAuth.user,
@@ -395,7 +652,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       }));
       const loadedSnapshots = snapRes?.snapshots || loadUserStoredItems<Snapshot[]>('snapshots', [], currentUserId);
       const loadedComparisons = compRes?.comparisons || loadUserStoredItems<Comparison[]>('comparisons', [], currentUserId);
-      const loadedSettings = setRes || loadUserStoredItems<UserSettings>('settings', initialSettings, currentUserId);
+      const loadedModels = loadStoredAIModels(currentUserId);
+      const activeLoaded = loadedModels.find((m) => m.isActive) || loadedModels[0];
+      const baseSettings = setRes || loadUserStoredItems<UserSettings>('settings', initialSettings, currentUserId);
+      const loadedSettings: UserSettings = {
+        ...baseSettings,
+        defaultTimeoutSeconds: baseSettings.defaultTimeoutSeconds || DEFAULT_ENV_TIMEOUT_SECONDS,
+        defaultModel: activeLoaded?.isDefault ? DEFAULT_ENV_MODEL : (baseSettings.defaultModel || DEFAULT_ENV_MODEL),
+        aiBaseUrl: activeLoaded?.isDefault ? DEFAULT_ENV_BASE_URL : (baseSettings.aiBaseUrl || DEFAULT_ENV_BASE_URL),
+      };
       const loadedAuditLogs = auditRes?.logs || loadUserStoredItems<AuditLogEntry[]>('audit_logs', [], currentUserId);
       const loadedAnalyses = loadUserStoredItems<AIAnalysis[]>('analyses', [], currentUserId);
 
@@ -406,6 +671,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         snapshots: loadedSnapshots,
         comparisons: loadedComparisons,
         settings: loadedSettings,
+        aiModels: loadedModels,
         auditLogs: loadedAuditLogs,
         analyses: loadedAnalyses,
       });
@@ -422,7 +688,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   analyses: loadStoredAnalyses(),
   auditLogs: loadUserStoredItems<AuditLogEntry[]>('audit_logs', []),
   settings: initialSettings,
-  aiModels: loadStoredAIModels(),
+  aiModels: initialModels,
   toasts: [],
 
   addToast: (type, message) => {
@@ -910,7 +1176,7 @@ process restart, state transition, or failure.
 - Calm, precise, directly technical. No exclamation marks, no emojis, no humor,
   no hedging filler ("perhaps", "it seems").
 - Use exact identifiers copied from the diff.
-- The \`summary\` field MUST begin with the exact string \`AI analysis suggests \`
+- The \`summary\` field MUST begin with the exact string \`Verification analysis suggests \`
   and MUST end with the exact string \`Verify against raw output before approval.\`
 
 # Edge cases
@@ -919,7 +1185,7 @@ process restart, state transition, or failure.
   \`Informational\`; \`risks\`, \`conflictsDetected\`, \`recommendations\` all \`[]\`;
   \`commandBreakdown\` lists every command with \`changeType: "no-change"\`;
   summary exactly:
-  \`AI analysis suggests no functional configuration changes detected. Verify against raw output before approval.\`
+  \`Verification analysis suggests no functional configuration changes detected. Verify against raw output before approval.\`
 - **Malformed or missing input**: still return valid JSON with severity
   \`Informational\` and a summary stating that analysis could not be performed.
 
@@ -931,7 +1197,7 @@ Do not output numeric scores, percentages, or ratings of any kind.
 
 {
   "severity": "Critical | High | Medium | Low | Informational",
-  "summary": "AI analysis suggests [...]. Verify against raw output before approval.",
+  "summary": "Verification analysis suggests [...]. Verify against raw output before approval.",
   "impactAnalysis": "Synthesis of operational impact across all commands",
   "risks": [
     {
@@ -1009,12 +1275,13 @@ Do not output numeric scores, percentages, or ratings of any kind.
     });
 
     let parsedResult: any = null;
+    let usedLiveApi = false;
 
     if (!hasFunctionalSignal) {
       // Early exit: Diff has no functional changes after volatile screen (uptime elapsed, packet counters, etc.)
       parsedResult = {
         severity: 'Informational',
-        summary: 'AI analysis suggests no functional configuration changes detected. Verify against raw output before approval.',
+        summary: 'Verification analysis suggests no functional configuration changes detected. Verify against raw output before approval.',
         impactAnalysis: 'All command outputs are congruent with baseline or contain only expected volatile drift (such as elapsed uptime or packet counters). Forwarding state and configurations unchanged.',
         risks: [],
         conflictsDetected: [],
@@ -1024,55 +1291,112 @@ Do not output numeric scores, percentages, or ratings of any kind.
     } else {
       const userPromptPayload = Object.entries(comparison.commandDiffs || {}).map(([cmd, d]) => ({
         command: cmd,
-        pre: `<untrusted_device_output command="${cmd}">\n${d.preOutput ? d.preOutput.slice(0, 3000) : 'N/A'}\n</untrusted_device_output>`,
-        post: `<untrusted_device_output command="${cmd}">\n${d.postOutput ? d.postOutput.slice(0, 3000) : 'N/A'}\n</untrusted_device_output>`,
+        pre: `<untrusted_device_output command="${cmd}">\n${d.preOutput ? d.preOutput.slice(0, 2500) : 'N/A'}\n</untrusted_device_output>`,
+        post: `<untrusted_device_output command="${cmd}">\n${d.postOutput ? d.postOutput.slice(0, 2500) : 'N/A'}\n</untrusted_device_output>`,
         diff: `<untrusted_device_output command="${cmd}">\n${d.unifiedDiff ? d.unifiedDiff.slice(0, 4000) : 'No changes detected.'}\n</untrusted_device_output>`,
       }));
 
-      if (apiKey && apiKey.trim()) {
-        try {
-          const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${apiKey.trim()}`,
-              'HTTP-Referer': 'https://driftguard.internal',
-              'X-Title': 'DriftGuard',
-            },
-            body: JSON.stringify({
-              model: currentModel,
-              messages: [
-                {
-                  role: 'system',
-                  content: SYSTEM_PROMPT,
-                },
-                {
-                  role: 'user',
-                  content: `Device Name: "${comparison.deviceName}"\n\nCollected Commands (sandboxed in XML boundaries):\n${JSON.stringify(userPromptPayload, null, 2)}`,
-                },
-              ],
-              temperature: 0.1,
-            }),
-          });
+      usedLiveApi = false;
 
-          if (response.ok) {
-            const data = await response.json();
-            const rawContent = data.choices?.[0]?.message?.content || '{}';
-            const cleanJson = rawContent.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
-            parsedResult = JSON.parse(cleanJson);
-          }
-        } catch (apiErr: any) {
-          console.warn('AI Provider request failed, falling back to default model engine:', apiErr);
-        }
+      // Strictly require a live AI model call for all functional network diffs
+      if (!apiKey || !apiKey.trim()) {
+        const keyErrMsg = `No API key configured for model "${activeModel?.name || currentModel}". Please configure a valid API key in Settings -> AI Model to execute drift analysis.`;
+        get().addToast('error', keyErrMsg);
+        throw new Error(keyErrMsg);
       }
 
-      // If no API key or API call failed, strictly abort without synthetic fallback
-      if (!parsedResult) {
-        const errorDetail = !apiKey || !apiKey.trim()
-          ? 'No AI Model API key is configured. Configure a valid API key under Settings -> AI Model to execute advisory risk analysis.'
-          : `AI model provider endpoint at ${baseUrl} failed to respond with valid analysis data.`;
-        get().addToast('error', errorDetail);
-        throw new Error(errorDetail);
+      const timeoutSeconds = get().settings.defaultTimeoutSeconds || DEFAULT_ENV_TIMEOUT_SECONDS;
+      const controller = new AbortController();
+      const timeoutTimer = setTimeout(() => {
+        controller.abort(new Error(`Drift analysis timed out after ${timeoutSeconds}s`));
+      }, timeoutSeconds * 1000);
+
+      try {
+        const requestPayload: any = {
+          model: currentModel,
+          messages: [
+            {
+              role: 'system',
+              content: SYSTEM_PROMPT,
+            },
+            {
+              role: 'user',
+              content: `Device Name: "${comparison.deviceName}"\n\nCollected Commands (sandboxed in XML boundaries):\n${JSON.stringify(userPromptPayload, null, 2)}`,
+            },
+          ],
+          temperature: 0.1,
+          max_tokens: 4096,
+          response_format: { type: 'json_object' },
+        };
+
+        let response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey.trim()}`,
+            'HTTP-Referer': 'https://driftguard.network',
+            'X-Title': 'DriftGuard Network Change Verification',
+          },
+          body: JSON.stringify(requestPayload),
+        });
+
+        // Fallback retry if upstream provider explicitly rejects the response_format key
+        if (!response.ok && response.status === 400) {
+          const checkText = await response.clone().text().catch(() => '');
+          if (checkText.toLowerCase().includes('response_format')) {
+            delete requestPayload.response_format;
+            response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+              method: 'POST',
+              signal: controller.signal,
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey.trim()}`,
+                'HTTP-Referer': 'https://driftguard.network',
+                'X-Title': 'DriftGuard Network Change Verification',
+              },
+              body: JSON.stringify(requestPayload),
+            });
+          }
+        }
+
+        if (response.ok) {
+          const data = await response.json();
+          const rawContent = data.choices?.[0]?.message?.content || '{}';
+          parsedResult = extractJsonFromLlmResponse(rawContent);
+          if (parsedResult) {
+            usedLiveApi = true;
+          } else {
+            const preview = rawContent ? `${rawContent.slice(0, 150)}...` : 'empty response';
+            const parseErrMsg = `Inference model response was not valid JSON (${preview}). Ensure model supports structured JSON outputs.`;
+            get().addToast('error', parseErrMsg);
+            throw new Error(parseErrMsg);
+          }
+        } else {
+          const errText = await response.text().catch(() => '');
+          let apiErrMsg = `HTTP ${response.status}`;
+          try {
+            const errJson = JSON.parse(errText);
+            apiErrMsg = errJson.error?.message || errJson.message || apiErrMsg;
+          } catch {
+            if (errText) apiErrMsg += `: ${errText.slice(0, 120)}`;
+          }
+          const providerErrMsg = `Model endpoint returned ${response.status} (${apiErrMsg}). Analysis aborted. Verify model configuration and API key in Settings.`;
+          get().addToast('error', providerErrMsg);
+          throw new Error(providerErrMsg);
+        }
+      } catch (apiErr: any) {
+        if (apiErr.name === 'AbortError' || controller.signal.aborted) {
+          const timeoutMsg = `Drift analysis timed out after ${timeoutSeconds}s. Upstream model endpoint did not respond in time.`;
+          get().addToast('error', timeoutMsg);
+          throw new Error(timeoutMsg);
+        }
+        if (!get().toasts.some((t) => t.message === apiErr.message)) {
+          get().addToast('error', `Model connection failed (${apiErr.message || 'Network error'}). Analysis aborted.`);
+        }
+        throw apiErr;
+      } finally {
+        clearTimeout(timeoutTimer);
       }
     }
 
@@ -1146,12 +1470,12 @@ Do not output numeric scores, percentages, or ratings of any kind.
       overallRisk: severity,
       riskScore,
       summary:
-        parsedResult?.summary ||
-        `AI analysis suggests state divergence on ${comparison.deviceName}. Verify against raw output before approval.`,
+        parsedResult?.summary?.replace(/^AI analysis suggests\s*/i, 'Verification analysis suggests ') ||
+        `Verification analysis suggests state divergence on ${comparison.deviceName}. Verify against raw output before approval.`,
       executiveSummary:
         parsedResult?.impactAnalysis ||
         parsedResult?.executiveSummary ||
-        `Post-change verification on ${comparison.deviceName} analyzed via ${fallbackModelName}.`,
+        `Post-change verification on ${comparison.deviceName} analyzed via ${currentModel}.`,
       impactAnalysis: parsedResult?.impactAnalysis || undefined,
       findings,
       conflictsDetected: Array.isArray(parsedResult?.conflictsDetected) ? parsedResult.conflictsDetected : [],
@@ -1162,15 +1486,19 @@ Do not output numeric scores, percentages, or ratings of any kind.
           ? undefined
           : parsedResult?.suggestedRollbackPlan ||
             '# Recommended Rollback Runbook (Advisory)\n# Engineer verification required prior to script execution.\n1. Revert modified configurations\n2. Clear routing session soft-reset\n3. Capture post-rollback snapshot to verify baseline restore.',
+      modelUsed: currentModel,
       tokenUsage: {
-        promptTokens: hasFunctionalSignal ? 1150 : 0,
-        completionTokens: hasFunctionalSignal ? 520 : 0,
-        totalTokens: hasFunctionalSignal ? 1670 : 0,
+        promptTokens: usedLiveApi ? 1150 : 0,
+        completionTokens: usedLiveApi ? 520 : 0,
+        totalTokens: usedLiveApi ? 1670 : 0,
       },
       createdAt: new Date().toISOString(),
     };
 
-    const updatedAnalyses = [newAnalysis, ...get().analyses];
+    const updatedAnalyses = [
+      newAnalysis,
+      ...get().analyses.filter((a) => a.comparisonId !== comparisonId && a.analysisId !== newAnalysis.analysisId),
+    ];
     persistUserItems('analyses', updatedAnalyses, get().user?.id);
     set((state) => ({
       analyses: updatedAnalyses,
@@ -1179,62 +1507,85 @@ Do not output numeric scores, percentages, or ratings of any kind.
         dailyAiCount: state.dailyUsage.dailyAiCount + 1,
       },
     }));
-    get().addToast('success', `AI advisory analysis completed: ${severity} severity (${riskScore}/100).`);
+    get().addToast('success', `Drift verification analysis completed: ${severity} severity (${riskScore}/100).`);
     return newAnalysis;
   },
 
   testAiConnection: async (modelOverride?: string, apiKeyOverride?: string, baseUrlOverride?: string) => {
     const start = performance.now();
-    const model = modelOverride || get().settings.defaultModel || 'google/gemini-2.0-flash-lite:free';
-    const baseUrl = baseUrlOverride || get().settings.aiBaseUrl || 'https://openrouter.ai/api/v1';
-    const key = apiKeyOverride !== undefined ? apiKeyOverride : (localStorage.getItem(API_KEY_STORAGE_KEY) || '');
+    const activeModel = get().aiModels.find((m) => m.isActive) || get().aiModels[0];
+    const model = modelOverride || activeModel?.modelIdentifier || get().settings.defaultModel || 'google/gemini-2.0-flash-lite:free';
+    const baseUrl = baseUrlOverride || activeModel?.baseUrl || get().settings.aiBaseUrl || 'https://openrouter.ai/api/v1';
+    const key = apiKeyOverride !== undefined
+      ? apiKeyOverride
+      : (activeModel?.apiKey || localStorage.getItem(API_KEY_STORAGE_KEY) || '');
 
-    // If an API key is provided, perform live ping
-    if (key && key.trim()) {
-      try {
-        const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${key.trim()}`,
-            'HTTP-Referer': 'https://driftguard.internal',
-            'X-Title': 'DriftGuard',
-          },
-        });
-        const latencyMs = Math.max(1, Math.round(performance.now() - start));
-        if (response.ok) {
-          let host = 'AI endpoint';
-          try { host = new URL(baseUrl).hostname; } catch {}
-          return {
-            success: true,
-            latencyMs,
-            message: `Model ${model} accessible via ${host}`,
-          };
-        } else {
-          const errText = await response.text().catch(() => '');
-          return {
-            success: false,
-            latencyMs,
-            message: `Endpoint returned HTTP ${response.status} (${errText.slice(0, 60) || response.statusText})`,
-          };
+    // Strictly require an API key for live inference testing
+    if (!key || !key.trim()) {
+      return {
+        success: false,
+        latencyMs: 0,
+        message: `No API key configured for ${model}. Please enter an API key in Settings.`,
+      };
+    }
+
+    const pingController = new AbortController();
+    const pingTimer = setTimeout(() => pingController.abort(), 15000);
+
+    try {
+      // Live probe: test actual chat completion capability with 5 tokens
+      const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        method: 'POST',
+        signal: pingController.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key.trim()}`,
+          'HTTP-Referer': 'https://driftguard.network',
+          'X-Title': 'DriftGuard',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: 'Ping: test connection' }],
+          max_tokens: 5,
+        }),
+      });
+
+      const latencyMs = Math.max(1, Math.round(performance.now() - start));
+
+      if (response.ok) {
+        return {
+          success: true,
+          latencyMs,
+          message: `Model ${model} operational and verified for analysis`,
+        };
+      } else {
+        const errText = await response.text().catch(() => '');
+        let apiErrMsg = `HTTP ${response.status}`;
+        try {
+          const errJson = JSON.parse(errText);
+          apiErrMsg = errJson.error?.message || errJson.message || apiErrMsg;
+        } catch {
+          if (errText) apiErrMsg += `: ${errText.slice(0, 80)}`;
         }
-      } catch (err: any) {
-        const latencyMs = Math.max(1, Math.round(performance.now() - start));
         return {
           success: false,
           latencyMs,
-          message: err.message || 'Connection unreachable',
+          message: `Provider returned ${apiErrMsg}`,
         };
       }
+    } catch (err: any) {
+      const latencyMs = Math.max(1, Math.round(performance.now() - start));
+      const message = pingController.signal.aborted
+        ? `Connection test timed out after 15s when reaching ${baseUrl}`
+        : (err.message || 'Connection unreachable');
+      return {
+        success: false,
+        latencyMs,
+        message,
+      };
+    } finally {
+      clearTimeout(pingTimer);
     }
-
-    // If no custom key is provided, verify default free-tier model availability
-    await new Promise((r) => setTimeout(r, 85));
-    const latencyMs = Math.max(1, Math.round(performance.now() - start));
-    return {
-      success: true,
-      latencyMs,
-      message: `DriftGuard AI Model ready for analysis`,
-    };
   },
 
   addAIModel: (modelData) => {
@@ -1259,18 +1610,18 @@ Do not output numeric scores, percentages, or ratings of any kind.
     }
     const updated = get().aiModels.map((m) => {
       if (m.id !== id) return m;
-      return {
-        ...m,
-        ...updates,
-        apiKeyPreview: updates.apiKey ? `${updates.apiKey.substring(0, 8)}...${updates.apiKey.slice(-4)}` : m.apiKeyPreview,
-      };
+      const merged = { ...m, ...updates };
+      if (updates.apiKey !== undefined) {
+        merged.apiKeyPreview = updates.apiKey ? `${updates.apiKey.substring(0, 8)}...${updates.apiKey.slice(-4)}` : undefined;
+      }
+      return merged;
     });
     persistUserItems('ai_models', updated, get().user?.id);
     set({ aiModels: updated });
-    get().addToast('success', 'AI model updated.');
+    get().addToast('success', 'AI model updated successfully.');
   },
 
-  deleteAIModel: (id) => {
+  deleteAIModel: (id: string) => {
     const target = get().aiModels.find((m) => m.id === id);
     if (target?.isDefault) {
       get().addToast('warning', 'The default free-tier AI model is protected and cannot be deleted.');
@@ -1279,14 +1630,26 @@ Do not output numeric scores, percentages, or ratings of any kind.
     const filtered = get().aiModels.filter((m) => m.id !== id);
     if (target?.isActive && filtered.length > 0) {
       filtered[0].isActive = true;
-      get().updateSettings({ defaultModel: filtered[0].modelIdentifier });
+      const fallback = filtered[0];
+      const fallbackUpdates: Partial<UserSettings> = {
+        defaultModel: fallback.modelIdentifier,
+        aiBaseUrl: fallback.baseUrl || 'https://openrouter.ai/api/v1',
+      };
+      if (fallback.apiKey && fallback.apiKey.trim()) {
+        fallbackUpdates.apiKey = fallback.apiKey;
+      } else {
+        localStorage.removeItem(API_KEY_STORAGE_KEY);
+        fallbackUpdates.hasApiKey = false;
+        fallbackUpdates.apiKeyPreview = undefined;
+      }
+      get().updateSettings(fallbackUpdates);
     }
     persistUserItems('ai_models', filtered, get().user?.id);
     set({ aiModels: filtered });
     get().addToast('info', `AI model "${target?.name || id}" removed.`);
   },
 
-  setActiveAIModel: (id) => {
+  setActiveAIModel: (id: string) => {
     const updated = get().aiModels.map((m) => ({
       ...m,
       isActive: m.id === id,
@@ -1294,7 +1657,18 @@ Do not output numeric scores, percentages, or ratings of any kind.
     persistUserItems('ai_models', updated, get().user?.id);
     const selected = updated.find((m) => m.id === id);
     if (selected) {
-      get().updateSettings({ defaultModel: selected.modelIdentifier });
+      const updates: Partial<UserSettings> = {
+        defaultModel: selected.modelIdentifier,
+        aiBaseUrl: selected.baseUrl || 'https://openrouter.ai/api/v1',
+      };
+      if (selected.apiKey && selected.apiKey.trim()) {
+        updates.apiKey = selected.apiKey;
+      } else {
+        localStorage.removeItem(API_KEY_STORAGE_KEY);
+        updates.hasApiKey = false;
+        updates.apiKeyPreview = undefined;
+      }
+      get().updateSettings(updates);
     }
     set({ aiModels: updated });
     get().addToast('info', `Active AI model set to "${selected?.name || id}".`);

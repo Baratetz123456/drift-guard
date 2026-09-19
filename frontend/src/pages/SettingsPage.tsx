@@ -120,8 +120,8 @@ export const SettingsPage: React.FC = () => {
     apiKey?: string;
   } | null>(null);
 
-  // SSH Tab state
-  const [timeout, setTimeoutVal] = useState(settings.defaultTimeoutSeconds || 30);
+  // SSH & Transport Tab state
+  const [timeout, setTimeoutVal] = useState(settings.defaultTimeoutSeconds || 60);
 
   // Diff & Safety Tab state
   const [maskSecrets, setMaskSecrets] = useState(settings.maskSecretsInDiffs);
@@ -378,6 +378,7 @@ export const SettingsPage: React.FC = () => {
                   {/* Status Indicator */}
                   {testResults[activeModel.id] ? (
                     <div
+                      title={testResults[activeModel.id]?.message || ''}
                       className={`px-2.5 py-1 rounded-lg border text-xs font-mono flex items-center gap-1.5 ${
                         testResults[activeModel.id].success
                           ? 'border-[#c8ff00]/40 bg-[#c8ff00]/10 text-[#c8ff00]'
@@ -396,7 +397,10 @@ export const SettingsPage: React.FC = () => {
                       </span>
                     </div>
                   ) : activeModel.status === 'online' ? (
-                    <div className="px-2.5 py-1 rounded-lg border border-[#c8ff00]/30 bg-[#c8ff00]/10 text-[#c8ff00] text-xs font-mono flex items-center gap-1.5">
+                    <div
+                      title={activeModel.latencyMs ? `Latency: ${activeModel.latencyMs}ms` : 'Ready'}
+                      className="px-2.5 py-1 rounded-lg border border-[#c8ff00]/30 bg-[#c8ff00]/10 text-[#c8ff00] text-xs font-mono flex items-center gap-1.5"
+                    >
                       <CheckCircle className="w-3.5 h-3.5 text-[#c8ff00] shrink-0" weight="fill" />
                       <span>{activeModel.latencyMs ? `${activeModel.latencyMs}ms` : 'Ready'}</span>
                     </div>
@@ -498,6 +502,7 @@ export const SettingsPage: React.FC = () => {
                       <div className="flex items-center gap-2 self-end md:self-center">
                         {/* Status Badge */}
                         <div
+                          title={testRes?.message || (status === 'online' ? `${latency || 0}ms` : 'Untested')}
                           className={`px-2.5 py-1 rounded-lg border text-xs font-mono flex items-center gap-1.5 ${
                             status === 'online'
                               ? 'border-[#c8ff00]/40 bg-[#c8ff00]/10 text-[#c8ff00]'
@@ -607,13 +612,13 @@ export const SettingsPage: React.FC = () => {
             <div className="space-y-4 pt-1">
               <div>
                 <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="font-semibold text-zinc-300">Command Execution Timeout</span>
+                  <span className="font-semibold text-zinc-300">Command Execution & AI Analysis Timeout</span>
                   <span className="font-mono text-[#c8ff00] font-bold">{timeout}s</span>
                 </div>
                 <input
                   type="range"
                   min="10"
-                  max="120"
+                  max="180"
                   step="5"
                   value={timeout}
                   onChange={(e) => setTimeoutVal(Number(e.target.value))}
@@ -621,9 +626,12 @@ export const SettingsPage: React.FC = () => {
                 />
                 <div className="flex justify-between text-xs text-zinc-400 font-mono mt-1.5">
                   <span>10s (Fast health check)</span>
-                  <span>30s (Default)</span>
-                  <span>120s (Large Running-Configs)</span>
+                  <span>60s (Default)</span>
+                  <span>180s (Deep LLM Analysis)</span>
                 </div>
+                <p className="text-[11px] text-zinc-500 mt-2">
+                  Enforces strict request abortion on both Netmiko SSH transport commands and upstream AI reasoning models, preventing hanging requests or infinite loading states.
+                </p>
               </div>
             </div>
           </div>
