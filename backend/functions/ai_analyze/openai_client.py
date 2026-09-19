@@ -48,6 +48,84 @@ def call_openai(
             "usage": {"prompt_tokens": int, "completion_tokens": int, "total_tokens": int}
         }
     """
+    import urllib.request
+    import urllib.error
+
+    is_anthropic = (
+        (base_url and "anthropic.com" in base_url.lower())
+        or (model.lower().startswith("claude") and (not base_url or "openrouter" not in base_url.lower()))
+    )
+
+    if is_anthropic:
+        anthropic_url = base_url.rstrip("/") if base_url else "https://api.anthropic.com/v1"
+        if not anthropic_url.endswith("/messages"):
+            if not anthropic_url.endswith("/v1"):
+                anthropic_url += "/v1"
+            anthropic_url += "/messages"
+
+        req_headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key.strip(),
+            "anthropic-version": "2023-06-01",
+        }
+        if extra_headers:
+            req_headers.update(extra_headers)
+
+        payload = {
+            "model": model,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": user_prompt}],
+            "max_tokens": max_tokens,
+            "temperature": 0.2,
+        }
+
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                logger.info(
+                    f"Anthropic API call attempt {attempt + 1}/{MAX_RETRIES} "
+                    f"(model={model}, url={anthropic_url})"
+                )
+                req = urllib.request.Request(
+                    anthropic_url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=req_headers,
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    resp_data = json.loads(resp.read().decode("utf-8"))
+                    content = ""
+                    if "content" in resp_data and isinstance(resp_data["content"], list):
+                        content = resp_data["content"][0].get("text", "")
+                    
+                    usage = {
+                        "prompt_tokens": resp_data.get("usage", {}).get("input_tokens", 0),
+                        "completion_tokens": resp_data.get("usage", {}).get("output_tokens", 0),
+                        "total_tokens": resp_data.get("usage", {}).get("input_tokens", 0) + resp_data.get("usage", {}).get("output_tokens", 0),
+                    }
+                    
+                    analysis = json.loads(content)
+                    return {"analysis": analysis, "usage": usage}
+
+            except urllib.error.HTTPError as e:
+                err_body = e.read().decode("utf-8", errors="ignore")
+                last_error = f"HTTP {e.code}: {err_body}"
+                if e.code in (401, 403):
+                    raise DependencyError(f"Invalid Anthropic API key. Please check your credentials in Settings.")
+                if e.code == 429 and attempt < MAX_RETRIES - 1:
+                    delay = RETRY_DELAYS[attempt]
+                    time.sleep(delay)
+                    continue
+                raise ExternalServiceError("Anthropic Provider", last_error)
+            except Exception as e:
+                last_error = str(e)
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(RETRY_DELAYS[attempt])
+                    continue
+                raise ExternalServiceError("Anthropic Provider", str(e))
+
+        raise ExternalServiceError("Anthropic Provider", f"All {MAX_RETRIES} attempts failed: {last_error}")
+
     try:
         import openai
     except ImportError:
@@ -56,8 +134,8 @@ def call_openai(
         )
 
     headers = {
-        "HTTP-Referer": "https://deltanet.local",
-        "X-Title": "DeltaNet Cisco Network Automation",
+        "HTTP-Referer": "https://driftguard.network",
+        "X-Title": "DriftGuard Network Change Verification",
     }
     if extra_headers:
         headers.update(extra_headers)
@@ -120,7 +198,7 @@ def call_openai(
 
         except openai.AuthenticationError:
             raise DependencyError(
-                "Invalid API key. Please update your OpenAI / OpenRouter key in Settings."
+                "Invalid API key. Please update your API key in Settings."
             )
 
         except openai.RateLimitError as e:

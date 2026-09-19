@@ -200,10 +200,13 @@ export interface UserSettings {
   emailNotifications?: boolean;
 }
 
+export type AIProvider = 'gemini' | 'groq' | 'openai' | 'claude' | 'openrouter' | 'custom';
+
 export interface ConfiguredAIModel {
   id: string;
   name: string;
   modelIdentifier: string;
+  provider?: AIProvider;
   baseUrl?: string;
   apiKey?: string;
   apiKeyPreview?: string;
@@ -213,3 +216,4 @@ export interface ConfiguredAIModel {
   status?: 'online' | 'offline' | 'untested';
   lastTestedAt?: string;
 }
+

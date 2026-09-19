@@ -6,7 +6,59 @@ import { Badge } from '../components/common/Badge';
 import { Checkbox } from '../components/common/Checkbox';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { detectUserTimezoneAndRegion } from '../utils/geoDetection';
-import { ConfiguredAIModel } from '../types';
+import { ConfiguredAIModel, AIProvider } from '../types';
+
+const PROVIDER_OPTIONS: {
+  value: AIProvider;
+  label: string;
+  defaultBaseUrl: string;
+  placeholder: string;
+  defaultName: string;
+}[] = [
+  {
+    value: 'gemini',
+    label: 'Google Gemini',
+    defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    placeholder: 'e.g. gemini-2.0-flash or gemini-1.5-pro',
+    defaultName: 'Google Gemini 2.0 Flash',
+  },
+  {
+    value: 'groq',
+    label: 'Groq',
+    defaultBaseUrl: 'https://api.groq.com/openai/v1',
+    placeholder: 'e.g. llama-3.3-70b-versatile or mixtral-8x7b-32768',
+    defaultName: 'Groq Llama 3.3 70B',
+  },
+  {
+    value: 'openai',
+    label: 'OpenAI / ChatGPT',
+    defaultBaseUrl: 'https://api.openai.com/v1',
+    placeholder: 'e.g. gpt-4o or gpt-4o-mini',
+    defaultName: 'OpenAI GPT-4o',
+  },
+  {
+    value: 'claude',
+    label: 'Anthropic / Claude',
+    defaultBaseUrl: 'https://api.anthropic.com/v1',
+    placeholder: 'e.g. claude-3-5-sonnet-20241022 or claude-3-5-haiku-20241022',
+    defaultName: 'Anthropic Claude 3.5 Sonnet',
+  },
+  {
+    value: 'openrouter',
+    label: 'OpenRouter',
+    defaultBaseUrl: 'https://openrouter.ai/api/v1',
+    placeholder: 'e.g. anthropic/claude-3.5-sonnet or google/gemini-2.0-flash-lite:free',
+    defaultName: 'OpenRouter Claude 3.5 Sonnet',
+  },
+  {
+    value: 'custom',
+    label: 'Custom / Other',
+    defaultBaseUrl: '',
+    placeholder: 'e.g. custom-model-identifier',
+    defaultName: 'Custom AI Model',
+  },
+];
+
 import {
   Gear,
   Key,
@@ -81,6 +133,7 @@ export const SettingsPage: React.FC = () => {
 
   // Add Model Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newProvider, setNewProvider] = useState<AIProvider>('openrouter');
   const [newName, setNewName] = useState('');
   const [newModelId, setNewModelId] = useState('');
   const [newBaseUrl, setNewBaseUrl] = useState('https://openrouter.ai/api/v1');
@@ -96,6 +149,7 @@ export const SettingsPage: React.FC = () => {
   // Edit Model Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<ConfiguredAIModel | null>(null);
+  const [editProvider, setEditProvider] = useState<AIProvider>('openrouter');
   const [editName, setEditName] = useState('');
   const [editModelId, setEditModelId] = useState('');
   const [editBaseUrl, setEditBaseUrl] = useState('');
@@ -116,6 +170,7 @@ export const SettingsPage: React.FC = () => {
     id: string;
     name: string;
     modelIdentifier: string;
+    provider?: AIProvider;
     baseUrl: string;
     apiKey?: string;
   } | null>(null);
@@ -128,6 +183,22 @@ export const SettingsPage: React.FC = () => {
   const [normalizeCounters, setNormalizeCounters] = useState(settings.normalizeDynamicCounters);
 
   const activeModel = aiModels.find((m) => m.isActive) || aiModels[0];
+
+  const handleProviderChange = (provider: AIProvider) => {
+    setNewProvider(provider);
+    const opt = PROVIDER_OPTIONS.find((p) => p.value === provider);
+    if (opt && opt.defaultBaseUrl) {
+      setNewBaseUrl(opt.defaultBaseUrl);
+    }
+  };
+
+  const handleEditProviderChange = (provider: AIProvider) => {
+    setEditProvider(provider);
+    const opt = PROVIDER_OPTIONS.find((p) => p.value === provider);
+    if (opt && opt.defaultBaseUrl) {
+      setEditBaseUrl(opt.defaultBaseUrl);
+    }
+  };
 
   const handleTestModel = async (id: string) => {
     setTestingModelId(id);
@@ -153,7 +224,12 @@ export const SettingsPage: React.FC = () => {
     setNewTestResult(null);
     try {
       const { testAiConnection } = useAppStore.getState();
-      const res = await testAiConnection(newModelId.trim(), newApiKey.trim(), newBaseUrl.trim() || undefined);
+      const res = await testAiConnection(
+        newModelId.trim(),
+        newApiKey.trim(),
+        newBaseUrl.trim() || undefined,
+        newProvider
+      );
       setNewTestResult(res);
     } catch (err: any) {
       setNewTestResult({
@@ -170,10 +246,13 @@ export const SettingsPage: React.FC = () => {
     e.preventDefault();
     if (!newName.trim() || !newModelId.trim() || !newApiKey.trim()) return;
 
+    const opt = PROVIDER_OPTIONS.find((p) => p.value === newProvider);
+
     addAIModel({
       name: newName.trim(),
       modelIdentifier: newModelId.trim(),
-      baseUrl: newBaseUrl.trim() || 'https://openrouter.ai/api/v1',
+      provider: newProvider,
+      baseUrl: newBaseUrl.trim() || (opt?.defaultBaseUrl || 'https://openrouter.ai/api/v1'),
       apiKey: newApiKey.trim(),
       isActive: aiModels.length === 0,
       status: newTestResult?.success ? 'online' : 'untested',
@@ -183,6 +262,7 @@ export const SettingsPage: React.FC = () => {
     // Reset form
     setNewName('');
     setNewModelId('');
+    setNewProvider('openrouter');
     setNewBaseUrl('https://openrouter.ai/api/v1');
     setNewApiKey('');
     setNewTestResult(null);
@@ -194,6 +274,7 @@ export const SettingsPage: React.FC = () => {
     setEditingModel(m);
     setEditName(m.name);
     setEditModelId(m.modelIdentifier);
+    setEditProvider(m.provider || 'openrouter');
     setEditBaseUrl(m.baseUrl || 'https://openrouter.ai/api/v1');
     setEditApiKey('');
     setEditTestResult(null);
@@ -207,7 +288,12 @@ export const SettingsPage: React.FC = () => {
     try {
       const { testAiConnection } = useAppStore.getState();
       const apiKeyToTest = editApiKey.trim() || editingModel?.apiKey || '';
-      const res = await testAiConnection(editModelId.trim(), apiKeyToTest, editBaseUrl.trim() || undefined);
+      const res = await testAiConnection(
+        editModelId.trim(),
+        apiKeyToTest,
+        editBaseUrl.trim() || undefined,
+        editProvider
+      );
       setEditTestResult(res);
     } catch (err: any) {
       setEditTestResult({
@@ -224,11 +310,14 @@ export const SettingsPage: React.FC = () => {
     e.preventDefault();
     if (!editingModel || !editName.trim() || !editModelId.trim()) return;
 
+    const opt = PROVIDER_OPTIONS.find((p) => p.value === editProvider);
+
     setPendingModelUpdate({
       id: editingModel.id,
       name: editName.trim(),
       modelIdentifier: editModelId.trim(),
-      baseUrl: editBaseUrl.trim() || 'https://openrouter.ai/api/v1',
+      provider: editProvider,
+      baseUrl: editBaseUrl.trim() || (opt?.defaultBaseUrl || 'https://openrouter.ai/api/v1'),
       ...(editApiKey.trim() ? { apiKey: editApiKey.trim() } : {}),
     });
     setIsConfirmingUpdate(true);
@@ -779,6 +868,23 @@ export const SettingsPage: React.FC = () => {
             <form onSubmit={handleSaveNewModel} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Provider *
+                </label>
+                <select
+                  value={newProvider}
+                  onChange={(e) => handleProviderChange(e.target.value as AIProvider)}
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 focus:outline-none focus:border-zinc-500 cursor-pointer"
+                >
+                  {PROVIDER_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value} className="bg-zinc-900 text-zinc-100">
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
                   Model display name *
                 </label>
                 <input
@@ -786,7 +892,7 @@ export const SettingsPage: React.FC = () => {
                   required
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Anthropic Claude 3.5 Sonnet (Production)"
+                  placeholder={PROVIDER_OPTIONS.find((p) => p.value === newProvider)?.defaultName || 'e.g. Anthropic Claude 3.5 Sonnet'}
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
                 />
               </div>
@@ -800,7 +906,7 @@ export const SettingsPage: React.FC = () => {
                   required
                   value={newModelId}
                   onChange={(e) => setNewModelId(e.target.value)}
-                  placeholder="e.g. anthropic/claude-3.5-sonnet or meta-llama/llama-3.3-70b-instruct"
+                  placeholder={PROVIDER_OPTIONS.find((p) => p.value === newProvider)?.placeholder || 'e.g. anthropic/claude-3.5-sonnet'}
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
                 />
               </div>
@@ -814,7 +920,7 @@ export const SettingsPage: React.FC = () => {
                   required
                   value={newBaseUrl}
                   onChange={(e) => setNewBaseUrl(e.target.value)}
-                  placeholder="https://openrouter.ai/api/v1"
+                  placeholder={PROVIDER_OPTIONS.find((p) => p.value === newProvider)?.defaultBaseUrl || 'https://openrouter.ai/api/v1'}
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
                 />
               </div>
@@ -928,6 +1034,23 @@ export const SettingsPage: React.FC = () => {
             <form onSubmit={handleEditFormSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Provider *
+                </label>
+                <select
+                  value={editProvider}
+                  onChange={(e) => handleEditProviderChange(e.target.value as AIProvider)}
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 focus:outline-none focus:border-zinc-500 cursor-pointer"
+                >
+                  {PROVIDER_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value} className="bg-zinc-900 text-zinc-100">
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
                   Model display name *
                 </label>
                 <input
@@ -935,6 +1058,7 @@ export const SettingsPage: React.FC = () => {
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
+                  placeholder={PROVIDER_OPTIONS.find((p) => p.value === editProvider)?.defaultName || 'e.g. Anthropic Claude 3.5 Sonnet'}
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
                 />
               </div>
@@ -948,6 +1072,7 @@ export const SettingsPage: React.FC = () => {
                   required
                   value={editModelId}
                   onChange={(e) => setEditModelId(e.target.value)}
+                  placeholder={PROVIDER_OPTIONS.find((p) => p.value === editProvider)?.placeholder || 'e.g. anthropic/claude-3.5-sonnet'}
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
                 />
               </div>
@@ -961,6 +1086,7 @@ export const SettingsPage: React.FC = () => {
                   required
                   value={editBaseUrl}
                   onChange={(e) => setEditBaseUrl(e.target.value)}
+                  placeholder={PROVIDER_OPTIONS.find((p) => p.value === editProvider)?.defaultBaseUrl || 'https://openrouter.ai/api/v1'}
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-100 font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
                 />
               </div>

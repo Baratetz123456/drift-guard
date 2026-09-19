@@ -11,6 +11,7 @@ import {
   RiskSeverity,
   User,
   ConfiguredAIModel,
+  AIProvider,
   CommandBreakdownEntry,
   AnalysisFinding,
 } from '../types';
@@ -83,7 +84,7 @@ interface AppState {
 
   // AI Analysis actions
   runAIAnalysis: (comparisonId: string) => Promise<AIAnalysis>;
-  testAiConnection: (model?: string, apiKey?: string, baseUrl?: string) => Promise<{ success: boolean; latencyMs: number; message: string }>;
+  testAiConnection: (model?: string, apiKey?: string, baseUrl?: string, provider?: AIProvider) => Promise<{ success: boolean; latencyMs: number; message: string }>;
 
   // AI Models Registry actions
   addAIModel: (model: Omit<ConfiguredAIModel, 'id'>) => ConfiguredAIModel;
@@ -131,11 +132,44 @@ const DEFAULT_ENV_MODEL_NAME = (import.meta.env.VITE_DEFAULT_AI_MODEL_NAME as st
 const DEFAULT_ENV_TIMEOUT_SECONDS = Number(import.meta.env.VITE_DEFAULT_AI_TIMEOUT_SECONDS) || 60;
 const DEFAULT_ENV_API_KEY = (import.meta.env.VITE_DEFAULT_AI_API_KEY as string) || '';
 
+export const PROVIDER_DEFAULT_BASE_URLS: Record<AIProvider, string> = {
+  gemini: 'https://generativelanguage.googleapis.com/v1beta/openai',
+  groq: 'https://api.groq.com/openai/v1',
+  openai: 'https://api.openai.com/v1',
+  claude: 'https://api.anthropic.com/v1',
+  openrouter: 'https://openrouter.ai/api/v1',
+  custom: '',
+};
+
+export function detectAIProvider(baseUrl?: string, provider?: AIProvider, modelIdentifier?: string): AIProvider {
+  if (provider && provider !== 'custom') return provider;
+  const url = (baseUrl || '').toLowerCase();
+  const model = (modelIdentifier || '').toLowerCase();
+  if (url.includes('anthropic.com') || model.startsWith('claude')) return 'claude';
+  if (url.includes('generativelanguage.googleapis.com') || (model.includes('gemini') && !url.includes('openrouter'))) return 'gemini';
+  if (url.includes('groq.com')) return 'groq';
+  if (url.includes('api.openai.com')) return 'openai';
+  if (url.includes('openrouter.ai')) return 'openrouter';
+  return provider || 'custom';
+}
+
+export function buildEndpointUrl(baseUrl: string, provider: AIProvider): string {
+  const clean = baseUrl.replace(/\/+$/, '');
+  if (provider === 'claude') {
+    if (clean.endsWith('/messages')) return clean;
+    if (clean.endsWith('/v1')) return `${clean}/messages`;
+    return `${clean}/v1/messages`;
+  }
+  if (clean.endsWith('/chat/completions')) return clean;
+  return `${clean}/chat/completions`;
+}
+
 const initialAIModels: ConfiguredAIModel[] = [
   {
     id: 'model-gemini-free',
     name: DEFAULT_ENV_MODEL_NAME,
     modelIdentifier: DEFAULT_ENV_MODEL,
+    provider: 'openrouter',
     baseUrl: DEFAULT_ENV_BASE_URL,
     apiKey: DEFAULT_ENV_API_KEY || undefined,
     apiKeyPreview: DEFAULT_ENV_API_KEY ? `${DEFAULT_ENV_API_KEY.substring(0, 8)}...${DEFAULT_ENV_API_KEY.slice(-4)}` : undefined,
@@ -145,6 +179,7 @@ const initialAIModels: ConfiguredAIModel[] = [
     latencyMs: 85,
   },
 ];
+
 
 const MOCK_MODEL_IDS = new Set(['model-claude-35-sonnet', 'model-gpt-4o', 'model-deepseek-r1']);
 
@@ -188,6 +223,12 @@ function loadStoredAIModels(userId?: string): ConfiguredAIModel[] {
       isActive: m.isDefault || m.id === 'model-gemini-free',
     }));
   }
+
+  // Ensure provider is populated on all models
+  sanitized = sanitized.map((m) => ({
+    ...m,
+    provider: m.provider || detectAIProvider(m.baseUrl, undefined, m.modelIdentifier),
+  }));
 
   persistUserItems('ai_models', sanitized, targetUserId);
   return sanitized;
@@ -1072,6 +1113,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const apiKey = activeModel?.apiKey || localStorage.getItem(API_KEY_STORAGE_KEY) || '';
     const currentModel = activeModel?.modelIdentifier || get().settings.defaultModel || 'google/gemini-2.0-flash-lite:free';
     const baseUrl = activeModel?.baseUrl || get().settings.aiBaseUrl || 'https://openrouter.ai/api/v1';
+    const provider = detectAIProvider(baseUrl, activeModel?.provider, currentModel);
 
     const SYSTEM_PROMPT = `# Role
 
@@ -1312,49 +1354,72 @@ Do not output numeric scores, percentages, or ratings of any kind.
       }, timeoutSeconds * 1000);
 
       try {
-        const requestPayload: any = {
-          model: currentModel,
-          messages: [
-            {
-              role: 'system',
-              content: SYSTEM_PROMPT,
-            },
-            {
-              role: 'user',
-              content: `Device Name: "${comparison.deviceName}"\n\nCollected Commands (sandboxed in XML boundaries):\n${JSON.stringify(userPromptPayload, null, 2)}`,
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 4096,
-          response_format: { type: 'json_object' },
-        };
+        const endpointUrl = buildEndpointUrl(baseUrl, provider);
+        const isClaude = provider === 'claude';
 
-        let response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-          method: 'POST',
-          signal: controller.signal,
-          headers: {
+        let requestPayload: any;
+        let headers: Record<string, string>;
+
+        if (isClaude) {
+          headers = {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey.trim(),
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          };
+          requestPayload = {
+            model: currentModel,
+            system: SYSTEM_PROMPT,
+            messages: [
+              {
+                role: 'user',
+                content: `Device Name: "${comparison.deviceName}"\n\nCollected Commands (sandboxed in XML boundaries):\n${JSON.stringify(userPromptPayload, null, 2)}`,
+              },
+            ],
+            temperature: 0.1,
+            max_tokens: 4096,
+          };
+        } else {
+          headers = {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${apiKey.trim()}`,
             'HTTP-Referer': 'https://driftguard.network',
             'X-Title': 'DriftGuard Network Change Verification',
-          },
+          };
+          requestPayload = {
+            model: currentModel,
+            messages: [
+              {
+                role: 'system',
+                content: SYSTEM_PROMPT,
+              },
+              {
+                role: 'user',
+                content: `Device Name: "${comparison.deviceName}"\n\nCollected Commands (sandboxed in XML boundaries):\n${JSON.stringify(userPromptPayload, null, 2)}`,
+              },
+            ],
+            temperature: 0.1,
+            max_tokens: 4096,
+            response_format: { type: 'json_object' },
+          };
+        }
+
+        let response = await fetch(endpointUrl, {
+          method: 'POST',
+          signal: controller.signal,
+          headers,
           body: JSON.stringify(requestPayload),
         });
 
-        // Fallback retry if upstream provider explicitly rejects the response_format key
-        if (!response.ok && response.status === 400) {
+        // Fallback retry if upstream provider explicitly rejects the response_format key (non-Claude)
+        if (!isClaude && !response.ok && response.status === 400) {
           const checkText = await response.clone().text().catch(() => '');
           if (checkText.toLowerCase().includes('response_format')) {
             delete requestPayload.response_format;
-            response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            response = await fetch(endpointUrl, {
               method: 'POST',
               signal: controller.signal,
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${apiKey.trim()}`,
-                'HTTP-Referer': 'https://driftguard.network',
-                'X-Title': 'DriftGuard Network Change Verification',
-              },
+              headers,
               body: JSON.stringify(requestPayload),
             });
           }
@@ -1362,7 +1427,10 @@ Do not output numeric scores, percentages, or ratings of any kind.
 
         if (response.ok) {
           const data = await response.json();
-          const rawContent = data.choices?.[0]?.message?.content || '{}';
+          const rawContent =
+            data.choices?.[0]?.message?.content ||
+            data.content?.[0]?.text ||
+            '{}';
           parsedResult = extractJsonFromLlmResponse(rawContent);
           if (parsedResult) {
             usedLiveApi = true;
@@ -1511,7 +1579,12 @@ Do not output numeric scores, percentages, or ratings of any kind.
     return newAnalysis;
   },
 
-  testAiConnection: async (modelOverride?: string, apiKeyOverride?: string, baseUrlOverride?: string) => {
+  testAiConnection: async (
+    modelOverride?: string,
+    apiKeyOverride?: string,
+    baseUrlOverride?: string,
+    providerOverride?: AIProvider
+  ) => {
     const start = performance.now();
     const activeModel = get().aiModels.find((m) => m.isActive) || get().aiModels[0];
     const model = modelOverride || activeModel?.modelIdentifier || get().settings.defaultModel || 'google/gemini-2.0-flash-lite:free';
@@ -1519,6 +1592,7 @@ Do not output numeric scores, percentages, or ratings of any kind.
     const key = apiKeyOverride !== undefined
       ? apiKeyOverride
       : (activeModel?.apiKey || localStorage.getItem(API_KEY_STORAGE_KEY) || '');
+    const provider = detectAIProvider(baseUrl, providerOverride || activeModel?.provider, model);
 
     // Strictly require an API key for live inference testing
     if (!key || !key.trim()) {
@@ -1533,16 +1607,27 @@ Do not output numeric scores, percentages, or ratings of any kind.
     const pingTimer = setTimeout(() => pingController.abort(), 15000);
 
     try {
+      const endpointUrl = buildEndpointUrl(baseUrl, provider);
+      const isClaude = provider === 'claude';
+      const headers: Record<string, string> = isClaude
+        ? {
+            'Content-Type': 'application/json',
+            'x-api-key': key.trim(),
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          }
+        : {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${key.trim()}`,
+            'HTTP-Referer': 'https://driftguard.network',
+            'X-Title': 'DriftGuard',
+          };
+
       // Live probe: test actual chat completion capability with 5 tokens
-      const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+      const response = await fetch(endpointUrl, {
         method: 'POST',
         signal: pingController.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${key.trim()}`,
-          'HTTP-Referer': 'https://driftguard.network',
-          'X-Title': 'DriftGuard',
-        },
+        headers,
         body: JSON.stringify({
           model,
           messages: [{ role: 'user', content: 'Ping: test connection' }],
@@ -1592,6 +1677,7 @@ Do not output numeric scores, percentages, or ratings of any kind.
     const newModel: ConfiguredAIModel = {
       ...modelData,
       id: `model-${Date.now().toString(36)}`,
+      provider: modelData.provider || detectAIProvider(modelData.baseUrl, undefined, modelData.modelIdentifier),
       apiKeyPreview: modelData.apiKey ? `${modelData.apiKey.substring(0, 8)}...${modelData.apiKey.slice(-4)}` : undefined,
       status: 'untested',
     };
@@ -1613,6 +1699,9 @@ Do not output numeric scores, percentages, or ratings of any kind.
       const merged = { ...m, ...updates };
       if (updates.apiKey !== undefined) {
         merged.apiKeyPreview = updates.apiKey ? `${updates.apiKey.substring(0, 8)}...${updates.apiKey.slice(-4)}` : undefined;
+      }
+      if (updates.provider || updates.baseUrl) {
+        merged.provider = updates.provider || detectAIProvider(merged.baseUrl, undefined, merged.modelIdentifier);
       }
       return merged;
     });
@@ -1681,7 +1770,8 @@ Do not output numeric scores, percentages, or ratings of any kind.
     const res = await get().testAiConnection(
       model.modelIdentifier,
       model.apiKey,
-      model.baseUrl
+      model.baseUrl,
+      model.provider
     );
 
     const updated = get().aiModels.map((m) =>
