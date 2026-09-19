@@ -18,6 +18,7 @@ import {
   GitDiff,
   Sparkle,
   TerminalWindow,
+  Printer,
 } from '@phosphor-icons/react';
 
 export const AuditPage: React.FC = () => {
@@ -76,14 +77,24 @@ export const AuditPage: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon={<DownloadSimple className="w-4 h-4" weight="bold" />}
-          onClick={handleExportLogs}
-        >
-          Export
-        </Button>
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<Printer className="w-4 h-4" weight="bold" />}
+            onClick={() => window.open('/reports/audit/ledger', '_blank')}
+          >
+            Print Ledger
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<DownloadSimple className="w-4 h-4" weight="bold" />}
+            onClick={handleExportLogs}
+          >
+            Export
+          </Button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}

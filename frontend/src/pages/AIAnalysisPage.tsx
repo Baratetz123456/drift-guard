@@ -18,6 +18,7 @@ import {
   TerminalWindow,
   Warning,
   CheckCircle,
+  Printer,
 } from '@phosphor-icons/react';
 
 export const AIAnalysisPage: React.FC = () => {
@@ -127,6 +128,15 @@ export const AIAnalysisPage: React.FC = () => {
             onClick={handleExportJson}
           >
             Export
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Printer className="w-4 h-4" weight="bold" />}
+            onClick={() => window.open(`/reports/${activeAnalysis.analysisId}`, '_blank')}
+          >
+            Print Report
           </Button>
         </div>
       </div>
@@ -401,6 +411,7 @@ export const AIAnalysisPage: React.FC = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

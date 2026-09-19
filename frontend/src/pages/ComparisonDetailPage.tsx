@@ -17,6 +17,7 @@ import {
   ArrowsLeftRight,
   Copy,
   Check,
+  Printer,
 } from '@phosphor-icons/react';
 
 export const ComparisonDetailPage: React.FC = () => {
@@ -214,6 +215,15 @@ export const ComparisonDetailPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              leftIcon={<Printer className="w-4 h-4" weight="bold" />}
+              onClick={() => window.open(`/reports/${matchingAnalysis.analysisId}`, '_blank')}
+            >
+              Print Report
+            </Button>
             <Button
               type="button"
               variant="primary"
