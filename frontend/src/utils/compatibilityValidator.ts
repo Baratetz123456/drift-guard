@@ -1,4 +1,4 @@
-import { CommandSet, Device, DeviceType } from '../types';
+import { CommandSet, Device, DeviceType } from '../types/index';
 import { normalizeDeviceType, getDeviceTypeLabel } from './networkValidator';
 
 export interface CompatibilityResult {
@@ -35,7 +35,8 @@ export function validateCommandSetCompatibility(
     };
   }
 
-  const requiredDriver = normalizeDeviceType(commandSet.deviceType) || commandSet.deviceType;
+  const rawReq = commandSet.deviceType || (commandSet as any).driver;
+  const requiredDriver = normalizeDeviceType(rawReq) || rawReq;
   const requiredLabel = getDeviceTypeLabel(requiredDriver);
 
   if (devices.length === 0) {
@@ -56,12 +57,13 @@ export function validateCommandSetCompatibility(
   const conflictingDriversSet = new Set<DeviceType>();
 
   devices.forEach((dev) => {
-    const devDriver = normalizeDeviceType(dev.deviceType) || dev.deviceType;
+    const rawDevDriver = dev.deviceType || (dev as any).driver;
+    const devDriver = normalizeDeviceType(rawDevDriver) || rawDevDriver;
     if (devDriver === requiredDriver) {
       compatibleDevices.push(dev);
     } else {
       incompatibleDevices.push(dev);
-      conflictingDriversSet.add(dev.deviceType);
+      conflictingDriversSet.add(devDriver || dev.deviceType);
     }
   });
 
@@ -105,9 +107,11 @@ export function validateCommandSetCompatibility(
  */
 export function isCommandSetCompatible(commandSet: CommandSet, devices: Device[]): boolean {
   if (devices.length === 0) return false;
-  const reqDriver = normalizeDeviceType(commandSet.deviceType) || commandSet.deviceType;
+  const rawReq = commandSet.deviceType || (commandSet as any).driver;
+  const reqDriver = normalizeDeviceType(rawReq) || rawReq;
   return devices.every((d) => {
-    const devDriver = normalizeDeviceType(d.deviceType) || d.deviceType;
+    const rawDevDriver = d.deviceType || (d as any).driver;
+    const devDriver = normalizeDeviceType(rawDevDriver) || rawDevDriver;
     return devDriver === reqDriver;
   });
 }

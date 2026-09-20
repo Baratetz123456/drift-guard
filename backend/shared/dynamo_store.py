@@ -169,12 +169,14 @@ def list_devices(user_id: str) -> List[Dict[str, Any]]:
     result = []
     for item in items:
         dev_id = item.get("deviceId") or item["SK"].replace(EntityPrefix.DEVICE, "")
+        canonical_driver = item.get("driver") or item.get("deviceType") or item.get("platform", "cisco_xe")
         result.append({
             "deviceId": dev_id,
             "name": item.get("name") or item.get("deviceName", ""),
             "hostname": item.get("hostname") or item.get("managementIp", ""),
             "port": item.get("port") or item.get("sshPort", 22),
-            "driver": item.get("driver") or item.get("platform", "cisco_xe"),
+            "driver": canonical_driver,
+            "deviceType": canonical_driver,
             "status": item.get("status", "ONLINE"),
             "authMode": item.get("authMode", "Password"),
             "username": item.get("username", ""),
@@ -192,6 +194,7 @@ def create_device(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     # Encrypt credentials securely
     enc_pw = kms.encrypt_value(data.get("password") or "") if data.get("password") else ""
     enc_sec = kms.encrypt_value(data.get("enableSecret") or "") if data.get("enableSecret") else ""
+    canonical_driver = data.get("driver") or data.get("deviceType") or "cisco_xe"
 
     item = {
         "PK": f"USER#{user_id}",
@@ -203,7 +206,8 @@ def create_device(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         "name": data.get("name", dev_id),
         "hostname": data.get("hostname", ""),
         "port": int(data.get("port") or 22),
-        "driver": data.get("driver") or "cisco_xe",
+        "driver": canonical_driver,
+        "deviceType": canonical_driver,
         "status": data.get("status", "ONLINE"),
         "authMode": data.get("authMode", "Password"),
         "username": data.get("username", ""),
@@ -219,7 +223,8 @@ def create_device(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         "name": item["name"],
         "hostname": item["hostname"],
         "port": item["port"],
-        "driver": item["driver"],
+        "driver": canonical_driver,
+        "deviceType": canonical_driver,
         "status": item["status"],
         "authMode": item["authMode"],
         "username": item["username"],
@@ -235,6 +240,10 @@ def get_device(user_id: str, device_id: str) -> Optional[Dict[str, Any]]:
         return None
 
     decrypted = item.copy()
+    canonical_driver = decrypted.get("driver") or decrypted.get("deviceType") or "cisco_xe"
+    decrypted["driver"] = canonical_driver
+    decrypted["deviceType"] = canonical_driver
+
     if item.get("passwordEncrypted"):
         decrypted["password"] = kms.decrypt_value(item["passwordEncrypted"])
     if item.get("enableSecretEncrypted"):
@@ -300,6 +309,18 @@ def create_command_set(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def get_command_set(user_id: str, set_id: str) -> Optional[Dict[str, Any]]:
+    """Get single command set by ID."""
+    item = dynamo.get_item(pk=f"USER#{user_id}", sk=f"{EntityPrefix.COMMAND_SET}{set_id}")
+    return item
+
+
+def delete_command_set(user_id: str, set_id: str) -> bool:
+    """Delete a command set strictly scoped to the authenticated user."""
+    dynamo.delete_item(pk=f"USER#{user_id}", sk=f"{EntityPrefix.COMMAND_SET}{set_id}")
+    return True
+
+
 # =============================================================================
 # SNAPSHOT OPERATIONS
 # =============================================================================
@@ -363,6 +384,18 @@ def create_snapshot(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     }
     dynamo.put_item(item)
     return item
+
+
+def get_snapshot(user_id: str, snapshot_id: str) -> Optional[Dict[str, Any]]:
+    """Get single snapshot by ID."""
+    item = dynamo.get_item(pk=f"USER#{user_id}", sk=f"{EntityPrefix.SNAPSHOT}{snapshot_id}")
+    return item
+
+
+def delete_snapshot(user_id: str, snapshot_id: str) -> bool:
+    """Delete a snapshot strictly scoped to the authenticated user."""
+    dynamo.delete_item(pk=f"USER#{user_id}", sk=f"{EntityPrefix.SNAPSHOT}{snapshot_id}")
+    return True
 
 
 # =============================================================================

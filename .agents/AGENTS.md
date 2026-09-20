@@ -130,6 +130,14 @@ Every standard feature or bugfix task follows this 4-phase sequence:
   - All operator sessions MUST use cryptographically structured JWTs (emulating the AWS Cognito User Pool ID token schema with `sub`, `email`, `cognito:groups`, `token_use: 'id'`, `iss`, `iat`, and `exp`).
   - Tokens MUST be stored exclusively in `sessionStorage` (never `localStorage`), guaranteeing complete destruction of credentials whenever the browser tab, window, or application is closed.
   - All authenticated routes MUST enforce a 30-minute inactivity timeout with user activity listeners (`mousemove`, `mousedown`, `keydown`, `wheel`, `touchstart`, `scroll`) and an interactive 60-second warning countdown dialog before automatic termination.
+  - **Strict Multi-Tenant Isolation & Zero Insecure Fallback**:
+    - Backend API handlers and Lambda microservices MUST NEVER fall back to a default or mock tenant identity (e.g. `user_default`) when authorization headers are missing, malformed, or expired. Missing or invalid authentication MUST strictly return `HTTP 401 Unauthorized`.
+    - All persistent records (DynamoDB `PK = USER#{userId}`, local storage `driftguard_${userId}_${key}`) MUST partition data by deterministic tenant ID (`usr_<sha256(email)>` or Cognito `sub`).
+    - Demo data seeding (e.g. 100 mock devices) is strictly quarantined to `operator@driftguard.local`. Newly registered or secondary tenant accounts MUST initialize with an unpolluted baseline.
+  - **Browser Cold-Restart Durability Testing Protocol**:
+    - Automated E2E verification of browser termination and cold restarts MUST use persistent browser profiles (`chromium.launchPersistentContext(userDataDir)`).
+    - Standard ephemeral contexts (`browser.newContext()`) wipe all disk storage upon close and are prohibited for cold-restart durability verification.
+    - The test must explicitly verify that upon closing and reopening the browser context, `sessionStorage` is purged (forcing re-authentication) while stored data remains 100% durable and accessible upon logging back in.
 - **Documentation Visual Standards (Zero-Mermaid Law)**:
   - Published architecture and system documentation MUST NOT use Mermaid text code blocks for public diagrams.
   - All diagrams MUST be generated as high-resolution visual assets stored under `docs/assets/diagrams/` and referenced via markdown image syntax (`![Caption](./assets/diagrams/<filename>.png)`).

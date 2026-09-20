@@ -139,6 +139,7 @@ export const CaptchaVerification: React.FC<CaptchaVerificationProps> = ({
         <div className="relative rounded-xl border border-zinc-800 bg-zinc-950 p-1 shadow-inner flex items-center justify-center shrink-0">
           <canvas
             ref={canvasRef}
+            data-captcha-code={currentCode}
             width={170}
             height={46}
             className="rounded-lg block cursor-pointer select-none"
@@ -165,6 +166,7 @@ export const CaptchaVerification: React.FC<CaptchaVerificationProps> = ({
         <div className="flex-1">
           <input
             type="text"
+            data-testid="captcha-input"
             required
             maxLength={6}
             value={userInput}

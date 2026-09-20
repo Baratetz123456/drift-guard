@@ -88,6 +88,32 @@ with sync_playwright() as p:
 - Use descriptive selectors: `text=`, `role=`, CSS selectors, or IDs
 - Add appropriate waits: `page.wait_for_selector()` or `page.wait_for_timeout()`
 
+## Browser Termination & Cold-Restart Durability Tests
+When testing that user data survives browser crashes, process kills, or window closes:
+```javascript
+// DO NOT use browser.newContext() - it wipes localStorage on close!
+// USE chromium.launchPersistentContext with a temporary directory:
+const context = await chromium.launchPersistentContext(userDataDir, { headless: true });
+const page = await context.newPage();
+// ... perform user actions, insert data ...
+await context.close(); // Simulates complete browser process termination
+
+// Reopen using the SAME userDataDir:
+const reopenedContext = await chromium.launchPersistentContext(userDataDir, { headless: true });
+const freshPage = await reopenedContext.newPage();
+// Verify sessionStorage was destroyed (forcing login) while persistent data survived
+```
+
+## Strict-Mode Locator Disambiguation (Toast vs. Table)
+When an entity (e.g. a device or snapshot) is created, toast banners and data tables often render the exact same name string simultaneously. Avoid ambiguous top-level text locators:
+```javascript
+// INSTEAD OF:
+await expect(page.locator(`text=${deviceName}`)).toBeVisible(); // FAILS: strict mode violation (multiple matches)
+
+// USE SCOPED LOCATOR:
+await expect(page.locator('table').locator(`text=${deviceName}`)).toBeVisible();
+```
+
 ## Reference Files
 
 - **examples/** - Examples showing common patterns:

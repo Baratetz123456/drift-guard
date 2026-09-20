@@ -7,6 +7,7 @@ per-user tenant data isolation, multi-layer bot defense, and abuse quota enforce
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -98,9 +99,12 @@ FAILED_LOGIN_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
 # =============================================================================
 
 def extract_user_id(authorization: Optional[str] = Header(None)) -> str:
-    """Extract user_id from Cognito / Bearer JWT token, or default to demo user."""
+    """Extract and authenticate user_id from Cognito / Bearer JWT token."""
     if not authorization or not authorization.startswith("Bearer "):
-        return "user_default"
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required: Valid operator Bearer token missing.",
+        )
     token = authorization.split(" ")[1]
     try:
         parts = token.split(".")
@@ -108,16 +112,45 @@ def extract_user_id(authorization: Optional[str] = Header(None)) -> str:
             padding = "=" * (4 - len(parts[1]) % 4)
             decoded_bytes = base64.urlsafe_b64decode(parts[1] + padding)
             payload = json.loads(decoded_bytes)
+
+            now = int(time.time())
+            exp = payload.get("exp")
+            if exp and exp < now:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Operator session expired: Please authenticate again.",
+                )
+
+            user_id = payload.get("sub") or payload.get("userId")
+            if not user_id:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid token: missing subject identity.",
+                )
+
             # Ensure user exists in DynamoDB
-            dynamo_store.get_or_create_user(
-                user_id=user_id,
-                email=payload.get("email", f"{user_id}@driftguard.local"),
-                name=payload.get("name", "Network Architect"),
-            )
+            try:
+                dynamo_store.get_or_create_user(
+                    user_id=user_id,
+                    email=payload.get("email", f"{user_id}@driftguard.local"),
+                    name=payload.get("name", "Network Architect"),
+                )
+            except Exception as ddb_err:
+                logger.debug(f"User profile auto-create notice: {ddb_err}")
+
             return user_id
+    except HTTPException:
+        raise
     except Exception as e:
         logger.warning(f"Could not parse JWT bearer: {e}")
-    return "user_default"
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication failed: Malformed or invalid JWT token.",
+        )
+    raise HTTPException(
+        status_code=401,
+        detail="Authentication failed: Invalid token structure.",
+    )
 
 
 def generate_mock_jwt(user_id: str, email: str, name: str, role: str = "Network Architect") -> str:
@@ -164,12 +197,16 @@ class DeviceCreateRequest(BaseModel):
     name: str
     hostname: str
     port: Optional[int] = 22
-    driver: Optional[str] = "cisco_xe"
+    driver: Optional[str] = None
+    deviceType: Optional[str] = None
     username: Optional[str] = "admin"
     password: Optional[str] = None
     enableSecret: Optional[str] = None
     authMode: Optional[str] = "Password"
     groupId: Optional[str] = None
+    connectionType: Optional[str] = "ssh"
+    status: Optional[str] = "untested"
+    tags: Optional[List[str]] = []
 
 
 class CommandSetCreateRequest(BaseModel):
@@ -345,7 +382,7 @@ def register_operator(req: AuthRegisterRequest, request: Request):
     if existing_user:
         raise HTTPException(status_code=409, detail="Operator email already registered.")
 
-    user_id = f"usr_{uuid.uuid4().hex[:12]}"
+    user_id = get_deterministic_user_id(req.email)
     user = dynamo_store.get_or_create_user(
         user_id=user_id,
         email=req.email,
@@ -355,16 +392,17 @@ def register_operator(req: AuthRegisterRequest, request: Request):
 
     starter_cmd_id = f"cmd_{uuid.uuid4().hex[:8]}"
     starter_cmds = ["show ip interface brief", "show ip bgp summary", "show ip route summary"]
-    dynamo_store.create_command_set(
-        user_id=user_id,
-        data={
-            "setId": starter_cmd_id,
-            "name": "Standard Telemetry",
-            "driver": "cisco_xe",
-            "commands": starter_cmds,
-            "description": "Core baseline show commands",
-        },
-    )
+    if not dynamo_store.list_command_sets(user_id):
+        dynamo_store.create_command_set(
+            user_id=user_id,
+            data={
+                "setId": starter_cmd_id,
+                "name": "Standard Telemetry",
+                "driver": "cisco_xe",
+                "commands": starter_cmds,
+                "description": "Core baseline show commands",
+            },
+        )
 
     token = generate_mock_jwt(user_id, req.email, req.name)
     return {
@@ -376,6 +414,15 @@ def register_operator(req: AuthRegisterRequest, request: Request):
             "role": "Network Architect",
         },
     }
+
+
+def get_deterministic_user_id(email: str) -> str:
+    """Derive deterministic, consistent user ID from email for per-user tenant data isolation."""
+    clean_email = email.strip().lower()
+    if clean_email == "operator@driftguard.local":
+        return "user_default"
+    digest = hashlib.sha256(clean_email.encode("utf-8")).hexdigest()[:12]
+    return f"usr_{digest}"
 
 
 @app.post("/auth/login")
@@ -403,14 +450,25 @@ def login_operator(req: AuthLoginRequest, request: Request):
         raise HTTPException(status_code=429, detail=f"Account locked: Too many failed attempts. Try again in {remaining}s.")
 
     user = dynamo_store.get_user_by_email(req.email)
+    user_id = get_deterministic_user_id(req.email)
     if not user:
-        # If demo login or first-time, auto-create user gracefully in DynamoDB
-        user_id = f"usr_{uuid.uuid4().hex[:12]}"
         name = req.email.split("@")[0].capitalize()
         user = dynamo_store.get_or_create_user(user_id, req.email, name)
+        if user_id == "user_default":
+            dynamo_store.bootstrap_demo_environment("user_default")
+        elif not dynamo_store.list_command_sets(user_id):
+            dynamo_store.create_command_set(
+                user_id=user_id,
+                data={
+                    "name": "Standard Telemetry",
+                    "driver": "cisco_xe",
+                    "commands": ["show ip interface brief", "show ip bgp summary", "show ip route summary"],
+                    "description": "Core baseline show commands",
+                },
+            )
 
-    uid = user.get("userId") or user.get("id") or f"usr_{uuid.uuid4().hex[:12]}"
-    token = generate_mock_jwt(uid, user["email"], user["name"], user.get("role", "Network Architect"))
+    uid = user.get("userId") or user.get("id") or user_id
+    token = generate_mock_jwt(uid, user.get("email", req.email), user.get("name", "Network Architect"), user.get("role", "Network Architect"))
     # Reset failed attempts
     if ip in FAILED_LOGIN_ATTEMPTS:
         del FAILED_LOGIN_ATTEMPTS[ip]
@@ -419,8 +477,8 @@ def login_operator(req: AuthLoginRequest, request: Request):
         "token": token,
         "user": {
             "id": uid,
-            "email": user["email"],
-            "name": user["name"],
+            "email": user.get("email", req.email),
+            "name": user.get("name", "Network Architect"),
             "role": user.get("role", "Network Architect"),
         },
     }
@@ -434,15 +492,50 @@ def login_operator(req: AuthLoginRequest, request: Request):
 @app.get("/api/devices")
 def get_user_devices(user_id: str = Depends(extract_user_id)):
     """Retrieve all network devices belonging strictly to the authenticated user."""
-    devices = dynamo_store.list_devices(user_id)
-    return {"devices": devices}
+    try:
+        devices = dynamo_store.list_devices(user_id)
+        return {"devices": devices}
+    except Exception as e:
+        logger.warning(f"DynamoDB unavailable during list_devices: {e}")
+        return {"devices": []}
+
+
+@app.get("/devices/{device_id}")
+@app.get("/api/devices/{device_id}")
+def get_user_device(device_id: str, user_id: str = Depends(extract_user_id)):
+    """Retrieve a single device, verifying strict user ownership."""
+    try:
+        device = dynamo_store.get_device(user_id, device_id)
+        if not device:
+            raise HTTPException(status_code=404, detail="Device not found.")
+        safe = {k: v for k, v in device.items() if k not in ("password", "enableSecret", "passwordEncrypted", "enableSecretEncrypted")}
+        return safe
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"DynamoDB unavailable during get_device: {e}")
+        raise HTTPException(status_code=503, detail="Database temporarily unavailable.")
 
 
 @app.post("/devices")
 @app.post("/api/devices")
 def create_user_device(req: DeviceCreateRequest, user_id: str = Depends(extract_user_id)):
     """Create a new network device strictly scoped to the authenticated user."""
-    created = dynamo_store.create_device(user_id, req.dict())
+    payload = req.dict()
+    canonical_driver = req.driver or req.deviceType or "cisco_xe"
+    payload["driver"] = canonical_driver
+    payload["deviceType"] = canonical_driver
+    created = dynamo_store.create_device(user_id, payload)
+    return created
+
+
+@app.put("/devices/{device_id}")
+@app.put("/api/devices/{device_id}")
+def update_user_device(device_id: str, data: Dict[str, Any], user_id: str = Depends(extract_user_id)):
+    """Update a network device strictly scoped to the authenticated user."""
+    payload = data.copy()
+    payload["deviceId"] = device_id
+    created = dynamo_store.create_device(user_id, payload)
     return created
 
 
@@ -458,8 +551,28 @@ def delete_user_device(device_id: str, user_id: str = Depends(extract_user_id)):
 @app.get("/api/commands")
 def get_user_command_sets(user_id: str = Depends(extract_user_id)):
     """Retrieve all command sets belonging strictly to the authenticated user."""
-    command_sets = dynamo_store.list_command_sets(user_id)
-    return {"commandSets": command_sets}
+    try:
+        command_sets = dynamo_store.list_command_sets(user_id)
+        return {"commandSets": command_sets}
+    except Exception as e:
+        logger.warning(f"DynamoDB unavailable during list_command_sets: {e}")
+        return {"commandSets": []}
+
+
+@app.get("/commands/{set_id}")
+@app.get("/api/commands/{set_id}")
+def get_user_command_set(set_id: str, user_id: str = Depends(extract_user_id)):
+    """Retrieve a single command set strictly scoped to the authenticated user."""
+    try:
+        command_set = dynamo_store.get_command_set(user_id, set_id)
+        if not command_set:
+            raise HTTPException(status_code=404, detail="Command set not found.")
+        return command_set
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"DynamoDB unavailable during get_command_set: {e}")
+        raise HTTPException(status_code=503, detail="Database temporarily unavailable.")
 
 
 @app.post("/commands")
@@ -470,12 +583,68 @@ def create_user_command_set(req: CommandSetCreateRequest, user_id: str = Depends
     return created
 
 
+@app.delete("/commands/{set_id}")
+@app.delete("/api/commands/{set_id}")
+def delete_user_command_set(set_id: str, user_id: str = Depends(extract_user_id)):
+    """Delete a command set strictly scoped to the authenticated user."""
+    dynamo_store.delete_command_set(user_id, set_id)
+    return {"success": True, "deletedSetId": set_id}
+
+
 @app.get("/snapshots")
 @app.get("/api/snapshots")
 def get_user_snapshots(deviceId: Optional[str] = None, user_id: str = Depends(extract_user_id)):
     """Retrieve all snapshots belonging strictly to the authenticated user."""
-    snapshots = dynamo_store.list_snapshots(user_id, device_id=deviceId)
-    return {"snapshots": snapshots}
+    try:
+        snapshots = dynamo_store.list_snapshots(user_id, device_id=deviceId)
+        return {"snapshots": snapshots}
+    except Exception as e:
+        logger.warning(f"DynamoDB unavailable during list_snapshots: {e}")
+        return {"snapshots": []}
+
+
+@app.get("/snapshots/{snapshot_id}")
+@app.get("/api/snapshots/{snapshot_id}")
+def get_user_snapshot(snapshot_id: str, user_id: str = Depends(extract_user_id)):
+    """Retrieve a single snapshot strictly scoped to the authenticated user."""
+    try:
+        snapshot = dynamo_store.get_snapshot(user_id, snapshot_id)
+        if not snapshot:
+            raise HTTPException(status_code=404, detail="Snapshot not found.")
+        return snapshot
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"DynamoDB unavailable during get_snapshot: {e}")
+        raise HTTPException(status_code=503, detail="Database temporarily unavailable.")
+
+
+@app.delete("/snapshots/{snapshot_id}")
+@app.delete("/api/snapshots/{snapshot_id}")
+def delete_user_snapshot(snapshot_id: str, user_id: str = Depends(extract_user_id)):
+    """Delete a snapshot strictly scoped to the authenticated user."""
+    dynamo_store.delete_snapshot(user_id, snapshot_id)
+    return {"success": True, "deletedSnapshotId": snapshot_id}
+
+
+@app.get("/history")
+@app.get("/api/history")
+def get_user_history(user_id: str = Depends(extract_user_id)):
+    """Retrieve history events and audit records strictly for the authenticated user."""
+    try:
+        logs = dynamo_store.list_audit_logs(user_id)
+        snapshots = dynamo_store.list_snapshots(user_id)
+        comparisons = dynamo_store.list_comparisons(user_id)
+        return {
+            "events": logs,
+            "snapshots": snapshots,
+            "comparisons": comparisons,
+            "count": len(logs) + len(snapshots) + len(comparisons),
+        }
+    except Exception as e:
+        logger.warning(f"DynamoDB unavailable during get_user_history: {e}")
+        return {"events": [], "snapshots": [], "comparisons": [], "count": 0}
+
 
 
 @app.post("/collect")

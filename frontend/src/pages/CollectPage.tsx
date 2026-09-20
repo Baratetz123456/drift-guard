@@ -102,14 +102,35 @@ export const CollectPage: React.FC = () => {
   // Parallel progress tracking
   const [parallelProgress, setParallelProgress] = useState<Record<string, ParallelDeviceProgress>>({});
 
-  // URL query sync: allow ?groupId=... to preselect group and set scope to 'group'
+  // URL query sync: allow ?groupId=... or ?deviceId=... or ?setId=...
   useEffect(() => {
     const groupIdParam = searchParams.get('groupId');
     if (groupIdParam && deviceGroups.some((g) => g.groupId === groupIdParam)) {
       setSelectedGroupId(groupIdParam);
       setCollectScope('group');
     }
-  }, [searchParams, deviceGroups]);
+
+    const deviceIdParam = searchParams.get('deviceId');
+    if (deviceIdParam) {
+      const targetDev = devices.find((d) => d.deviceId === deviceIdParam);
+      if (targetDev) {
+        setSelectedDeviceId(targetDev.deviceId);
+        setCollectScope('single');
+        const devDriver = normalizeDeviceType(targetDev.deviceType || (targetDev as any).driver) || targetDev.deviceType;
+        const matchingSet = commandSets.find(
+          (cs) => (normalizeDeviceType(cs.deviceType || (cs as any).driver) || cs.deviceType) === devDriver
+        );
+        if (matchingSet) {
+          setSelectedSetId(matchingSet.setId);
+        }
+      }
+    }
+
+    const setIdParam = searchParams.get('setId');
+    if (setIdParam && commandSets.some((s) => s.setId === setIdParam)) {
+      setSelectedSetId(setIdParam);
+    }
+  }, [searchParams, deviceGroups, devices, commandSets]);
 
   const selectedDevice = useMemo(() => {
     return devices.find((d: Device) => d.deviceId === selectedDeviceId) || devices[0];

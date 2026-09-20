@@ -15,12 +15,21 @@ import {
   CommandBreakdownEntry,
   AnalysisFinding,
 } from '../types';
-import { initialCommandSets } from '../data/mockData';
+import {
+  initialCommandSets,
+  initialDevices,
+  initialDeviceGroups,
+  initialSnapshots,
+  initialComparisons,
+  initialAnalyses,
+  initialAuditLogs,
+} from '../data/mockData';
 import { UI_COPY } from '../constants/uiCopy';
 import {
   isJwtValid,
   decodeJwt,
   generateCognitoJwt,
+  resolveDeterministicUserId,
 } from '../utils/jwt';
 import { api } from '../services/api';
 
@@ -298,14 +307,12 @@ function getUserStorageKey(baseKey: string, userId?: string): string {
 function loadStoredItems<T>(key: string, defaultValue: T): T {
   try {
     const raw = localStorage.getItem(key);
-    if (raw) {
+    if (raw !== null && raw !== undefined) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed as T;
-      }
+      return parsed as T;
     }
   } catch (e) {
-    console.error(`Failed to load ${key} from localStorage:`, e);
+    console.error(`Failed to load ${key} from persistent storage:`, e);
   }
   return defaultValue;
 }
@@ -550,6 +557,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   login: async (email, password, honeypotCode, mountTimeMs) => {
+    const deterministicId = resolveDeterministicUserId(email);
     try {
       const res = await api.login({
         email,
@@ -560,9 +568,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       const token = res.token;
       const decoded = decodeJwt(token)!;
       const user: User = {
-        id: res.user?.id || decoded.payload.sub,
-        email: res.user?.email || decoded.payload.email,
-        name: res.user?.name || decoded.payload.name,
+        id: res.user?.id || decoded.payload.sub || deterministicId,
+        email: res.user?.email || decoded.payload.email || email,
+        name: res.user?.name || decoded.payload.name || email.split('@')[0],
         role: res.user?.role || 'Network Architect',
         token,
       };
@@ -572,11 +580,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       get().addToast('success', `Welcome back, ${user.name}`);
       return true;
     } catch (e: any) {
-      // Offline fallback
-      const token = generateCognitoJwt({ email, role: 'Network Architect' }, 1800);
+      // Offline fallback with deterministic user ID
+      const token = generateCognitoJwt({ userId: deterministicId, email, role: 'Network Architect' }, 1800);
       const decoded = decodeJwt(token)!;
       const user: User = {
-        id: decoded.payload.sub,
+        id: deterministicId,
         email: decoded.payload.email,
         name: decoded.payload.name,
         role: 'Network Architect',
@@ -591,6 +599,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   register: async (name, email, password, honeypotCode, mountTimeMs) => {
+    const deterministicId = resolveDeterministicUserId(email);
     try {
       const res = await api.register({
         name,
@@ -602,8 +611,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const token = res.token;
       const decoded = decodeJwt(token)!;
       const user: User = {
-        id: res.user?.id || decoded.payload.sub,
-        email: res.user?.email || decoded.payload.email,
+        id: res.user?.id || decoded.payload.sub || deterministicId,
+        email: res.user?.email || decoded.payload.email || email,
         name: res.user?.name || name,
         role: res.user?.role || 'Network Engineer',
         token,
@@ -614,10 +623,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       get().addToast('success', `Account created for ${name}.`);
       return true;
     } catch (e: any) {
-      const token = generateCognitoJwt({ email, name, role: 'Network Engineer' }, 1800);
+      const token = generateCognitoJwt({ userId: deterministicId, email, name, role: 'Network Engineer' }, 1800);
       const decoded = decodeJwt(token)!;
       const user: User = {
-        id: decoded.payload.sub,
+        id: deterministicId,
         email: decoded.payload.email,
         name,
         role: 'Network Engineer',
@@ -675,6 +684,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!currentUserId) return;
 
     try {
+      const isDemoUser = currentUserId === 'user_default';
       const [devRes, cmdRes, snapRes, compRes, setRes, auditRes] = await Promise.all([
         api.getDevices().catch(() => null),
         api.getCommandSets().catch(() => null),
@@ -684,15 +694,20 @@ export const useAppStore = create<AppState>((set, get) => ({
         api.getAuditLogs().catch(() => null),
       ]);
 
-      const loadedDevices = devRes?.devices || loadUserStoredItems<Device[]>('devices', [], currentUserId);
-      const loadedGroups = loadUserStoredItems<DeviceGroup[]>('device_groups', [], currentUserId);
+      const rawDevices = devRes?.devices || loadUserStoredItems<Device[]>('devices', isDemoUser ? initialDevices : [], currentUserId);
+      const loadedDevices = rawDevices.map((d: any) => ({
+        ...d,
+        deviceType: d.deviceType || d.driver || 'cisco_xe',
+        driver: d.driver || d.deviceType || 'cisco_xe',
+      }));
+      const loadedGroups = loadUserStoredItems<DeviceGroup[]>('device_groups', isDemoUser ? initialDeviceGroups : [], currentUserId);
       const rawCmdSets = cmdRes?.commandSets || loadUserStoredItems<CommandSet[]>('command_sets', initialCommandSets, currentUserId);
       const loadedCommandSets = rawCmdSets.map((c: any) => ({
         ...c,
         deviceType: c.deviceType || c.driver || 'cisco_xe',
       }));
-      const loadedSnapshots = snapRes?.snapshots || loadUserStoredItems<Snapshot[]>('snapshots', [], currentUserId);
-      const loadedComparisons = compRes?.comparisons || loadUserStoredItems<Comparison[]>('comparisons', [], currentUserId);
+      const loadedSnapshots = snapRes?.snapshots || loadUserStoredItems<Snapshot[]>('snapshots', isDemoUser ? initialSnapshots : [], currentUserId);
+      const loadedComparisons = compRes?.comparisons || loadUserStoredItems<Comparison[]>('comparisons', isDemoUser ? initialComparisons : [], currentUserId);
       const loadedModels = loadStoredAIModels(currentUserId);
       const activeLoaded = loadedModels.find((m) => m.isActive) || loadedModels[0];
       const baseSettings = setRes || loadUserStoredItems<UserSettings>('settings', initialSettings, currentUserId);
@@ -702,8 +717,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         defaultModel: activeLoaded?.isDefault ? DEFAULT_ENV_MODEL : (baseSettings.defaultModel || DEFAULT_ENV_MODEL),
         aiBaseUrl: activeLoaded?.isDefault ? DEFAULT_ENV_BASE_URL : (baseSettings.aiBaseUrl || DEFAULT_ENV_BASE_URL),
       };
-      const loadedAuditLogs = auditRes?.logs || loadUserStoredItems<AuditLogEntry[]>('audit_logs', [], currentUserId);
-      const loadedAnalyses = loadUserStoredItems<AIAnalysis[]>('analyses', [], currentUserId);
+      const loadedAuditLogs = auditRes?.logs || loadUserStoredItems<AuditLogEntry[]>('audit_logs', isDemoUser ? initialAuditLogs : [], currentUserId);
+      const loadedAnalyses = loadUserStoredItems<AIAnalysis[]>('analyses', isDemoUser ? initialAnalyses : [], currentUserId);
 
       set({
         devices: loadedDevices,
@@ -721,23 +736,42 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  devices: loadUserStoredItems<Device[]>('devices', []),
-  deviceGroups: loadUserStoredItems<DeviceGroup[]>('device_groups', []),
-  commandSets: loadUserStoredItems<CommandSet[]>('command_sets', initialCommandSets),
-  snapshots: loadUserStoredItems<Snapshot[]>('snapshots', []),
-  comparisons: loadUserStoredItems<Comparison[]>('comparisons', []),
-  analyses: loadStoredAnalyses(),
-  auditLogs: loadUserStoredItems<AuditLogEntry[]>('audit_logs', []),
-  settings: initialSettings,
-  aiModels: initialModels,
+  devices: initialAuth.isAuthenticated
+    ? loadUserStoredItems<Device[]>('devices', initialAuth.user?.id === 'user_default' ? initialDevices : [], initialAuth.user?.id).map((d: any) => ({
+        ...d,
+        deviceType: d.deviceType || d.driver || 'cisco_xe',
+        driver: d.driver || d.deviceType || 'cisco_xe',
+      }))
+    : [],
+  deviceGroups: initialAuth.isAuthenticated
+    ? loadUserStoredItems<DeviceGroup[]>('device_groups', initialAuth.user?.id === 'user_default' ? initialDeviceGroups : [], initialAuth.user?.id)
+    : [],
+  commandSets: initialAuth.isAuthenticated
+    ? loadUserStoredItems<CommandSet[]>('command_sets', initialCommandSets, initialAuth.user?.id)
+    : [],
+  snapshots: initialAuth.isAuthenticated
+    ? loadUserStoredItems<Snapshot[]>('snapshots', initialAuth.user?.id === 'user_default' ? initialSnapshots : [], initialAuth.user?.id)
+    : [],
+  comparisons: initialAuth.isAuthenticated
+    ? loadUserStoredItems<Comparison[]>('comparisons', initialAuth.user?.id === 'user_default' ? initialComparisons : [], initialAuth.user?.id)
+    : [],
+  analyses: initialAuth.isAuthenticated ? loadStoredAnalyses() : [],
+  auditLogs: initialAuth.isAuthenticated
+    ? loadUserStoredItems<AuditLogEntry[]>('audit_logs', initialAuth.user?.id === 'user_default' ? initialAuditLogs : [], initialAuth.user?.id)
+    : [],
+  settings: initialAuth.isAuthenticated
+    ? loadUserStoredItems<UserSettings>('settings', initialSettings, initialAuth.user?.id)
+    : initialSettings,
+  aiModels: loadStoredAIModels(initialAuth.user?.id),
   toasts: [],
 
-  addToast: (type, message) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    set((state) => ({ toasts: [...state.toasts, { id, type, message }] }));
-    setTimeout(() => {
-      get().removeToast(id);
-    }, 4500);
+  // =========================================================================
+  // ACTIONS
+  // =========================================================================
+
+  addToast: (type, message, duration = 4000) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    set((state) => ({ toasts: [...state.toasts, { id, type, message, duration }] }));
   },
 
   removeToast: (id) => {
@@ -745,13 +779,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addDevice: (deviceData) => {
+    const canonicalDriver = deviceData.deviceType || (deviceData as any).driver || 'cisco_xe';
     const newDevice: Device = {
       ...deviceData,
+      deviceType: canonicalDriver,
+      driver: canonicalDriver,
       deviceId: `dev-${Date.now().toString(36)}`,
       userId: get().user?.id || 'user-default',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    };
+    } as Device;
     const updatedDevices = [newDevice, ...get().devices];
     persistUserItems('devices', updatedDevices, get().user?.id);
     set({ devices: updatedDevices });
@@ -763,13 +800,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   addDevices: (devicesData) => {
     const currentUserId = get().user?.id || 'user-default';
     const now = new Date().toISOString();
-    const newDevices: Device[] = devicesData.map((d, index) => ({
-      ...d,
-      deviceId: `dev-${(Date.now() + index).toString(36)}`,
-      userId: currentUserId,
-      createdAt: now,
-      updatedAt: now,
-    }));
+    const newDevices: Device[] = devicesData.map((d, index) => {
+      const canonicalDriver = d.deviceType || (d as any).driver || 'cisco_xe';
+      return {
+        ...d,
+        deviceType: canonicalDriver,
+        driver: canonicalDriver,
+        deviceId: `dev-${(Date.now() + index).toString(36)}`,
+        userId: currentUserId,
+        createdAt: now,
+        updatedAt: now,
+      } as Device;
+    });
     const updatedDevices = [...newDevices, ...get().devices];
     persistUserItems('devices', updatedDevices, get().user?.id);
     set({ devices: updatedDevices });
@@ -803,9 +845,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!dev) return { success: false, error: 'Device not found' };
 
     try {
+      const token = typeof window !== 'undefined' ? sessionStorage.getItem('auth_token') : null;
       const res = await fetch(`/api/devices/${deviceId}/test`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           hostname: dev.hostname,
           port: dev.port || 22,
