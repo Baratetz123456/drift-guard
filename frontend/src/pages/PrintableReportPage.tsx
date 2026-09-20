@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { PrintableAIReport } from '../components/analysis/PrintableAIReport';
 import { PrintableSnapshotReport } from '../components/analysis/PrintableSnapshotReport';
@@ -11,11 +11,14 @@ import { Printer, X, FileText, ArrowLeft } from '@phosphor-icons/react';
 export const PrintableReportPage: React.FC = () => {
   const { type, id, analysisId } = useParams<{ type?: string; id?: string; analysisId?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { analyses, comparisons, snapshots, auditLogs } = useAppStore();
 
+  const isLedgerPath = location.pathname.includes('/reports/audit/ledger');
+
   // Determine effective document mode
-  const reportType = type || (analysisId ? 'analysis' : 'analysis');
-  const targetId = id || analysisId || '';
+  const reportType = isLedgerPath ? 'audit' : (type || (analysisId ? 'analysis' : 'analysis'));
+  const targetId = isLedgerPath ? 'ledger' : (id || analysisId || '');
 
   // Resolve matching entity
   const analysis =

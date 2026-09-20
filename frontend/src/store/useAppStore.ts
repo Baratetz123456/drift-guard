@@ -558,6 +558,18 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   login: async (email, password, honeypotCode, mountTimeMs) => {
     const deterministicId = resolveDeterministicUserId(email);
+    const markSessionOperator = (targetEmail: string) => {
+      try {
+        const clean = targetEmail.trim().toLowerCase();
+        const raw = sessionStorage.getItem('driftguard_session_operators');
+        const list: string[] = raw ? JSON.parse(raw) : [];
+        if (!list.includes(clean)) {
+          list.push(clean);
+          sessionStorage.setItem('driftguard_session_operators', JSON.stringify(list));
+        }
+      } catch {}
+    };
+
     try {
       const res = await api.login({
         email,
@@ -575,6 +587,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         token,
       };
       sessionStorage.setItem('auth_token', token);
+      markSessionOperator(email);
       set({ user, isAuthenticated: true });
       await get().loadUserData(user.id);
       get().addToast('success', `Welcome back, ${user.name}`);
@@ -591,6 +604,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         token,
       };
       sessionStorage.setItem('auth_token', token);
+      markSessionOperator(email);
       set({ user, isAuthenticated: true });
       await get().loadUserData(user.id);
       get().addToast('success', `Welcome back, ${user.name}`);
@@ -600,6 +614,18 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   register: async (name, email, password, honeypotCode, mountTimeMs) => {
     const deterministicId = resolveDeterministicUserId(email);
+    const markSessionOperator = (targetEmail: string) => {
+      try {
+        const clean = targetEmail.trim().toLowerCase();
+        const raw = sessionStorage.getItem('driftguard_session_operators');
+        const list: string[] = raw ? JSON.parse(raw) : [];
+        if (!list.includes(clean)) {
+          list.push(clean);
+          sessionStorage.setItem('driftguard_session_operators', JSON.stringify(list));
+        }
+      } catch {}
+    };
+
     try {
       const res = await api.register({
         name,
@@ -618,6 +644,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         token,
       };
       sessionStorage.setItem('auth_token', token);
+      markSessionOperator(email);
       set({ user, isAuthenticated: true });
       await get().loadUserData(user.id);
       get().addToast('success', `Account created for ${name}.`);
@@ -633,6 +660,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         token,
       };
       sessionStorage.setItem('auth_token', token);
+      markSessionOperator(email);
       set({ user, isAuthenticated: true });
       await get().loadUserData(user.id);
       get().addToast('success', `Account created for ${name}.`);

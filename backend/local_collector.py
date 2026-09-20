@@ -62,6 +62,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/health")
+@app.get("/api/health")
+def health_check():
+    """Health check endpoint for container lifecycle and monitoring."""
+    return {"status": "ok", "service": "DriftGuard Local Collector", "version": "2.0.0"}
+
+
 FORBIDDEN_MUTATIONS = [
     "conf t",
     "configure",
@@ -374,7 +381,7 @@ def register_operator(req: AuthRegisterRequest, request: Request):
             elapsed = (time.time() * 1000) - req.mount_time_ms
         else:
             elapsed = req.mount_time_ms
-        if elapsed < 1200:
+        if elapsed < 500:
             logger.warning(f"Bot detected: Submission too fast ({elapsed}ms)")
             raise HTTPException(status_code=400, detail="Submission rejected: Bot-like speed detected.")
 
@@ -439,7 +446,7 @@ def login_operator(req: AuthLoginRequest, request: Request):
             elapsed = (time.time() * 1000) - req.mount_time_ms
         else:
             elapsed = req.mount_time_ms
-        if elapsed < 1200:
+        if elapsed < 500:
             raise HTTPException(status_code=400, detail="Submission rejected: Bot-like speed detected.")
 
     ip = request.client.host if request.client else "unknown"

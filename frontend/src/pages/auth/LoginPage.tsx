@@ -34,14 +34,38 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Bot Defense States
+  // Bot Defense States & On-Demand Reveal
   const mountTimeRef = useRef<number>(Date.now());
   const [honeypotValue, setHoneypotValue] = useState('');
+  const [showCaptcha, setShowCaptcha] = useState(false);
   const [captchaInput, setCaptchaInput] = useState('');
   const [expectedCaptcha, setExpectedCaptcha] = useState('');
   const [captchaError, setCaptchaError] = useState<string | null>(null);
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
+
+  // Helper to check session-authenticated operator identity
+  const isOperatorKnownInSession = (targetEmail: string): boolean => {
+    try {
+      const raw = sessionStorage.getItem('driftguard_session_operators');
+      const known: string[] = raw ? JSON.parse(raw) : [];
+      return known.includes(targetEmail.trim().toLowerCase());
+    } catch {
+      return false;
+    }
+  };
+
+  const recordOperatorInSession = (targetEmail: string) => {
+    try {
+      const clean = targetEmail.trim().toLowerCase();
+      const raw = sessionStorage.getItem('driftguard_session_operators');
+      const known: string[] = raw ? JSON.parse(raw) : [];
+      if (!known.includes(clean)) {
+        known.push(clean);
+        sessionStorage.setItem('driftguard_session_operators', JSON.stringify(known));
+      }
+    } catch {}
+  };
 
   // Lockout countdown timer
   React.useEffect(() => {
@@ -68,30 +92,42 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
+    if (!email.trim() || !password) return;
+
     // 1. Honeypot check
     if (honeypotValue.trim()) {
       setErrorMessage('Automated submission rejected. Bot signature detected.');
       return;
     }
 
-    // 2. Time-gate check (reject < 1.2s)
-    const elapsed = Date.now() - mountTimeRef.current;
-    if (elapsed < 1200) {
-      setErrorMessage('Submission speed indicates automated submission. Please verify credentials.');
+    const isKnown = isOperatorKnownInSession(email);
+
+    // 2. On-demand CAPTCHA trigger: only require for new user in this browser session
+    if (!isKnown && !showCaptcha) {
+      setShowCaptcha(true);
+      mountTimeRef.current = Date.now(); // Reset timing clock so operator has natural reading/typing time
       return;
     }
 
-    // 3. CAPTCHA verification check
-    if (!captchaInput.trim() || captchaInput.trim().toUpperCase() !== expectedCaptcha.toUpperCase()) {
-      setCaptchaError('Invalid verification code. Please enter the characters shown in the image.');
-      setErrorMessage('Verification failed. Please enter the correct CAPTCHA code.');
-      return;
+    // 3. CAPTCHA verification check (if active for new operator)
+    if (!isKnown && showCaptcha) {
+      const elapsed = Date.now() - mountTimeRef.current;
+      if (elapsed < 500) {
+        setErrorMessage('Submission speed indicates automated submission. Please verify credentials.');
+        return;
+      }
+
+      if (!captchaInput.trim() || captchaInput.trim().toUpperCase() !== expectedCaptcha.toUpperCase()) {
+        setCaptchaError('Invalid verification code. Please enter the characters shown in the image.');
+        setErrorMessage('Verification failed. Please enter the correct CAPTCHA code.');
+        return;
+      }
     }
 
-    if (!email || !password) return;
     setIsLoading(true);
     try {
       await login(email, password, honeypotValue, mountTimeRef.current);
+      recordOperatorInSession(email);
       navigate('/');
     } catch (err: any) {
       const nextFailed = failedAttempts + 1;
@@ -204,23 +240,25 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Interactive Visual CAPTCHA Verification */}
-            <div className="pt-1">
-              <CaptchaVerification
-                userInput={captchaInput}
-                onUserInputChange={(val) => {
-                  setCaptchaInput(val);
-                  if (captchaError) setCaptchaError(null);
-                }}
-                onCodeChange={(code) => {
-                  setExpectedCaptcha(code);
-                  setCaptchaInput('');
-                  setCaptchaError(null);
-                }}
-                hasError={Boolean(captchaError)}
-                errorMessage={captchaError}
-              />
-            </div>
+            {/* Interactive Visual CAPTCHA Verification: Revealed on-demand for unverified operators */}
+            {showCaptcha && (
+              <div className="pt-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                <CaptchaVerification
+                  userInput={captchaInput}
+                  onUserInputChange={(val) => {
+                    setCaptchaInput(val);
+                    if (captchaError) setCaptchaError(null);
+                  }}
+                  onCodeChange={(code) => {
+                    setExpectedCaptcha(code);
+                    setCaptchaInput('');
+                    setCaptchaError(null);
+                  }}
+                  hasError={Boolean(captchaError)}
+                  errorMessage={captchaError}
+                />
+              </div>
+            )}
 
             <div className="pt-2 space-y-3">
               <Button

@@ -18,14 +18,17 @@ async function runDriverCompatibilityVerification() {
     await page.fill('input[type="email"]', 'engineer@driftguard.local');
     await page.fill('input[type="password"]', 'CorrectHorseBatteryStaple99!');
     
+    // Click Sign In to trigger on-demand CAPTCHA
+    await page.click('button[type="submit"]');
+
     // Auto-fill CAPTCHA
     await page.waitForSelector('canvas[data-captcha-code]', { timeout: 5000 });
     const captchaText = await page.getAttribute('canvas[data-captcha-code]', 'data-captcha-code');
     console.log(`Solving CAPTCHA challenge: ${captchaText}`);
     await page.fill('input[data-testid="captcha-input"]', captchaText);
 
-    // Respect 1.2s time-gate
-    await page.waitForTimeout(1400);
+    // Respect 500ms time-gate
+    await page.waitForTimeout(600);
 
     await page.click('button[type="submit"]');
     await page.waitForURL(`${BASE_URL}/`, { timeout: 10000 });

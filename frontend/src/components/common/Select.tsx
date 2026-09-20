@@ -55,6 +55,7 @@ export const Select: React.FC<SelectProps> = ({
 
         <select
           disabled={disabled}
+          aria-label={props['aria-label'] || label || 'Select option'}
           className={`w-full appearance-none bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 hover:border-zinc-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-sans ${sizeClasses[size]} ${iconPadding[size]} [&>option]:bg-zinc-950 [&>option]:text-zinc-200 ${
             error ? 'border-rose-500 focus:border-rose-500' : ''
           } ${className}`}

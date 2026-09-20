@@ -38,9 +38,10 @@ export const RegisterPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Bot Defense States
+  // Bot Defense States & On-Demand Reveal
   const mountTimeRef = useRef<number>(Date.now());
   const [honeypotValue, setHoneypotValue] = useState('');
+  const [showCaptcha, setShowCaptcha] = useState(false);
   const [captchaInput, setCaptchaInput] = useState('');
   const [expectedCaptcha, setExpectedCaptcha] = useState('');
   const [captchaError, setCaptchaError] = useState<string | null>(null);
@@ -56,30 +57,46 @@ export const RegisterPage: React.FC = () => {
     setErrorMessage(null);
     setCaptchaError(null);
 
+    if (!name.trim() || !email.trim() || !password || !agreedToTerms) return;
+
     // 1. Honeypot check
     if (honeypotValue.trim()) {
       setErrorMessage('Automated registration rejected. Bot signature detected.');
       return;
     }
 
-    // 2. Time-gate check (reject < 1.2s)
-    const elapsed = Date.now() - mountTimeRef.current;
-    if (elapsed < 1200) {
-      setErrorMessage('Submission speed indicates automated bot registration. Please verify details.');
+    // 2. On-demand CAPTCHA trigger on submission
+    if (!showCaptcha) {
+      setShowCaptcha(true);
+      mountTimeRef.current = Date.now(); // Reset timing clock so operator has natural reading/typing time
       return;
     }
 
     // 3. CAPTCHA verification check
+    const elapsed = Date.now() - mountTimeRef.current;
+    if (elapsed < 500) {
+      setErrorMessage('Submission speed indicates automated bot registration. Please verify details.');
+      return;
+    }
+
     if (!captchaInput.trim() || captchaInput.trim().toUpperCase() !== expectedCaptcha.toUpperCase()) {
       setCaptchaError('Invalid verification code. Please enter the characters shown in the image.');
       setErrorMessage('Verification failed. Please enter the correct CAPTCHA code.');
       return;
     }
 
-    if (!email || !password || !name || !agreedToTerms) return;
     setIsLoading(true);
     try {
       await register(name, email, password, honeypotValue, mountTimeRef.current);
+      try {
+        const clean = email.trim().toLowerCase();
+        const raw = sessionStorage.getItem('driftguard_session_operators');
+        const known: string[] = raw ? JSON.parse(raw) : [];
+        if (!known.includes(clean)) {
+          known.push(clean);
+          sessionStorage.setItem('driftguard_session_operators', JSON.stringify(known));
+        }
+      } catch {}
       navigate('/');
     } catch (err: any) {
       setErrorMessage(err.message || 'Registration failed. Please try again.');
@@ -193,23 +210,25 @@ export const RegisterPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Interactive Visual CAPTCHA Verification */}
-            <div className="pt-1">
-              <CaptchaVerification
-                userInput={captchaInput}
-                onUserInputChange={(val) => {
-                  setCaptchaInput(val);
-                  if (captchaError) setCaptchaError(null);
-                }}
-                onCodeChange={(code) => {
-                  setExpectedCaptcha(code);
-                  setCaptchaInput('');
-                  setCaptchaError(null);
-                }}
-                hasError={Boolean(captchaError)}
-                errorMessage={captchaError}
-              />
-            </div>
+            {/* Interactive Visual CAPTCHA Verification: Revealed on-demand for registration */}
+            {showCaptcha && (
+              <div className="pt-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                <CaptchaVerification
+                  userInput={captchaInput}
+                  onUserInputChange={(val) => {
+                    setCaptchaInput(val);
+                    if (captchaError) setCaptchaError(null);
+                  }}
+                  onCodeChange={(code) => {
+                    setExpectedCaptcha(code);
+                    setCaptchaInput('');
+                    setCaptchaError(null);
+                  }}
+                  hasError={Boolean(captchaError)}
+                  errorMessage={captchaError}
+                />
+              </div>
+            )}
 
             {/* Terms and Privacy Policy Checkbox Agreement */}
             <div className="pt-1">

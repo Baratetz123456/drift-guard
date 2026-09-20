@@ -34,14 +34,17 @@ async function runBrowserLifecycleTest() {
     await pageA.fill('input[type="email"]', 'alice.network@driftguard.local');
     await pageA.fill('input[type="password"]', 'EnterpriseSecurity2026');
 
+    // Trigger on-demand CAPTCHA
+    await pageA.click('button[type="submit"]');
+
     // Retrieve CAPTCHA code from canvas data attribute
     await pageA.waitForSelector('canvas[data-captcha-code]', { timeout: 5000 });
     const captchaText = await pageA.getAttribute('canvas[data-captcha-code]', 'data-captcha-code');
     console.log(`Solving CAPTCHA challenge: ${captchaText}`);
     await pageA.fill('input[data-testid="captcha-input"]', captchaText);
 
-    // Respect 1.2s time-gate
-    await pageA.waitForTimeout(1400);
+    // Respect 500ms time-gate
+    await pageA.waitForTimeout(600);
 
     // Submit login form
     await pageA.click('button[type="submit"]');
@@ -99,10 +102,13 @@ async function runBrowserLifecycleTest() {
     await pageA_reopened.fill('input[type="email"]', 'alice.network@driftguard.local');
     await pageA_reopened.fill('input[type="password"]', 'EnterpriseSecurity2026');
 
+    // Trigger on-demand CAPTCHA
+    await pageA_reopened.click('button[type="submit"]');
+
     await pageA_reopened.waitForSelector('canvas[data-captcha-code]', { timeout: 5000 });
     const captchaReopened = await pageA_reopened.getAttribute('canvas[data-captcha-code]', 'data-captcha-code');
     await pageA_reopened.fill('input[data-testid="captcha-input"]', captchaReopened);
-    await pageA_reopened.waitForTimeout(1400);
+    await pageA_reopened.waitForTimeout(600);
     await pageA_reopened.click('button[type="submit"]');
     await pageA_reopened.waitForURL(`${BASE_URL}/`, { timeout: 10000 });
 
@@ -135,11 +141,14 @@ async function runBrowserLifecycleTest() {
     await pageB.fill('input[type="email"]', 'bob.architect@driftguard.local');
     await pageB.fill('input[type="password"]', 'ArchPass2026!');
 
+    // Trigger on-demand CAPTCHA
+    await pageB.click('button[type="submit"]');
+
     await pageB.waitForSelector('canvas[data-captcha-code]', { timeout: 5000 });
     const captchaB = await pageB.getAttribute('canvas[data-captcha-code]', 'data-captcha-code');
     await pageB.fill('input[data-testid="captcha-input"]', captchaB);
 
-    await pageB.waitForTimeout(1400);
+    await pageB.waitForTimeout(600);
     await pageB.click('button[type="submit"]');
     await pageB.waitForURL(`${BASE_URL}/`, { timeout: 10000 });
 
