@@ -9,7 +9,6 @@ import base64
 import hashlib
 import logging
 import os
-from typing import Optional
 
 import boto3
 
@@ -107,18 +106,18 @@ def decrypt_value(ciphertext_b64: str) -> str:
         if fernet:
             try:
                 return fernet.decrypt(ciphertext_b64.encode("utf-8")).decode("utf-8")
-            except Exception:
-                pass
+            except Exception as fernet_err:
+                logger.debug(f"Fernet decrypt fallback attempt: {fernet_err}")
         try:
             return base64.b64decode(ciphertext_b64).decode("utf-8")
-        except Exception:
+        except (ValueError, TypeError):
             return ciphertext_b64
 
 
 def encrypt_credentials(
     username: str,
     password: str,
-    enable_secret: Optional[str] = None,
+    enable_secret: str | None = None,
 ) -> dict[str, str]:
     """
     Encrypt device SSH credentials.

@@ -26,8 +26,8 @@ import logging
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
 # Ensure backend/vendor is available for boto3 and dependencies
 _CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -56,7 +56,7 @@ GROUP_NAME = "Severity Test Suite"
 # SCENARIO CLI TELEMETRY DATA
 # =============================================================================
 
-SCENARIOS: List[Dict[str, Any]] = [
+SCENARIOS: list[dict[str, Any]] = [
     # -------------------------------------------------------------------------
     # 1. CRITICAL SEVERITY (Target Risk Score: 95/100)
     # -------------------------------------------------------------------------
@@ -393,10 +393,10 @@ Total           50          1373        0           136608      341520""",
 ]
 
 
-def generate_diff(pre: str, post: str, command: str) -> Dict[str, Any]:
+def generate_diff(pre: str, post: str, command: str) -> dict[str, Any]:
     """Generate a clean unified diff and stats for pre/post CLI outputs."""
-    pre_lines = [l for l in pre.splitlines(keepends=True)]
-    post_lines = [l for l in post.splitlines(keepends=True)]
+    pre_lines = pre.splitlines(keepends=True)
+    post_lines = post.splitlines(keepends=True)
 
     diff_gen = difflib.unified_diff(
         pre_lines,
@@ -446,7 +446,7 @@ def seed_scenarios(endpoint: str, clean_first: bool = False, user_id: str = "use
         logger.error("Ensure DynamoDB local is running (`npm run docker:up` or docker-compose up).")
         sys.exit(1)
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
 
     # Discover all target user accounts to seed (e.g. user_default and any signed-up operators)
     target_users = {user_id}
@@ -465,9 +465,9 @@ def seed_scenarios(endpoint: str, clean_first: bool = False, user_id: str = "use
     logger.info(f"Target users for scenario deployment: {list(target_users)}")
 
     for uid in target_users:
-        logger.info(f"\n=======================================================")
+        logger.info("\n=======================================================")
         logger.info(f"Deploying Severity Test Suite for user: {uid}")
-        logger.info(f"=======================================================")
+        logger.info("=======================================================")
 
         pk = f"USER#{uid}"
 
@@ -597,7 +597,7 @@ def seed_scenarios(endpoint: str, clean_first: bool = False, user_id: str = "use
             logger.info(f"  [SNAPSHOT POST] {post_snap_id} (verification) created.")
 
             # 2d. Pre-compute unified command diffs
-            cmd_diffs: Dict[str, Any] = {}
+            cmd_diffs: dict[str, Any] = {}
             total_add = 0
             total_del = 0
             changed_cmds = 0
@@ -647,7 +647,7 @@ def seed_scenarios(endpoint: str, clean_first: bool = False, user_id: str = "use
 
             # 2f. Pre-seeded AI Analysis Entity (Guarantees immediate offline inspection)
             ana_id = f"ana-{sev.lower()}-{uuid.uuid4().hex[:6]}"
-            
+
             # Scenario-calibrated diagnostic findings
             findings_data = []
             suggested_rollback = None
@@ -829,9 +829,9 @@ def export_browser_fixture(table) -> None:
     try:
         # Scan comparisons and analyses
         scan_res = table.scan(Limit=500).get("Items", [])
-        
-        user_analyses: Dict[str, List[Any]] = {}
-        user_comparisons: Dict[str, List[Any]] = {}
+
+        user_analyses: dict[str, list[Any]] = {}
+        user_comparisons: dict[str, list[Any]] = {}
 
         for item in scan_res:
             sk = item.get("SK", "")
@@ -844,7 +844,7 @@ def export_browser_fixture(table) -> None:
             elif sk.startswith("COMP#"):
                 user_comparisons.setdefault(uid, []).append(item)
 
-        export_map: Dict[str, Any] = {}
+        export_map: dict[str, Any] = {}
         for uid, ana_list in user_analyses.items():
             export_map[f"driftguard_{uid}_analyses"] = ana_list
             export_map["driftguard_analyses"] = ana_list

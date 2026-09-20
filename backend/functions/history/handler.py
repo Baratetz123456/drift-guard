@@ -9,11 +9,11 @@ import json
 import logging
 from typing import Any
 
-from shared.auth import get_user_id
 from shared import dynamo, s3
-from shared.constants import EntityPrefix, GSI1, GSI2
-from shared.response import success, from_exception
+from shared.auth import get_user_id
+from shared.constants import GSI1, GSI2, EntityPrefix
 from shared.exceptions import DeltaNetError
+from shared.response import from_exception, success
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

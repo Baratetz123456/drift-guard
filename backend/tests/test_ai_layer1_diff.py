@@ -5,11 +5,12 @@ anchored Informational severity (0/100 risk), and summary envelope rules are obe
 """
 
 import pytest
+
 from functions.ai_analyze.prompt_builder import (
+    build_analysis_prompt,
+    generate_canned_informational_result,
     is_line_volatile_noise,
     screen_diff_for_functional_changes,
-    generate_canned_informational_result,
-    build_analysis_prompt,
 )
 from functions.ai_analyze.service import SEVERITY_RISK_SCORES
 
@@ -112,7 +113,7 @@ class TestAIAnalysisInvariants:
 
         # Summary envelope invariant
         summary = res["summary"]
-        assert summary.startswith("Verification analysis suggests") or summary.startswith("AI analysis suggests")
+        assert summary.startswith(("Verification analysis suggests", "AI analysis suggests"))
         assert summary.endswith("Verify against raw output before approval.")
 
     def test_deterministic_severity_risk_scores(self):

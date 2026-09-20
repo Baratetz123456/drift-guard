@@ -9,25 +9,20 @@ import json
 import logging
 from typing import Any
 
+from functions.ai_analyze.openai_client import call_openai
+from functions.ai_analyze.prompt_builder import (
+    SYSTEM_PROMPT,
+    build_analysis_prompt,
+    generate_canned_informational_result,
+    screen_diff_for_functional_changes,
+)
 from shared import dynamo, s3
 from shared.audit import log_action
 from shared.constants import (
     EntityPrefix,
-    GSI1,
-    GSI2,
-    TOKEN_THRESHOLD_SINGLE,
-    TOKEN_THRESHOLD_CHUNKED,
 )
-from shared.exceptions import DependencyError, ExternalServiceError, ValidationError
-from shared.models import generate_id, utc_now, Severity, AnalysisStrategy
-
-from functions.ai_analyze.prompt_builder import (
-    build_analysis_prompt,
-    SYSTEM_PROMPT,
-    screen_diff_for_functional_changes,
-    generate_canned_informational_result,
-)
-from functions.ai_analyze.openai_client import call_openai
+from shared.exceptions import ExternalServiceError, ValidationError
+from shared.models import AnalysisStrategy, Severity, generate_id, utc_now
 
 logger = logging.getLogger(__name__)
 

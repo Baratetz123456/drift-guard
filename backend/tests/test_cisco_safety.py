@@ -5,9 +5,10 @@ are strictly rejected, while non-mutating show commands are accepted.
 """
 
 import pytest
-from shared.validators import validate_commands, validate_ip_or_hostname, validate_port
-from shared.exceptions import UnsafeCommandError, ValidationError
+
 from shared.constants import MAX_COMMANDS_PER_SET
+from shared.exceptions import UnsafeCommandError, ValidationError
+from shared.validators import validate_commands, validate_ip_or_hostname, validate_port
 
 
 class TestCiscoCommandSafety:

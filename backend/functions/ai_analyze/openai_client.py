@@ -48,8 +48,8 @@ def call_openai(
             "usage": {"prompt_tokens": int, "completion_tokens": int, "total_tokens": int}
         }
     """
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     is_anthropic = (
         (base_url and "anthropic.com" in base_url.lower())
@@ -97,13 +97,13 @@ def call_openai(
                     content = ""
                     if "content" in resp_data and isinstance(resp_data["content"], list):
                         content = resp_data["content"][0].get("text", "")
-                    
+
                     usage = {
                         "prompt_tokens": resp_data.get("usage", {}).get("input_tokens", 0),
                         "completion_tokens": resp_data.get("usage", {}).get("output_tokens", 0),
                         "total_tokens": resp_data.get("usage", {}).get("input_tokens", 0) + resp_data.get("usage", {}).get("output_tokens", 0),
                     }
-                    
+
                     analysis = json.loads(content)
                     return {"analysis": analysis, "usage": usage}
 
@@ -111,7 +111,7 @@ def call_openai(
                 err_body = e.read().decode("utf-8", errors="ignore")
                 last_error = f"HTTP {e.code}: {err_body}"
                 if e.code in (401, 403):
-                    raise DependencyError(f"Invalid Anthropic API key. Please check your credentials in Settings.")
+                    raise DependencyError("Invalid Anthropic API key. Please check your credentials in Settings.")
                 if e.code == 429 and attempt < MAX_RETRIES - 1:
                     delay = RETRY_DELAYS[attempt]
                     time.sleep(delay)

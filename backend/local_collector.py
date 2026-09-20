@@ -15,21 +15,20 @@ import re
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Ensure shared package is importable regardless of working directory
 _CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if _CURRENT_DIR not in sys.path:
     sys.path.insert(0, _CURRENT_DIR)
 
-from fastapi import FastAPI, HTTPException, Header, Request, Depends
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from netmiko import ConnectHandler
 from pydantic import BaseModel
 
 from shared import dynamo, dynamo_store
-from shared.constants import TABLE_NAME, DYNAMODB_ENDPOINT_URL
+from shared.constants import DYNAMODB_ENDPOINT_URL, TABLE_NAME
 
 logging.basicConfig(
     level=logging.INFO,
@@ -62,9 +61,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/health")
 @app.get("/api/health")
-def health_check():
+def api_health_check():
     """Health check endpoint for container lifecycle and monitoring."""
     return {"status": "ok", "service": "DriftGuard Local Collector", "version": "2.0.0"}
 
@@ -98,14 +96,14 @@ PROMPT_INJECTION_PATTERNS = [
 ]
 
 # Track failed login attempts by IP / email for brute-force mitigation
-FAILED_LOGIN_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
+FAILED_LOGIN_ATTEMPTS: dict[str, dict[str, Any]] = {}
 
 
 # =============================================================================
 # AUTH HELPERS & JWT TOKEN PARSER
 # =============================================================================
 
-def extract_user_id(authorization: Optional[str] = Header(None)) -> str:
+def extract_user_id(authorization: str | None = Header(None)) -> str:
     """Extract and authenticate user_id from Cognito / Bearer JWT token."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -188,81 +186,81 @@ class AuthRegisterRequest(BaseModel):
     name: str
     email: str
     password: str
-    operator_honeypot_code: Optional[str] = None
-    mount_time_ms: Optional[int] = None
-    verification_token: Optional[str] = None
+    operator_honeypot_code: str | None = None
+    mount_time_ms: int | None = None
+    verification_token: str | None = None
 
 
 class AuthLoginRequest(BaseModel):
     email: str
     password: str
-    operator_honeypot_code: Optional[str] = None
-    mount_time_ms: Optional[int] = None
+    operator_honeypot_code: str | None = None
+    mount_time_ms: int | None = None
 
 
 class DeviceCreateRequest(BaseModel):
     name: str
     hostname: str
-    port: Optional[int] = 22
-    driver: Optional[str] = None
-    deviceType: Optional[str] = None
-    username: Optional[str] = "admin"
-    password: Optional[str] = None
-    enableSecret: Optional[str] = None
-    authMode: Optional[str] = "Password"
-    groupId: Optional[str] = None
-    connectionType: Optional[str] = "ssh"
-    status: Optional[str] = "untested"
-    tags: Optional[List[str]] = []
+    port: int | None = 22
+    driver: str | None = None
+    deviceType: str | None = None
+    username: str | None = "admin"
+    password: str | None = None
+    enableSecret: str | None = None
+    authMode: str | None = "Password"
+    groupId: str | None = None
+    connectionType: str | None = "ssh"
+    status: str | None = "untested"
+    tags: list[str] | None = []
 
 
 class CommandSetCreateRequest(BaseModel):
     name: str
-    driver: Optional[str] = "cisco_xe"
-    commands: List[str]
-    description: Optional[str] = None
+    driver: str | None = "cisco_xe"
+    commands: list[str]
+    description: str | None = None
 
 
 class DeviceTestRequest(BaseModel):
-    hostname: Optional[str] = None
-    port: Optional[int] = 22
-    deviceType: Optional[str] = "cisco_xe"
-    username: Optional[str] = None
-    password: Optional[str] = None
-    enableSecret: Optional[str] = None
+    hostname: str | None = None
+    port: int | None = 22
+    deviceType: str | None = "cisco_xe"
+    username: str | None = None
+    password: str | None = None
+    enableSecret: str | None = None
 
 
 class CollectRequest(BaseModel):
-    deviceId: Optional[str] = None
-    deviceName: Optional[str] = None
-    hostname: Optional[str] = None
-    port: Optional[int] = 22
-    deviceType: Optional[str] = "cisco_xe"
-    username: Optional[str] = None
-    password: Optional[str] = None
-    enableSecret: Optional[str] = None
-    commands: List[str]
-    snapshotType: Optional[str] = "baseline"
-    changeTicket: Optional[str] = None
-    notes: Optional[str] = None
+    deviceId: str | None = None
+    deviceName: str | None = None
+    hostname: str | None = None
+    port: int | None = 22
+    deviceType: str | None = "cisco_xe"
+    username: str | None = None
+    password: str | None = None
+    enableSecret: str | None = None
+    commands: list[str]
+    snapshotType: str | None = "baseline"
+    changeTicket: str | None = None
+    notes: str | None = None
 
 
 class CompareRequest(BaseModel):
     preSnapshotId: str
     postSnapshotId: str
-    changeLabel: Optional[str] = None
+    changeLabel: str | None = None
 
 
 class AIAnalyzeRequest(BaseModel):
     comparisonId: str
-    promptOverride: Optional[str] = None
+    promptOverride: str | None = None
 
 
 # =============================================================================
 # SSH EXECUTION LOGIC
 # =============================================================================
 
-def sanitize_platform(device_type: Optional[str]) -> str:
+def sanitize_platform(device_type: str | None) -> str:
     if not device_type:
         return "cisco_xe"
     normalized = device_type.strip().lower().replace("-", "_").replace(" ", "_")
@@ -307,10 +305,10 @@ def execute_ssh_collection(
     platform: str,
     username: str,
     password: str,
-    commands: List[str],
-    secret: Optional[str] = None,
+    commands: list[str],
+    secret: str | None = None,
     timeout: int = 40,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     for cmd in commands:
         c_lower = cmd.lower().strip()
         for forbidden in FORBIDDEN_MUTATIONS:
@@ -332,7 +330,7 @@ def execute_ssh_collection(
     if secret:
         device_params["secret"] = secret
 
-    outputs: Dict[str, str] = {}
+    outputs: dict[str, str] = {}
     logger.info(f"Connecting over SSH to {host}:{port} ({platform}) as {username}...")
 
     with ConnectHandler(**device_params) as net_connect:
@@ -390,7 +388,7 @@ def register_operator(req: AuthRegisterRequest, request: Request):
         raise HTTPException(status_code=409, detail="Operator email already registered.")
 
     user_id = get_deterministic_user_id(req.email)
-    user = dynamo_store.get_or_create_user(
+    dynamo_store.get_or_create_user(
         user_id=user_id,
         email=req.email,
         name=req.name,
@@ -477,8 +475,7 @@ def login_operator(req: AuthLoginRequest, request: Request):
     uid = user.get("userId") or user.get("id") or user_id
     token = generate_mock_jwt(uid, user.get("email", req.email), user.get("name", "Network Architect"), user.get("role", "Network Architect"))
     # Reset failed attempts
-    if ip in FAILED_LOGIN_ATTEMPTS:
-        del FAILED_LOGIN_ATTEMPTS[ip]
+    FAILED_LOGIN_ATTEMPTS.pop(ip, None)
 
     return {
         "token": token,
@@ -538,7 +535,7 @@ def create_user_device(req: DeviceCreateRequest, user_id: str = Depends(extract_
 
 @app.put("/devices/{device_id}")
 @app.put("/api/devices/{device_id}")
-def update_user_device(device_id: str, data: Dict[str, Any], user_id: str = Depends(extract_user_id)):
+def update_user_device(device_id: str, data: dict[str, Any], user_id: str = Depends(extract_user_id)):
     """Update a network device strictly scoped to the authenticated user."""
     payload = data.copy()
     payload["deviceId"] = device_id
@@ -600,7 +597,7 @@ def delete_user_command_set(set_id: str, user_id: str = Depends(extract_user_id)
 
 @app.get("/snapshots")
 @app.get("/api/snapshots")
-def get_user_snapshots(deviceId: Optional[str] = None, user_id: str = Depends(extract_user_id)):
+def get_user_snapshots(deviceId: str | None = None, user_id: str = Depends(extract_user_id)):
     """Retrieve all snapshots belonging strictly to the authenticated user."""
     try:
         snapshots = dynamo_store.list_snapshots(user_id, device_id=deviceId)
@@ -709,7 +706,6 @@ def run_collection_endpoint(req: CollectRequest, user_id: str = Depends(extract_
 
         # Save snapshot in DynamoDB
         snap_id = f"snap-{req.snapshotType or 'base'}-{uuid.uuid4().hex[:6]}"
-        now_iso = datetime.now(timezone.utc).isoformat()
 
         dynamo_store.create_snapshot(
             user_id=user_id,
@@ -751,7 +747,7 @@ def run_collection_endpoint(req: CollectRequest, user_id: str = Depends(extract_
         raise
     except Exception as e:
         duration_ms = round((time.time() - start_time) * 1000)
-        err_msg = f"{type(e).__name__}: {str(e)}"
+        err_msg = f"{type(e).__name__}: {e!s}"
         logger.error(f"Collection FAILED for {host}: {err_msg}")
         raise HTTPException(status_code=500, detail=f"SSH Collection failure: {err_msg}")
 
@@ -781,7 +777,7 @@ def get_user_settings(user_id: str = Depends(extract_user_id)):
 
 @app.put("/settings")
 @app.put("/api/settings")
-def update_user_settings(body: Dict[str, Any], user_id: str = Depends(extract_user_id)):
+def update_user_settings(body: dict[str, Any], user_id: str = Depends(extract_user_id)):
     """Update settings strictly for the authenticated user."""
     return dynamo_store.update_user_settings(user_id, body)
 
@@ -849,7 +845,7 @@ def test_device_connection(device_id: str, req: DeviceTestRequest, user_id: str 
             }
     except Exception as e:
         latency_ms = round((time.time() - start_time) * 1000)
-        err_msg = f"{type(e).__name__}: {str(e)}"
+        err_msg = f"{type(e).__name__}: {e!s}"
         logger.warning(f"Live SSH test FAILED on {req.hostname}: {err_msg}")
         return {
             "success": False,

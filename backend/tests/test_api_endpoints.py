@@ -7,8 +7,10 @@ bot speed/honeypot trap defenses, and device CRUD endpoints.
 import base64
 import json
 import time
+
 import pytest
 from fastapi.testclient import TestClient
+
 from local_collector import app
 
 

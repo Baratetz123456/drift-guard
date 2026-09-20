@@ -4,12 +4,11 @@ Validates that SSH credentials and secrets are encrypted before persistence
 and cannot be accessed in plaintext.
 """
 
-import pytest
 from shared.kms import (
-    encrypt_value,
+    decrypt_credentials,
     decrypt_value,
     encrypt_credentials,
-    decrypt_credentials,
+    encrypt_value,
 )
 
 

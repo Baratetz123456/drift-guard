@@ -6,16 +6,15 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 from shared import dynamo, kms
-from shared.audit import log_action, extract_client_info
-from shared.constants import EntityPrefix, GSI1
-from shared.exceptions import ConflictError, NotFoundError
+from shared.constants import GSI1, EntityPrefix
+from shared.exceptions import ConflictError
 from shared.models import (
     CreateDeviceRequest,
-    UpdateDeviceRequest,
     DeviceResponse,
+    UpdateDeviceRequest,
     generate_id,
     utc_now,
 )
@@ -79,8 +78,8 @@ class DeviceService:
     def list_devices(
         self,
         user_id: str,
-        tag: Optional[str] = None,
-        search: Optional[str] = None,
+        tag: str | None = None,
+        search: str | None = None,
     ) -> list[dict[str, Any]]:
         """List all devices for a user, optionally filtered by tag or search term."""
         pk = dynamo.build_pk(user_id)
@@ -125,7 +124,7 @@ class DeviceService:
         sk = f"{EntityPrefix.DEVICE}{device_id}"
 
         # Verify device exists
-        existing = dynamo.get_item_or_raise(pk, sk, "Device")
+        dynamo.get_item_or_raise(pk, sk, "Device")
 
         updates: dict[str, Any] = {"updatedAt": utc_now()}
 

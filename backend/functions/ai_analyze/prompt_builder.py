@@ -9,7 +9,7 @@ import logging
 import re
 from typing import Any
 
-from shared.constants import TOKEN_THRESHOLD_SINGLE, TOKEN_THRESHOLD_CHUNKED
+from shared.constants import TOKEN_THRESHOLD_CHUNKED, TOKEN_THRESHOLD_SINGLE
 from shared.models import AnalysisStrategy
 
 logger = logging.getLogger(__name__)
@@ -192,7 +192,7 @@ def build_analysis_prompt(
         strategy is one of: "single-pass", "per-command", "chunked"
     """
     total_diff_text = ""
-    for cmd, diff_data in diffs.items():
+    for diff_data in diffs.values():
         if isinstance(diff_data, dict):
             total_diff_text += diff_data.get("unifiedDiff", "")
 

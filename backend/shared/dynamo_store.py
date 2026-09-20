@@ -6,23 +6,17 @@ and credential encryption for the DeltaNet DynamoDB table.
 
 from __future__ import annotations
 
-import json
 import logging
-import os
-import time
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Attr
 
 from shared import dynamo, kms
 from shared.constants import (
-    TABLE_NAME,
     GSI1,
-    GSI2,
     EntityPrefix,
-    GSIPrefix,
 )
 
 logger = logging.getLogger("driftguard.dynamo_store")
@@ -30,19 +24,19 @@ logger = logging.getLogger("driftguard.dynamo_store")
 
 def get_current_utc_date() -> str:
     """Return current date in YYYY-MM-DD UTC format."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
 def get_utc_now_iso() -> str:
     """Return current ISO 8601 UTC timestamp."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # =============================================================================
 # USER & QUOTA OPERATIONS
 # =============================================================================
 
-def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
+def get_user_by_email(email: str) -> dict[str, Any] | None:
     """Query user item by email via GSI1 or scan fallback."""
     dynamo.ensure_table_exists()
     items = dynamo.query_all(
@@ -67,7 +61,7 @@ def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+def get_user_by_id(user_id: str) -> dict[str, Any] | None:
     """Get user profile item by user_id."""
     return dynamo.get_item(pk=f"USER#{user_id}", sk="PROFILE")
 
@@ -77,7 +71,7 @@ def get_or_create_user(
     email: str = "operator@driftguard.local",
     name: str = "Network Architect",
     role: str = "Network Architect",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Retrieve existing user or create a new user profile with initial quotas."""
     existing = get_user_by_id(user_id)
     today = get_current_utc_date()
@@ -117,7 +111,7 @@ def get_or_create_user(
     return user_item
 
 
-def check_and_increment_quota(user_id: str, quota_type: str) -> Tuple[bool, int, int]:
+def check_and_increment_quota(user_id: str, quota_type: str) -> tuple[bool, int, int]:
     """
     Check if user is within daily quota and increment if permitted.
     quota_type: 'collect' or 'ai'
@@ -160,7 +154,7 @@ def check_and_increment_quota(user_id: str, quota_type: str) -> Tuple[bool, int,
 # DEVICE INVENTORY OPERATIONS
 # =============================================================================
 
-def list_devices(user_id: str) -> List[Dict[str, Any]]:
+def list_devices(user_id: str) -> list[dict[str, Any]]:
     """List all network devices belonging strictly to the user."""
     items = dynamo.query_all(
         pk=f"USER#{user_id}",
@@ -186,7 +180,7 @@ def list_devices(user_id: str) -> List[Dict[str, Any]]:
     return result
 
 
-def create_device(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+def create_device(user_id: str, data: dict[str, Any]) -> dict[str, Any]:
     """Create a device record with KMS/vault encrypted credentials."""
     dev_id = data.get("deviceId") or f"dev_{uuid.uuid4().hex[:8]}"
     now_iso = get_utc_now_iso()
@@ -233,7 +227,7 @@ def create_device(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def get_device(user_id: str, device_id: str) -> Optional[Dict[str, Any]]:
+def get_device(user_id: str, device_id: str) -> dict[str, Any] | None:
     """Get single device by ID and decrypt credentials for SSH use."""
     item = dynamo.get_item(pk=f"USER#{user_id}", sk=f"{EntityPrefix.DEVICE}{device_id}")
     if not item:
@@ -261,7 +255,7 @@ def delete_device(user_id: str, device_id: str) -> bool:
 # COMMAND SET OPERATIONS
 # =============================================================================
 
-def list_command_sets(user_id: str) -> List[Dict[str, Any]]:
+def list_command_sets(user_id: str) -> list[dict[str, Any]]:
     """List all command sets for a user."""
     items = dynamo.query_all(
         pk=f"USER#{user_id}",
@@ -282,7 +276,7 @@ def list_command_sets(user_id: str) -> List[Dict[str, Any]]:
     return result
 
 
-def create_command_set(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+def create_command_set(user_id: str, data: dict[str, Any]) -> dict[str, Any]:
     """Create a new command set."""
     set_id = data.get("setId") or f"cmd_{uuid.uuid4().hex[:8]}"
     now_iso = get_utc_now_iso()
@@ -309,7 +303,7 @@ def create_command_set(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def get_command_set(user_id: str, set_id: str) -> Optional[Dict[str, Any]]:
+def get_command_set(user_id: str, set_id: str) -> dict[str, Any] | None:
     """Get single command set by ID."""
     item = dynamo.get_item(pk=f"USER#{user_id}", sk=f"{EntityPrefix.COMMAND_SET}{set_id}")
     return item
@@ -325,7 +319,7 @@ def delete_command_set(user_id: str, set_id: str) -> bool:
 # SNAPSHOT OPERATIONS
 # =============================================================================
 
-def list_snapshots(user_id: str, device_id: Optional[str] = None) -> List[Dict[str, Any]]:
+def list_snapshots(user_id: str, device_id: str | None = None) -> list[dict[str, Any]]:
     """List snapshots for a user, optionally filtered by deviceId."""
     if device_id:
         items = dynamo.query_all(
@@ -358,7 +352,7 @@ def list_snapshots(user_id: str, device_id: Optional[str] = None) -> List[Dict[s
     return result
 
 
-def create_snapshot(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+def create_snapshot(user_id: str, data: dict[str, Any]) -> dict[str, Any]:
     """Store a captured snapshot item in DynamoDB."""
     snap_id = data.get("snapshotId") or f"snap-{data.get('snapshotType', 'base')}-{uuid.uuid4().hex[:6]}"
     now_iso = get_utc_now_iso()
@@ -386,7 +380,7 @@ def create_snapshot(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     return item
 
 
-def get_snapshot(user_id: str, snapshot_id: str) -> Optional[Dict[str, Any]]:
+def get_snapshot(user_id: str, snapshot_id: str) -> dict[str, Any] | None:
     """Get single snapshot by ID."""
     item = dynamo.get_item(pk=f"USER#{user_id}", sk=f"{EntityPrefix.SNAPSHOT}{snapshot_id}")
     return item
@@ -402,7 +396,7 @@ def delete_snapshot(user_id: str, snapshot_id: str) -> bool:
 # COMPARISONS & DIFFS
 # =============================================================================
 
-def list_comparisons(user_id: str) -> List[Dict[str, Any]]:
+def list_comparisons(user_id: str) -> list[dict[str, Any]]:
     """List comparisons for a user."""
     items = dynamo.query_all(
         pk=f"USER#{user_id}",
@@ -424,7 +418,7 @@ def list_comparisons(user_id: str) -> List[Dict[str, Any]]:
     return result
 
 
-def create_comparison(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+def create_comparison(user_id: str, data: dict[str, Any]) -> dict[str, Any]:
     """Store a comparison diff item in DynamoDB."""
     cmp_id = data.get("comparisonId") or f"cmp-{uuid.uuid4().hex[:8]}"
     now_iso = get_utc_now_iso()
@@ -452,7 +446,7 @@ def create_comparison(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
 # USER SETTINGS OPERATIONS
 # =============================================================================
 
-def init_default_settings(user_id: str) -> Dict[str, Any]:
+def init_default_settings(user_id: str) -> dict[str, Any]:
     """Initialize default settings if not already created."""
     existing = get_user_settings(user_id)
     if existing and existing.get("updatedAt"):
@@ -477,7 +471,7 @@ def init_default_settings(user_id: str) -> Dict[str, Any]:
     return default_item
 
 
-def get_user_settings(user_id: str) -> Dict[str, Any]:
+def get_user_settings(user_id: str) -> dict[str, Any]:
     """Get settings for a user."""
     item = dynamo.get_item(pk=f"USER#{user_id}", sk=EntityPrefix.SETTINGS)
     if not item:
@@ -507,10 +501,10 @@ def get_user_settings(user_id: str) -> Dict[str, Any]:
     }
 
 
-def update_user_settings(user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+def update_user_settings(user_id: str, body: dict[str, Any]) -> dict[str, Any]:
     """Update settings for a user."""
     now_iso = get_utc_now_iso()
-    updates: Dict[str, Any] = {"updatedAt": now_iso}
+    updates: dict[str, Any] = {"updatedAt": now_iso}
 
     if "aiBaseUrl" in body and body["aiBaseUrl"] is not None:
         updates["aiBaseUrl"] = body["aiBaseUrl"]
@@ -522,7 +516,7 @@ def update_user_settings(user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
         updates["maskSecretsInDiffs"] = bool(body["maskSecretsInDiffs"])
     if "normalizeDynamicCounters" in body and body["normalizeDynamicCounters"] is not None:
         updates["normalizeDynamicCounters"] = bool(body["normalizeDynamicCounters"])
-    if "openaiApiKey" in body and body["openaiApiKey"]:
+    if body.get("openaiApiKey"):
         updates["apiKeyEncrypted"] = kms.encrypt_value(body["openaiApiKey"])
 
     dynamo.update_item(pk=f"USER#{user_id}", sk=EntityPrefix.SETTINGS, updates=updates)
@@ -533,7 +527,7 @@ def update_user_settings(user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
 # AUDIT LOG OPERATIONS
 # =============================================================================
 
-def add_audit_log(user_id: str, action: str, target: str, result: str, details: str = "") -> Dict[str, Any]:
+def add_audit_log(user_id: str, action: str, target: str, result: str, details: str = "") -> dict[str, Any]:
     """Record an audit log entry in DynamoDB."""
     now_iso = get_utc_now_iso()
     audit_id = f"aud_{uuid.uuid4().hex[:8]}"
@@ -553,7 +547,7 @@ def add_audit_log(user_id: str, action: str, target: str, result: str, details: 
     return item
 
 
-def list_audit_logs(user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+def list_audit_logs(user_id: str, limit: int = 50) -> list[dict[str, Any]]:
     """List recent audit logs for a user."""
     items = dynamo.query_all(
         pk=f"USER#{user_id}",

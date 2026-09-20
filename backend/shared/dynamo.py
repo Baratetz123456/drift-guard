@@ -5,15 +5,19 @@ Provides typed access patterns for all DeltaNet entities.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 import boto3
 from boto3.dynamodb.conditions import Key
 
-from shared.constants import TABLE_NAME, DYNAMODB_ENDPOINT_URL, GSI1, GSI2, INLINE_THRESHOLD
+from shared.constants import (
+    DYNAMODB_ENDPOINT_URL,
+    GSI1,
+    GSI2,
+    TABLE_NAME,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +139,7 @@ def put_item_unique(
 ) -> dict[str, Any]:
     """Put an item only if PK+SK doesn't exist (prevent overwrites)."""
     from botocore.exceptions import ClientError
+
     from shared.exceptions import ConflictError
 
     table = get_table()
@@ -150,7 +155,7 @@ def put_item_unique(
     return item
 
 
-def get_item(pk: str, sk: str) -> Optional[dict[str, Any]]:
+def get_item(pk: str, sk: str) -> dict[str, Any] | None:
     """Get a single item by PK and SK."""
     table = get_table()
     response = table.get_item(Key={"PK": pk, "SK": sk})
@@ -172,7 +177,7 @@ def update_item(
     pk: str,
     sk: str,
     updates: dict[str, Any],
-    condition: Optional[str] = None,
+    condition: str | None = None,
 ) -> dict[str, Any]:
     """Update specific attributes of an item."""
     table = get_table()
@@ -213,12 +218,12 @@ def delete_item(pk: str, sk: str) -> None:
 
 def query_items(
     pk: str,
-    sk_prefix: Optional[str] = None,
-    sk_between: Optional[tuple[str, str]] = None,
-    index_name: Optional[str] = None,
-    limit: Optional[int] = None,
+    sk_prefix: str | None = None,
+    sk_between: tuple[str, str] | None = None,
+    index_name: str | None = None,
+    limit: int | None = None,
     scan_forward: bool = True,
-    exclusive_start_key: Optional[dict] = None,
+    exclusive_start_key: dict | None = None,
 ) -> dict[str, Any]:
     """
     Query items with flexible SK conditions.
@@ -267,8 +272,8 @@ def query_items(
 
 def query_all(
     pk: str,
-    sk_prefix: Optional[str] = None,
-    index_name: Optional[str] = None,
+    sk_prefix: str | None = None,
+    index_name: str | None = None,
     scan_forward: bool = True,
 ) -> list[dict[str, Any]]:
     """Query all items matching the condition (handles pagination)."""
@@ -296,7 +301,6 @@ def batch_get_items(keys: list[dict[str, str]]) -> list[dict[str, Any]]:
     if not keys:
         return []
 
-    table = get_table()
     dynamodb = get_dynamo_resource()
 
     items = []

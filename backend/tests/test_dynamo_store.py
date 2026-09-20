@@ -4,8 +4,8 @@ Validates that all data access strictly scopes by deterministic tenant ID (USER#
 and prevents cross-tenant data leakage.
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 from shared import dynamo_store
 from shared.constants import EntityPrefix
 

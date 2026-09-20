@@ -8,11 +8,10 @@ from __future__ import annotations
 import json
 import logging
 
-from shared.auth import get_user_id
-from shared.response import success, created, no_content, from_exception
-from shared.exceptions import DeltaNetError
-
 from functions.devices.service import DeviceService
+from shared.auth import get_user_id
+from shared.exceptions import DeltaNetError
+from shared.response import created, from_exception, no_content, success
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
