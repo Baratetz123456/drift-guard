@@ -221,7 +221,6 @@ export const RegisterPage: React.FC = () => {
                   }}
                   onCodeChange={(code) => {
                     setExpectedCaptcha(code);
-                    setCaptchaInput('');
                     setCaptchaError(null);
                   }}
                   hasError={Boolean(captchaError)}

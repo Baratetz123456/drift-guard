@@ -12,6 +12,15 @@ interface CaptchaVerificationProps {
 // Avoid ambiguous characters: 0, O, 1, I, l
 const CHAR_SET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
+function generateRandomCode(length = 6): string {
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * CHAR_SET.length);
+    result += CHAR_SET[randomIndex];
+  }
+  return result;
+}
+
 export const CaptchaVerification: React.FC<CaptchaVerificationProps> = ({
   userInput,
   onUserInputChange,
@@ -20,17 +29,8 @@ export const CaptchaVerification: React.FC<CaptchaVerificationProps> = ({
   errorMessage,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [currentCode, setCurrentCode] = useState<string>('');
+  const [currentCode, setCurrentCode] = useState<string>(() => generateRandomCode());
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const generateRandomCode = useCallback((length = 6): string => {
-    let result = '';
-    for (let i = 0; i < length; i++) {
-      const randomIndex = Math.floor(Math.random() * CHAR_SET.length);
-      result += CHAR_SET[randomIndex];
-    }
-    return result;
-  }, []);
 
   const drawCaptcha = useCallback((code: string) => {
     const canvas = canvasRef.current;
@@ -110,19 +110,25 @@ export const CaptchaVerification: React.FC<CaptchaVerificationProps> = ({
     ctx.stroke();
   }, []);
 
+  const onCodeChangeRef = useRef(onCodeChange);
+  useEffect(() => {
+    onCodeChangeRef.current = onCodeChange;
+  });
+
   const refreshCaptcha = useCallback(() => {
     setIsRefreshing(true);
     const newCode = generateRandomCode();
     setCurrentCode(newCode);
-    onCodeChange(newCode);
+    onCodeChangeRef.current?.(newCode);
     drawCaptcha(newCode);
     setTimeout(() => setIsRefreshing(false), 200);
-  }, [drawCaptcha, generateRandomCode, onCodeChange]);
+  }, [drawCaptcha]);
 
-  // Initial generation
+  // Initial synchronization and paint
   useEffect(() => {
-    refreshCaptcha();
-  }, []);
+    onCodeChangeRef.current?.(currentCode);
+    drawCaptcha(currentCode);
+  }, [currentCode, drawCaptcha]);
 
   return (
     <div className="space-y-2 font-sans">
@@ -167,7 +173,6 @@ export const CaptchaVerification: React.FC<CaptchaVerificationProps> = ({
           <input
             type="text"
             data-testid="captcha-input"
-            required
             maxLength={6}
             value={userInput}
             onChange={(e) => onUserInputChange(e.target.value.toUpperCase())}

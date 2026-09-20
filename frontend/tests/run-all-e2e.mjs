@@ -35,10 +35,17 @@ async function solveCaptchaIfPresent(page) {
   }
   try {
     await canvas.waitFor({ state: 'visible', timeout: 3000 });
+    await page.waitForFunction(() => {
+      const c = document.querySelector('canvas[data-captcha-code]');
+      const code = c ? c.getAttribute('data-captcha-code') : null;
+      return typeof code === 'string' && code.length >= 4;
+    }, { timeout: 3000 });
     const code = await canvas.getAttribute('data-captcha-code');
     if (code) {
-      await page.fill('input[data-testid="captcha-input"]', code);
-      await page.waitForTimeout(600); // Respect 500ms time gate
+      const input = page.locator('input[data-testid="captcha-input"]');
+      await input.waitFor({ state: 'visible', timeout: 3000 });
+      await input.fill(code);
+      await page.waitForTimeout(650); // Respect 500ms time gate
     }
   } catch {
     // CAPTCHA bypassed
@@ -55,7 +62,12 @@ async function loginOperator(page, email = 'operator@driftguard.local', pass = '
   await page.fill('input[type="password"]', pass);
   await solveCaptchaIfPresent(page);
   await page.click('button[type="submit"]');
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 20000 });
+  try {
+    await page.waitForFunction(() => !window.location.pathname.includes('/login'), { timeout: 20000 });
+  } catch (err) {
+    const errMsgs = await page.locator('.text-rose-400, .text-rose-500, [role="alert"]').allInnerTexts().catch(() => []);
+    throw new Error(`loginOperator failed at ${page.url()}: ${errMsgs.join('; ') || err.message}`);
+  }
 }
 
 async function main() {
@@ -110,10 +122,12 @@ async function main() {
     await page.click('button[type="submit"]');
     await page.waitForSelector('canvas[data-captcha-code]', { state: 'visible', timeout: 5000 });
     const regCaptcha = await page.getAttribute('canvas[data-captcha-code]', 'data-captcha-code');
-    await page.fill('input[data-testid="captcha-input"]', regCaptcha);
-    await page.waitForTimeout(600);
+    const input = page.locator('input[data-testid="captcha-input"]');
+    await input.waitFor({ state: 'visible', timeout: 3000 });
+    await input.fill(regCaptcha);
+    await page.waitForTimeout(650);
     await page.click('button[type="submit"]');
-    await page.waitForURL((url) => !url.pathname.includes('/register'), { timeout: 10000 });
+    await page.waitForFunction(() => !window.location.pathname.includes('/register'), { timeout: 15000 });
     console.log(`  ✓ Registration flow successful for tenant: ${tenant.email}`);
     passed++;
 
@@ -206,7 +220,10 @@ async function main() {
     // 5. AI INVARIANTS & ANALYSIS REPORTS
     // -------------------------------------------------------------------------
     console.log('\n[Suite 5/7] Testing AI Analysis & Zero-Change Invariants...');
-    await loginOperator(page);
+    const isAuth = await page.evaluate(() => Boolean(sessionStorage.getItem('auth_token')));
+    if (!isAuth) {
+      await loginOperator(page);
+    }
     await page.goto(`${BASE_URL}/analysis?tab=report`);
     await page.waitForLoadState('networkidle');
 

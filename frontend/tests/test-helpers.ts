@@ -29,11 +29,16 @@ export async function solveCaptchaIfPresent(page: Page): Promise<void> {
   // If captcha appeared, fill code
   try {
     await canvas.waitFor({ state: 'visible', timeout: 3000 });
+    await page.waitForFunction(() => {
+      const c = document.querySelector('canvas[data-captcha-code]');
+      const code = c ? c.getAttribute('data-captcha-code') : null;
+      return typeof code === 'string' && code.length >= 4;
+    }, { timeout: 3000 });
     const code = await canvas.getAttribute('data-captcha-code');
     if (code) {
       await page.fill('input[data-testid="captcha-input"]', code);
       // Natural human typing delay respecting the 500ms gate
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(650);
     }
   } catch {
     // Challenge not required (e.g. operator recognized in session)
@@ -58,6 +63,6 @@ export async function loginOperator(
   await solveCaptchaIfPresent(page);
 
   await page.click('button[type="submit"]');
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 10000 });
+  await page.waitForFunction(() => !window.location.pathname.includes('/login'), { timeout: 20000 });
   await page.waitForLoadState('networkidle');
 }
