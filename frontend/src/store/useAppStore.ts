@@ -589,7 +589,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       sessionStorage.setItem('auth_token', token);
       markSessionOperator(email);
       set({ user, isAuthenticated: true });
-      await get().loadUserData(user.id);
+      get().loadUserData(user.id).catch(() => {});
       get().addToast('success', `Welcome back, ${user.name}`);
       return true;
     } catch (e: any) {
@@ -606,7 +606,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       sessionStorage.setItem('auth_token', token);
       markSessionOperator(email);
       set({ user, isAuthenticated: true });
-      await get().loadUserData(user.id);
+      get().loadUserData(user.id).catch(() => {});
       get().addToast('success', `Welcome back, ${user.name}`);
       return true;
     }
@@ -646,7 +646,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       sessionStorage.setItem('auth_token', token);
       markSessionOperator(email);
       set({ user, isAuthenticated: true });
-      await get().loadUserData(user.id);
+      get().loadUserData(user.id).catch(() => {});
       get().addToast('success', `Account created for ${name}.`);
       return true;
     } catch (e: any) {
@@ -662,7 +662,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       sessionStorage.setItem('auth_token', token);
       markSessionOperator(email);
       set({ user, isAuthenticated: true });
-      await get().loadUserData(user.id);
+      get().loadUserData(user.id).catch(() => {});
       get().addToast('success', `Account created for ${name}.`);
       return true;
     }

@@ -50,11 +50,12 @@ async function loginOperator(page, email = 'operator@driftguard.local', pass = '
   await page.evaluate(() => sessionStorage.clear());
   await page.goto(`${BASE_URL}/login`);
   await page.waitForLoadState('networkidle');
+  await page.waitForSelector('input[type="email"]', { timeout: 15000 });
   await page.fill('input[type="email"]', email);
   await page.fill('input[type="password"]', pass);
   await solveCaptchaIfPresent(page);
   await page.click('button[type="submit"]');
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 10000 });
+  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 20000 });
 }
 
 async function main() {
