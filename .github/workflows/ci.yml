@@ -59,10 +59,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js (Active LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: "frontend/package-lock.json"
 
@@ -102,10 +102,10 @@ jobs:
           cache: "pip"
           cache-dependency-path: "backend/requirements/dev.txt"
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js (Active LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: "frontend/package-lock.json"
 
@@ -127,22 +127,40 @@ jobs:
         env:
           VITE_API_BASE_URL: http://localhost:3000
 
-      - name: Launch Backend Collector Bridge
+      - name: Start DynamoDB Local Container
         run: |
-          python backend/local_collector.py &
+          docker run -d -p 8000:8000 --name dynamodb-local amazon/dynamodb-local:latest -jar DynamoDBLocal.jar -inMemory -sharedDb
           for i in {1..30}; do
-            if curl -s http://localhost:3000/api/health; then
-              echo "Backend health check passed!"
+            if curl -s http://localhost:8000; then
+              echo "DynamoDB Local container ready!"
               break
             fi
             sleep 1
           done
 
-      - name: Launch Frontend Server
+      - name: Launch Backend Collector Bridge
         run: |
-          npx --prefix frontend vite preview --port 5173 &
+          python backend/local_collector.py &
           for i in {1..30}; do
-            if curl -s http://localhost:5173; then
+            if curl -s -f http://localhost:3000/api/health; then
+              echo "Backend health check passed!"
+              break
+            fi
+            sleep 1
+          done
+        env:
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: mock
+          AWS_SECRET_ACCESS_KEY: mock
+          DYNAMODB_ENDPOINT_URL: http://localhost:8000
+          TABLE_NAME: DeltaNet-local
+
+      - name: Launch Frontend Server
+        working-directory: frontend
+        run: |
+          npx vite preview --port 5173 --host 0.0.0.0 &
+          for i in {1..30}; do
+            if curl -s -f http://localhost:5173; then
               echo "Frontend preview server ready!"
               break
             fi

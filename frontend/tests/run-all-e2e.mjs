@@ -79,6 +79,7 @@ async function main() {
     console.log('[Suite 1/7] Testing Authentication, Registration & Bot Defense...');
     await page.goto(`${BASE_URL}/login`);
     await page.waitForLoadState('networkidle');
+    await page.waitForSelector('input[type="email"]', { timeout: 15000 });
 
     // Version number v1.2 must be removed
     const vCount = await page.locator('text=v1.2').count();
@@ -270,6 +271,14 @@ async function main() {
 
   } catch (err) {
     console.error(`\n❌ TEST FAILURE: ${err.message}`);
+    try {
+      const fs = await import('node:fs');
+      fs.mkdirSync('test-results', { recursive: true });
+      await page.screenshot({ path: 'test-results/failure.png', fullPage: true });
+      console.log('  📸 Diagnostic screenshot saved to test-results/failure.png');
+    } catch {
+      // Screenshot error ignored
+    }
     process.exitCode = 1;
   } finally {
     await browser.close();
