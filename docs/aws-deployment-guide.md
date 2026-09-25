@@ -46,22 +46,29 @@
 
 DriftGuard is designed specifically around a **near-zero-cost serverless baseline**:
 
-| Service | Pricing Model & Free Tier Coverage | Monthly Cost |
-| :--- | :--- | :--- |
-| **AWS KMS** | 1 Customer Managed Key (`alias/driftguard`) shared between dev + prod | **~$1.00/month** *(only fixed cost)* |
-| **Amazon Cognito** | First **50,000 MAUs free forever** (low-volume email verification free) | **$0.00** |
-| **AWS Lambda** | First **1,000,000 requests + 3.2M sec compute free forever** | **$0.00** |
-| **Amazon DynamoDB** | On-Demand (Pay-Per-Request) — **25 GB storage free forever** | **$0.00** |
-| **Amazon S3** | Standard Storage — 5 GB storage + 20,000 GETs free for 12 months | **$0.00** |
-| **Amazon CloudFront** | First **1 TB data transfer-out + 10M requests free forever** | **$0.00** |
-| **Amazon API Gateway** | First **1,000,000 calls/month free for 12 months** (Method throttling enabled) | **$0.00** |
-| **AWS Step Functions** | Express Workflows — 4,000 state transitions free | **$0.00** |
-| **VPC / NAT Gateways** | Zero VPC or NAT Gateways provisioned (saving ~$32.40/month) | **$0.00** |
-| **AWS WAF** | Zero AWS WAF WebACLs provisioned (saving $5.00/month) | **$0.00** |
-| **Total** | | **~$1.00/month** |
+| Service | Pricing Model & Free Tier Coverage | Monthly Cost (CMK) | Monthly Cost ($0.00 Zero-Cost Mode) |
+| :--- | :--- | :--- | :--- |
+| **AWS KMS** | Customer Managed Key OR AWS-Managed Key / SSM Standard | **~$1.00/month** *(CMK)* | **$0.00** *(AWS-managed key / SSM / Local)* |
+| **Amazon Cognito** | First **50,000 MAUs free forever** (low-volume email verification free) | **$0.00** | **$0.00** |
+| **AWS Lambda** | First **1,000,000 requests + 3.2M sec compute free forever** | **$0.00** | **$0.00** |
+| **Amazon DynamoDB** | On-Demand (Pay-Per-Request) — **25 GB storage free forever** | **$0.00** | **$0.00** |
+| **Amazon S3** | Standard Storage — 5 GB storage + 20,000 GETs free for 12 months | **$0.00** | **$0.00** |
+| **Amazon CloudFront** | First **1 TB data transfer-out + 10M requests free forever** | **$0.00** | **$0.00** |
+| **Amazon API Gateway** | First **1,000,000 calls/month free for 12 months** (Method throttling enabled) | **$0.00** | **$0.00** |
+| **AWS Step Functions** | Express Workflows — 4,000 state transitions free | **$0.00** | **$0.00** |
+| **VPC / NAT Gateways** | Zero VPC or NAT Gateways provisioned (saving ~$32.40/month) | **$0.00** | **$0.00** |
+| **AWS WAF** | Zero AWS WAF WebACLs provisioned (saving $5.00/month) | **$0.00** | **$0.00** |
+| **Total** | | **~$1.00/month** | **$0.00/month** |
 
-> [!IMPORTANT]
-> The single **$1.00/month KMS CMK fee** is the only recurring charge. It provides hardware-backed AES-256 envelope encryption for device credentials and AI keys with full CloudTrail audit trails.
+> [!TIP]
+> ### Dual-Path Zero-Cost Deployment Architecture
+> DriftGuard supports two deployment paths engineered for **little to zero cost ($0.00/month)**:
+> 
+> 1. **Path A: Pure $0.00/Month AWS Serverless Free Tier**  
+>    To eliminate the optional $1.00/month KMS CMK charge, configure the backend to use an AWS-managed key (`alias/aws/secretsmanager`), AWS Systems Manager Parameter Store Standard (free tier, unlimited storage for standard parameters), or application-level AES-256 envelope encryption (`KMS_KEY_ID=local`). Combined with DynamoDB (25 GB free forever), Lambda (1M free requests), CloudFront (1 TB free transfer), and Cognito (50,000 free MAUs), your recurring AWS monthly bill is **strictly $0.00/month**.
+> 
+> 2. **Path B: 100% Free Self-Hosted Docker Compose Stack ($0.00/month, No Cloud Account Required)**  
+>    If you do not want to use an AWS account or provide a credit card, DriftGuard provides an enterprise self-hosted stack via Docker Compose (`docker compose up -d`). It runs DynamoDB Local, FastAPI Collector Bridge, DynamoDB Admin Web UI, and the React frontend on your local server or on-premise VM with zero network egress charges and zero infrastructure fees.
 
 ---
 
@@ -1328,30 +1335,27 @@ For the prod table, enable Point-in-Time Recovery:
 
 ### During AWS Free Tier (First 12 Months)
 
-| Service | Free Tier Limit | Cost |
-|---|---|---|
-| Lambda | 1M requests/month + 400K GB-seconds | $0.00 |
-| API Gateway | 1M REST API calls/month | $0.00 |
-| DynamoDB | 25 GB storage | $0.00 |
-| S3 (snapshots + frontend) | 5 GB, 20K GET, 2K PUT | $0.00 |
-| CloudFront | 1 TB transfer + 10M requests | $0.00 |
-| Cognito | 50,000 MAUs | $0.00 |
-| Step Functions Express | 4,000 state transitions | $0.00 |
-| CloudWatch Logs | Disabled | $0.00 |
-| KMS CMK | 10,000 requests free/month | ~$1.00 |
-| **Total** | | **~$1.00/month** |
+| Service | Free Tier Limit | Standard Mode (CMK) | Zero-Cost Mode ($0.00/mo) | Self-Hosted Docker |
+|---|---|---|---|---|
+| Lambda | 1M requests/month + 400K GB-seconds | $0.00 | $0.00 | $0.00 (Local Python) |
+| API Gateway | 1M REST API calls/month | $0.00 | $0.00 | $0.00 (FastAPI Bridge) |
+| DynamoDB | 25 GB storage (perpetually free) | $0.00 | $0.00 | $0.00 (DynamoDB Local) |
+| S3 (snapshots + frontend) | 5 GB, 20K GET, 2K PUT | $0.00 | $0.00 | $0.00 (Local Disk) |
+| CloudFront | 1 TB transfer + 10M requests | $0.00 | $0.00 | $0.00 (Vite Local) |
+| Cognito | 50,000 MAUs (perpetually free) | $0.00 | $0.00 | $0.00 (Local JWT/PBKDF2) |
+| Step Functions Express | 4,000 state transitions | $0.00 | $0.00 | $0.00 (Local Dispatch) |
+| CloudWatch Logs | Minimal / Disabled in dev | $0.00 | $0.00 | $0.00 (Local Logs) |
+| KMS Encryption | AWS-managed key / SSM / Local AES-256 | ~$1.00 (CMK) | **$0.00** | **$0.00** (Local Envelope) |
+| **Total Monthly Spend** | | **~$1.00/month** | **$0.00/month** | **$0.00/month** |
 
-### After Free Tier Expires
-
-| Service | Estimate |
-|---|---|
-| KMS CMK | $1.00/month (1 key, shared dev + prod) |
-| Lambda | $0.00 – $0.50/month |
-| DynamoDB | $0.00 – $1.00/month |
-| S3 | $0.03/GB/month |
-| API Gateway | $3.50 per million API calls |
-| CloudFront | $0.012/GB (Asia-Pacific egress) |
-| **Total** | **~$1.00 – $5.00/month** |
+### Perpetual Free Tier (After 12 Months)
+Even after the initial 12-month AWS Free Tier period expires, the core AWS Serverless infrastructure continues to operate within perpetual free tiers:
+- **Amazon DynamoDB**: 25 GB storage + 25 WCU / 25 RCU remains **free forever**.
+- **AWS Lambda**: 1,000,000 requests + 3.2M compute seconds remain **free forever**.
+- **Amazon CloudFront**: 1 TB data transfer-out + 10,000,000 HTTPS requests remain **free forever**.
+- **Amazon Cognito**: 50,000 MAUs remain **free forever**.
+- **Zero-Cost Encryption**: Using SSM Standard or Local software envelope ensures KMS fees remain **$0.00 forever**.
+- **Total Perpetual Monthly Cost**: **$0.00/month** for low-to-medium NOC operations.
 
 ---
 

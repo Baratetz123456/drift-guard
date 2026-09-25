@@ -1,4 +1,4 @@
-import { DeviceType } from '../types';
+import type { DeviceType } from '../types';
 
 export interface IpValidationResult {
   isValid: boolean;

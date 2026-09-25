@@ -96,3 +96,81 @@ class TestAPIEndpointsSecurity:
         assert resp.status_code == 400
         assert "Bot-like speed detected" in resp.json().get("detail", "")
 
+    def test_unregistered_operator_login_rejected_401(self, client):
+        """Unregistered operator login strictly returns 401 requiring registration in database."""
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "email": "unregistered_operator@enterprise.net",
+                "password": "AnyPassword123!",
+                "operator_honeypot_code": "",
+                "mount_time_ms": int(time.time() * 1000) - 1500,
+            },
+        )
+        assert resp.status_code == 401
+        assert "Operator account not found" in resp.json().get("detail", "")
+
+    def test_register_and_login_with_database_verification(self, client):
+        """Registering operator stores credentials in DB, and login verifies against DB."""
+        unique_email = f"neteng_{int(time.time())}@enterprise.net"
+        password = "VeryStrongPassword2026!"
+
+        # Register
+        reg_resp = client.post(
+            "/api/auth/register",
+            json={
+                "name": "Alex Vance",
+                "email": unique_email,
+                "password": password,
+                "operator_honeypot_code": "",
+                "mount_time_ms": int(time.time() * 1000) - 2000,
+            },
+        )
+        assert reg_resp.status_code == 200
+        assert "token" in reg_resp.json()
+
+        # Login with wrong password -> 401
+        bad_login = client.post(
+            "/api/auth/login",
+            json={
+                "email": unique_email,
+                "password": "WrongPassword999!",
+                "operator_honeypot_code": "",
+                "mount_time_ms": int(time.time() * 1000) - 2000,
+            },
+        )
+        assert bad_login.status_code == 401
+        assert "Invalid operator credentials" in bad_login.json().get("detail", "")
+
+        # Login with correct password -> 200 with user profile and token
+        good_login = client.post(
+            "/api/auth/login",
+            json={
+                "email": unique_email,
+                "password": password,
+                "operator_honeypot_code": "",
+                "mount_time_ms": int(time.time() * 1000) - 2000,
+            },
+        )
+        assert good_login.status_code == 200
+        data = good_login.json()
+        assert "token" in data
+        assert data["user"]["email"] == unique_email
+        assert data["user"]["name"] == "Alex Vance"
+
+    def test_demo_operator_login_success(self, client):
+        """Demo operator account logs in with standard demo password."""
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "email": "operator@driftguard.local",
+                "password": "••••••••••••",
+                "operator_honeypot_code": "",
+                "mount_time_ms": int(time.time() * 1000) - 2000,
+            },
+        )
+        assert resp.status_code == 200
+        assert "token" in resp.json()
+        assert resp.json()["user"]["email"] == "operator@driftguard.local"
+
+

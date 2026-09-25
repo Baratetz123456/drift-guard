@@ -6,7 +6,11 @@ and credential encryption for the DeltaNet DynamoDB table.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
+import secrets
+import time
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -61,6 +65,39 @@ def get_user_by_email(email: str) -> dict[str, Any] | None:
     return None
 
 
+def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
+    """
+    Hash password using PBKDF2-HMAC-SHA256 with 100,000 iterations.
+    Returns (salt_hex, hash_hex).
+    """
+    if not salt:
+        salt = secrets.token_hex(16)
+    pw_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        bytes.fromhex(salt),
+        100_000,
+    ).hex()
+    return salt, pw_hash
+
+
+def verify_password(password: str, salt: str, expected_hash: str) -> bool:
+    """
+    Verify submitted password against PBKDF2 salt and expected hash using constant-time comparison.
+    """
+    try:
+        calculated_hash = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            bytes.fromhex(salt),
+            100_000,
+        ).hex()
+        return hmac.compare_digest(calculated_hash, expected_hash)
+    except Exception as e:
+        logger.warning(f"Error during password verification: {e}")
+        return False
+
+
 def get_user_by_id(user_id: str) -> dict[str, Any] | None:
     """Get user profile item by user_id."""
     return dynamo.get_item(pk=f"USER#{user_id}", sk="PROFILE")
@@ -71,23 +108,34 @@ def get_or_create_user(
     email: str = "operator@driftguard.local",
     name: str = "Network Architect",
     role: str = "Network Architect",
+    password: str | None = None,
 ) -> dict[str, Any]:
-    """Retrieve existing user or create a new user profile with initial quotas."""
+    """Retrieve existing user or create a new user profile with initial quotas and credentials."""
     existing = get_user_by_id(user_id)
     today = get_current_utc_date()
     now_iso = get_utc_now_iso()
 
     if existing:
+        updates: dict[str, Any] = {}
         # Check quota reset date
         if existing.get("quotaResetDate") != today:
-            updates = {
-                "dailyAiCount": 0,
-                "dailyCollectCount": 0,
-                "quotaResetDate": today,
-            }
+            updates["dailyAiCount"] = 0
+            updates["dailyCollectCount"] = 0
+            updates["quotaResetDate"] = today
+
+        # If existing record has no password hash and one is supplied, update it
+        if password and not existing.get("passwordHash"):
+            salt, pw_hash = hash_password(password)
+            updates["passwordSalt"] = salt
+            updates["passwordHash"] = pw_hash
+
+        if updates:
             existing = dynamo.update_item(pk=f"USER#{user_id}", sk="PROFILE", updates=updates)
             existing.update(updates)
         return existing
+
+    # Hash password if provided
+    salt, pw_hash = hash_password(password) if password else ("", "")
 
     # Create new user item
     user_item = {
@@ -99,6 +147,11 @@ def get_or_create_user(
         "email": email.lower(),
         "name": name,
         "role": role,
+        "passwordSalt": salt,
+        "passwordHash": pw_hash,
+        "failedLoginAttempts": 0,
+        "lockedUntil": 0,
+        "lastLoginAt": None,
         "createdAt": now_iso,
         "dailyAiCount": 0,
         "dailyCollectCount": 0,
@@ -109,6 +162,57 @@ def get_or_create_user(
     # Initialize default user settings if not present
     init_default_settings(user_id)
     return user_item
+
+
+def create_user_with_credentials(
+    user_id: str,
+    email: str,
+    name: str,
+    password: str,
+    role: str = "Network Architect",
+) -> dict[str, Any]:
+    """Create a new user profile strictly with cryptographically hashed credentials and zero quota baseline."""
+    return get_or_create_user(
+        user_id=user_id,
+        email=email,
+        name=name,
+        role=role,
+        password=password,
+    )
+
+
+def record_login_success(user_id: str) -> None:
+    """Record successful authentication, reset failed attempts and lockout, and update lastLoginAt."""
+    now_iso = get_utc_now_iso()
+    updates = {
+        "failedLoginAttempts": 0,
+        "lockedUntil": 0,
+        "lastLoginAt": now_iso,
+    }
+    dynamo.update_item(pk=f"USER#{user_id}", sk="PROFILE", updates=updates)
+
+
+def record_login_failure(user_id: str, max_attempts: int = 5, lockout_seconds: int = 60) -> tuple[int, int]:
+    """
+    Record failed authentication attempt on user record in DynamoDB.
+    Returns (failed_attempts_count, remaining_lockout_seconds).
+    """
+    user = get_user_by_id(user_id) or {}
+    current_attempts = int(user.get("failedLoginAttempts", 0)) + 1
+    locked_until = 0
+
+    if current_attempts >= max_attempts:
+        locked_until = int(time.time()) + lockout_seconds
+
+    updates: dict[str, Any] = {
+        "failedLoginAttempts": current_attempts,
+    }
+    if locked_until > 0:
+        updates["lockedUntil"] = locked_until
+
+    dynamo.update_item(pk=f"USER#{user_id}", sk="PROFILE", updates=updates)
+    remaining_lockout = max(0, locked_until - int(time.time())) if locked_until > 0 else 0
+    return current_attempts, remaining_lockout
 
 
 def check_and_increment_quota(user_id: str, quota_type: str) -> tuple[bool, int, int]:
@@ -574,12 +678,13 @@ def bootstrap_demo_environment(user_id: str = "user_default") -> None:
     """Bootstrap the initial demo operator environment and starter command sets."""
     dynamo.ensure_table_exists()
 
-    # 1. Ensure demo operator profile exists
+    # 1. Ensure demo operator profile exists with standard demo password
     get_or_create_user(
         user_id=user_id,
         email="operator@driftguard.local",
         name="Network Architect",
         role="Network Architect",
+        password="DriftGuard2026!",
     )
 
     # 2. Ensure starter command sets exist

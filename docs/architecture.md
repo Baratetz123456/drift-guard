@@ -108,7 +108,11 @@ DriftGuard is designed to operate safely within AWS Always Free and 12-Month Fre
 | **Amazon API Gateway** | **1,000,000** REST API calls / month (12-month free tier) | ~15,000 API calls | **HIGH**: An unthrottled API Gateway accepts 10,000 req/s by default. A runaway loop or malicious actor could exhaust 1,000,000 requests in **1.6 minutes**, resulting in unexpected AWS bills ($3.50/M calls thereafter). |
 | **AWS Lambda** | **1,000,000** requests / month<br/>**3,200,000** seconds compute time / month (400,000 GB-s) | ~20,000 invocations<br/>~60,000 seconds | **MEDIUM**: Excessive invocations could exceed 1M calls or cause concurrent execution limits (default 1,000) to throttle other accounts. |
 | **Amazon DynamoDB** | **25 GB** storage<br/>Pay-per-request or 25 WCU / 25 RCU | ~15 MB storage<br/>~50,000 read/write units | Low to Medium; Pay-per-request handles spikes gracefully, but unthrottled writes incur storage and throughput costs. |
-| **AWS KMS** | **20,000** API requests / month | ~500 decrypt calls | Low; credentials decrypted only during active collection or AI analysis runs. |
+| **AWS KMS** | **20,000** API requests / month (Free Tier)<br/>*Zero-cost mode: AWS-managed key / SSM / Local* | ~500 decrypt calls | Negligible; credentials decrypted only during active collection or AI analysis runs. In $0.00 zero-cost mode, CMK fees are completely eliminated. |
+
+> [!TIP]
+> **Zero-Cost Deployment Posture ($0.00/Month)**:  
+> DriftGuard can be operated at **strictly $0.00/month** via either the perpetual AWS Free Tier serverless stack (using AWS-managed keys/SSM to eliminate the KMS CMK charge) or the 100% free self-hosted Local Docker Compose stack. Full test cases and requirements verification across all tiers are cataloged in the [Test Specification & Verification Matrix](file:///d:/DriftGuard/drift-guard/docs/test-specification.md).
 
 ---
 

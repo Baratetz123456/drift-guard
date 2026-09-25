@@ -235,9 +235,10 @@ The compiled assets in `frontend/dist/` can be served via Amazon CloudFront + Am
 
 ## Architecture & Deployment Documentation
 
-Comprehensive operational and engineering guides:
+Comprehensive operational, verification, and engineering guides:
+- [Test Specification & Verification Matrix](file:///d:/DriftGuard/drift-guard/docs/test-specification.md): Complete enterprise QA test specification mapping all 7 functional pillars, security invariants, failure scenarios, and automated test commands.
 - [System Architecture & Communication Specification](file:///d:/DriftGuard/drift-guard/docs/architecture.md): Full system topology, frontend-backend communication protocol, API rate limiting, DynamoDB/S3 data tiering, and Cisco read-only safety.
-- [AWS Deployment Guide](file:///d:/DriftGuard/drift-guard/docs/aws-deployment-guide.md): Step-by-step AWS console and CLI deployment manual covering Cognito, S3, CloudFront, KMS, and API Gateway.
+- [AWS Deployment Guide](file:///d:/DriftGuard/drift-guard/docs/aws-deployment-guide.md): Step-by-step AWS console and CLI deployment manual covering Cognito, S3, CloudFront, KMS, API Gateway, and **$0.00/month Zero-Cost** configurations.
 - [CI/CD Deployment Automation Guide](file:///d:/DriftGuard/drift-guard/docs/cicd-guide.md): GitHub Actions automation pipeline, branch strategy, environment secrets, and automated cache invalidations.
 
 ---

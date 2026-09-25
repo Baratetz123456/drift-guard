@@ -1,4 +1,4 @@
-import { CommandSet, Device, DeviceType } from '../types/index';
+import type { CommandSet, Device, DeviceType } from '../types';
 import { normalizeDeviceType, getDeviceTypeLabel } from './networkValidator';
 
 export interface CompatibilityResult {
