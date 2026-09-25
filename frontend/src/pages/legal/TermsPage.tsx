@@ -161,7 +161,7 @@ export const TermsPage: React.FC = () => {
               </p>
             </div>
             <p>
-              DriftGuard's AI analysis serves as an automated second opinion to assist senior engineers during maintenance windows. DriftGuard does not automatically execute rollback runbooks or modify device configurations without explicit, human-controlled operator command entry.
+              DriftGuard's AI analysis serves as an automated second opinion to assist engineers during maintenance windows. DriftGuard does not automatically execute rollback runbooks or modify device configurations without explicit, human-controlled operator command entry.
             </p>
           </section>
 
@@ -223,7 +223,7 @@ export const TermsPage: React.FC = () => {
 
         {/* Document Footer */}
         <div className="pt-8 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400">
-          <span>&copy; {new Date().getFullYear()} DriftGuard Network Verification. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} DriftGuard. All rights reserved.</span>
           <div className="flex items-center gap-4">
             <Link to="/privacy" className="text-zinc-400 hover:text-white transition-colors">
               Privacy policy

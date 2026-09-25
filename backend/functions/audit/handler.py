@@ -7,15 +7,13 @@ Handles both:
 
 from __future__ import annotations
 
-import json
 import logging
 import time
-from typing import Any
 
 from shared import dynamo
-from shared.constants import EntityPrefix, AUDIT_TTL_DAYS
-from shared.response import success, from_exception
+from shared.constants import AUDIT_TTL_DAYS, EntityPrefix
 from shared.exceptions import DeltaNetError
+from shared.response import from_exception, success
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

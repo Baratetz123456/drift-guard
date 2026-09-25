@@ -16,12 +16,14 @@ import {
   Check,
   HardDrives,
   Ticket,
+  Printer,
+  DownloadSimple,
 } from '@phosphor-icons/react';
 
 export const SnapshotDetailPage: React.FC = () => {
   const { snapshotId } = useParams<{ snapshotId: string }>();
   const navigate = useNavigate();
-  const { snapshots, deleteSnapshot } = useAppStore();
+  const { snapshots, deleteSnapshot, addToast } = useAppStore();
 
   const snapshot = snapshots.find((s) => s.snapshotId === snapshotId);
 
@@ -66,6 +68,18 @@ export const SnapshotDetailPage: React.FC = () => {
   const handleConfirmDelete = () => {
     deleteSnapshot(snapshot.snapshotId);
     navigate('/operations?tab=snapshots');
+  };
+
+  const handleExportJson = () => {
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `driftguard-snapshot-${snapshot.snapshotId}.json`;
+    a.click();
+    addToast('info', 'Snapshot archive exported as JSON');
   };
 
   return (
@@ -116,7 +130,25 @@ export const SnapshotDetailPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            leftIcon={<DownloadSimple className="w-4 h-4" weight="bold" />}
+            onClick={handleExportJson}
+          >
+            Export
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            leftIcon={<Printer className="w-4 h-4" weight="bold" />}
+            onClick={() => window.open(`/reports/snapshot/${snapshot.snapshotId}`, '_blank')}
+          >
+            Print Report
+          </Button>
           <Button
             type="button"
             variant="primary"

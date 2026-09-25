@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 import boto3
 
@@ -32,9 +32,9 @@ def log_action(
     action: str,
     resource_type: str,
     resource_id: str,
-    details: Optional[dict[str, Any]] = None,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    details: dict[str, Any] | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> None:
     """
     Send an audit log entry asynchronously to the audit Lambda.

@@ -6,19 +6,20 @@ All environment-specific values are read from Lambda environment variables.
 import os
 
 # DynamoDB
-TABLE_NAME = os.environ.get("TABLE_NAME", "DeltaNet-dev")
+TABLE_NAME = os.environ.get("TABLE_NAME", "DeltaNet-local")
+DYNAMODB_ENDPOINT_URL = os.environ.get("DYNAMODB_ENDPOINT_URL", os.environ.get("AWS_ENDPOINT_URL", "http://localhost:8000"))
 
 # S3
 BUCKET_NAME = os.environ.get("BUCKET_NAME", "deltanet-snapshots-dev")
 
 # KMS
-KMS_KEY_ID = os.environ.get("KMS_KEY_ID", "")
+KMS_KEY_ID = os.environ.get("KMS_KEY_ID", "local")
 
 # Step Functions
 STATE_MACHINE_ARN = os.environ.get("STATE_MACHINE_ARN", "")
 
 # Environment
-ENVIRONMENT = os.environ.get("ENVIRONMENT", "dev")
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "local")
 
 # DynamoDB Entity Prefixes
 class EntityPrefix:

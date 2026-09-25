@@ -129,6 +129,17 @@ export type RiskSeverity =
   | 'LOW'
   | 'SAFE';
 
+export interface FindingEvidence {
+  command: string;
+  excerpt: string;
+}
+
+export interface CommandBreakdownEntry {
+  command: string;
+  changeType: 'added' | 'removed' | 'modified' | 'error' | 'no-change';
+  details: string;
+}
+
 export interface AnalysisFinding {
   title: string;
   category: 'ROUTING' | 'INTERFACES' | 'SECURITY' | 'SYSTEM' | 'PERFORMANCE';
@@ -136,6 +147,7 @@ export interface AnalysisFinding {
   description: string;
   potentialImpact: string;
   recommendation: string;
+  evidence?: FindingEvidence[];
 }
 
 export interface AIAnalysis {
@@ -147,8 +159,13 @@ export interface AIAnalysis {
   riskScore: number; // 0 - 100
   summary: string;
   executiveSummary: string;
+  impactAnalysis?: string;
   findings: AnalysisFinding[];
+  conflictsDetected?: string[];
+  recommendations?: string[];
+  commandBreakdown?: CommandBreakdownEntry[];
   suggestedRollbackPlan?: string;
+  modelUsed?: string;
   tokenUsage?: {
     promptTokens: number;
     completionTokens: number;
@@ -174,6 +191,7 @@ export interface UserSettings {
   userId: string;
   aiBaseUrl: string;
   hasApiKey: boolean;
+  apiKey?: string;
   apiKeyPreview?: string;
   defaultModel: string;
   defaultTimeoutSeconds: number;
@@ -181,3 +199,21 @@ export interface UserSettings {
   normalizeDynamicCounters: boolean;
   emailNotifications?: boolean;
 }
+
+export type AIProvider = 'gemini' | 'groq' | 'openai' | 'claude' | 'openrouter' | 'custom';
+
+export interface ConfiguredAIModel {
+  id: string;
+  name: string;
+  modelIdentifier: string;
+  provider?: AIProvider;
+  baseUrl?: string;
+  apiKey?: string;
+  apiKeyPreview?: string;
+  isDefault?: boolean;
+  isActive: boolean;
+  latencyMs?: number;
+  status?: 'online' | 'offline' | 'untested';
+  lastTestedAt?: string;
+}
+

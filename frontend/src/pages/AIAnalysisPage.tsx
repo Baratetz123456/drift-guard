@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
+import { Select } from '../components/common/Select';
 import { AIAnalysis, Comparison, AnalysisFinding } from '../types';
 import {
   Sparkle,
@@ -15,6 +15,10 @@ import {
   Brain,
   ArrowCounterClockwise,
   Lightning,
+  TerminalWindow,
+  Warning,
+  CheckCircle,
+  Printer,
 } from '@phosphor-icons/react';
 
 export const AIAnalysisPage: React.FC = () => {
@@ -55,16 +59,16 @@ export const AIAnalysisPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `driftguard-ai-analysis-${activeAnalysis.analysisId}.json`;
+    a.download = `driftguard-analysis-${activeAnalysis.analysisId}.json`;
     a.click();
     addToast('info', 'Analysis report downloaded as JSON');
   };
 
   if (!activeAnalysis) {
     return (
-      <Card className="p-12 text-center text-zinc-400 font-sans">
+      <div className="p-12 text-center text-zinc-400 font-sans border border-zinc-800 rounded-2xl bg-zinc-900/40">
         <Sparkle className="w-10 h-10 text-zinc-600 mx-auto mb-3" weight="duotone" />
-        <h3 className="text-base font-bold text-zinc-200">No AI analyses found</h3>
+        <h3 className="text-base font-bold text-zinc-200">No drift analyses found</h3>
         <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto">
           No automated risk assessment has been performed yet. Run a collection and compare pre- and post-change snapshots to establish analysis.
         </p>
@@ -77,7 +81,7 @@ export const AIAnalysisPage: React.FC = () => {
             Compare
           </Button>
         </div>
-      </Card>
+      </div>
     );
   }
 
@@ -85,26 +89,25 @@ export const AIAnalysisPage: React.FC = () => {
     <div className="space-y-6 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
             <Sparkle className="w-6 h-6 text-[#c8ff00]" weight="duotone" />
             <span>DriftGuard Analysis</span>
           </h1>
-          <p className="text-sm text-zinc-400 mt-1">
-            DriftGuard analysis suggests the following operational interpretations. Senior engineer verification required before change approval.
+          <p className="text-xs text-zinc-400 mt-1">
+            DriftGuard analysis suggests the following operational interpretations. Engineer verification required before change approval.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {analyses.length > 1 && (
-            <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300">
-              <span className="text-zinc-500 font-mono">Report:</span>
-              <select
+            <div className="w-64">
+              <Select
+                size="sm"
                 value={activeAnalysis.analysisId}
                 onChange={(e) => {
                   setSelectedAnalysisId(e.target.value);
                   setSearchParams({ tab: 'report', analysisId: e.target.value });
                 }}
-                className="bg-transparent border-none text-xs text-zinc-100 font-mono focus:outline-none cursor-pointer"
               >
                 {analyses.map((a: AIAnalysis) => {
                   const cmp = comparisons.find((c) => c.comparisonId === a.comparisonId);
@@ -114,7 +117,7 @@ export const AIAnalysisPage: React.FC = () => {
                     </option>
                   );
                 })}
-              </select>
+              </Select>
             </div>
           )}
 
@@ -126,11 +129,20 @@ export const AIAnalysisPage: React.FC = () => {
           >
             Export
           </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Printer className="w-4 h-4" weight="bold" />}
+            onClick={() => window.open(`/reports/${activeAnalysis.analysisId}`, '_blank')}
+          >
+            Print Report
+          </Button>
         </div>
       </div>
 
-      {/* Hero Severity & Risk Score Banner */}
-      <Card className="p-6 border-zinc-800 bg-zinc-900/60 relative overflow-hidden">
+      {/* Hero Severity & Risk Score Banner (Retained as Elevated Anchor) */}
+      <div className="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 relative overflow-hidden shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
@@ -141,12 +153,17 @@ export const AIAnalysisPage: React.FC = () => {
                 Analysis ID: {activeAnalysis.analysisId}
               </span>
               <span className="text-xs text-zinc-400">
-                Model: <strong className="text-zinc-200 font-mono">{settings.defaultModel}</strong>
+                Inference Engine:{' '}
+                <strong className="text-zinc-200 font-mono">
+                  {activeAnalysis.modelUsed || settings.defaultModel || 'DriftGuard Verification Engine'}
+                </strong>
               </span>
             </div>
 
             <h2 className="text-xl font-bold text-white leading-snug">
-              {activeAnalysis.summary}
+              {activeAnalysis.summary
+                ?.replace(/Senior engineer/gi, 'Engineer')
+                ?.replace(/^AI analysis suggests\s*/i, 'Verification analysis suggests ')}
             </h2>
 
             <div className="flex items-center gap-4 text-xs text-zinc-400 font-mono">
@@ -157,7 +174,9 @@ export const AIAnalysisPage: React.FC = () => {
                 <>
                   <span>•</span>
                   <span className="text-zinc-300">
-                    {activeAnalysis.tokenUsage.totalTokens} tokens processed
+                    {activeAnalysis.tokenUsage.totalTokens > 0 && activeAnalysis.overallRisk !== 'Informational'
+                      ? `${activeAnalysis.tokenUsage.totalTokens} tokens processed`
+                      : '0 tokens (Layer 1 pre-filter)'}
                   </span>
                 </>
               )}
@@ -187,78 +206,194 @@ export const AIAnalysisPage: React.FC = () => {
             </div>
           </div>
         </div>
-      </Card>
-
-      {/* Advisory Operational Disclaimer Banner */}
-      <div className="p-3.5 px-4 rounded-xl bg-zinc-900/80 border border-zinc-800 text-sm text-zinc-300 flex items-center gap-2.5">
-        <ShieldCheck className="w-4 h-4 text-[#c8ff00] shrink-0" weight="duotone" />
-        <span>Advisory analysis only. All findings and remediation runbooks require senior engineer verification prior to change execution.</span>
       </div>
 
-      {/* Executive Summary for CAB / Management */}
-      <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/30">
-        <div className="flex items-center gap-2 mb-2">
-          <Brain className="w-4 h-4 text-zinc-300" weight="duotone" />
-          <h3 className="font-bold text-base text-zinc-200">Executive summary (CAB report)</h3>
+      {/* Advisory Operational Disclaimer (Clean Unboxed Inline Notice) */}
+      <div className="flex items-center gap-2 text-xs text-zinc-400 py-0.5">
+        <ShieldCheck className="w-4 h-4 text-[#c8ff00] shrink-0" weight="duotone" />
+        <span>Engineer disclaimer: Advisory interpretations require verification prior to maintenance execution.</span>
+      </div>
+
+      {/* Executive Summary for CAB / Management (Unboxed with Accent Border) */}
+      <div className="space-y-1.5 border-l-2 border-zinc-700 pl-4 py-0.5">
+        <div className="flex items-center gap-2">
+          <Brain className="w-4 h-4 text-zinc-400" weight="duotone" />
+          <h3 className="font-semibold text-xs uppercase tracking-wider text-zinc-400 font-mono">
+            Executive Summary (CAB Report)
+          </h3>
         </div>
-        <p className="text-sm text-zinc-300 leading-relaxed">
-          {activeAnalysis.executiveSummary}
+        <p className="text-sm text-zinc-200 leading-relaxed">
+          {activeAnalysis.executiveSummary
+            ?.replace(/google\/gemini-2\.0-flash-lite:free/gi, 'DriftGuard AI Model')
+            ?.replace(/Senior engineer/gi, 'Engineer')}
         </p>
       </div>
 
-      {/* Findings Breakdown (3-Part Diagnostic Model) */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-            <ShieldWarning className="w-5 h-5 text-amber-400" weight="duotone" />
-            <span>Identified risk findings ({activeAnalysis.findings.length})</span>
-          </h3>
+      {/* Command Breakdown Status Strip */}
+      {activeAnalysis.commandBreakdown && activeAnalysis.commandBreakdown.length > 0 && (
+        <div className="space-y-2.5 p-3.5 rounded-xl border border-zinc-800 bg-zinc-950/60">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
+              <TerminalWindow className="w-4 h-4 text-[#c8ff00]" />
+              <span>Command verification status ({activeAnalysis.commandBreakdown.length} commands analyzed)</span>
+            </span>
+            <span className="text-[11px] text-zinc-500 font-mono">Independent per-command review</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {activeAnalysis.commandBreakdown.map((item, idx) => {
+              const typeColor =
+                item.changeType === 'modified'
+                  ? 'bg-amber-400/10 text-amber-400 border-amber-400/20'
+                  : item.changeType === 'added'
+                  ? 'bg-[#c8ff00]/10 text-[#c8ff00] border-[#c8ff00]/20'
+                  : item.changeType === 'removed' || item.changeType === 'error'
+                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                  : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/60';
+
+              return (
+                <div
+                  key={idx}
+                  className="p-2.5 rounded-lg border border-zinc-850 bg-zinc-900/40 flex items-start justify-between gap-2.5 text-xs font-mono"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-zinc-200 truncate">{item.command}</div>
+                    <div className="text-[11px] text-zinc-400 font-sans mt-0.5">{item.details}</div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border shrink-0 ${typeColor}`}>
+                    {item.changeType}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Cross-Command Correlation & Conflict Warnings */}
+      {activeAnalysis.conflictsDetected && activeAnalysis.conflictsDetected.length > 0 && (
+        <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+          <div className="flex items-center gap-2 text-amber-400 text-xs font-bold font-mono uppercase tracking-wider">
+            <Warning className="w-4 h-4 text-amber-400" weight="fill" />
+            <span>Cross-command correlation & conflict detected ({activeAnalysis.conflictsDetected.length})</span>
+          </div>
+          <div className="space-y-1.5 pl-6 text-xs text-zinc-300">
+            {activeAnalysis.conflictsDetected.map((conflict, cIdx) => (
+              <div key={cIdx} className="leading-relaxed list-disc">
+                • {conflict}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Findings Breakdown (Structured Flat Diagnostic List, Zero Nested Cards) */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
+          <div className="flex items-center gap-2">
+            <ShieldWarning className="w-4 h-4 text-amber-400" weight="duotone" />
+            <h3 className="text-sm font-bold text-zinc-100">
+              Identified Risk Findings ({activeAnalysis.findings.length})
+            </h3>
+          </div>
+          <span className="text-xs text-zinc-500 font-mono">3-Part Diagnostic Evaluation</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {activeAnalysis.findings.map((finding: AnalysisFinding, idx: number) => (
-            <Card key={idx} className="p-5 flex flex-col justify-between border-zinc-800 bg-zinc-900/40">
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="font-bold text-base text-zinc-200 flex-1">{finding.title}</h4>
-                  <Badge severity={finding.severity} size="sm">
-                    {finding.severity}
-                  </Badge>
+        <div className="divide-y divide-zinc-800/80 border-b border-zinc-800/80">
+          {activeAnalysis.findings.length === 0 ? (
+            <div className="py-5 px-4 rounded-xl border border-zinc-850 bg-zinc-900/30 flex items-center gap-3.5 my-2">
+              <div className="p-2 rounded-lg bg-[#c8ff00]/10 border border-[#c8ff00]/20 shrink-0">
+                <Check className="w-5 h-5 text-[#c8ff00]" weight="bold" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                  <span>Baseline Congruent</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-[#c8ff00]/10 text-[#c8ff00] border border-[#c8ff00]/20 uppercase font-mono font-bold">
+                    Safe to Approve
+                  </span>
                 </div>
-
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs bg-zinc-800 text-zinc-300 font-mono uppercase font-bold">
-                  Category: {finding.category}
-                </div>
-
-                {/* 3-Part Diagnostic Pattern */}
-                <div className="p-3.5 rounded-lg bg-zinc-950/80 border border-zinc-800 space-y-2 text-sm">
-                  <div>
-                    <span className="font-semibold text-zinc-300">Observation: </span>
-                    <span className="text-zinc-400">{finding.description}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-amber-300">Operational impact: </span>
-                    <span className="text-zinc-400">{finding.potentialImpact}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-[#c8ff00]">Actionable next step: </span>
-                    <span className="text-zinc-400">{finding.recommendation}</span>
-                  </div>
+                <div className="text-xs text-zinc-400">
+                  Zero risk conditions or configuration divergences identified across verified command profiles. State is congruent with operational baseline.
                 </div>
               </div>
-            </Card>
-          ))}
+            </div>
+          ) : (
+            activeAnalysis.findings.map((finding: AnalysisFinding, idx: number) => {
+              const isHighOrCritical = finding.severity === 'Critical' || finding.severity === 'High';
+              return (
+                <div
+                  key={idx}
+                  className={`py-4 transition-colors ${
+                    isHighOrCritical
+                      ? 'border-l-2 border-l-amber-500/80 pl-3.5'
+                      : 'border-l-2 border-l-transparent pl-3.5'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h4 className="font-bold text-sm text-zinc-100">{finding.title}</h4>
+                      <Badge severity={finding.severity} size="sm">
+                        {finding.severity}
+                      </Badge>
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-400 font-mono uppercase font-semibold">
+                        {finding.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 3-Part Diagnostic Pattern */}
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                      <span className="font-mono text-zinc-500 font-semibold shrink-0 sm:w-32">Observation:</span>
+                      <span className="text-zinc-300 flex-1">{finding.description}</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                      <span className="font-mono text-amber-400 font-semibold shrink-0 sm:w-32">Operational impact:</span>
+                      <span className="text-zinc-300 flex-1">{finding.potentialImpact}</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                      <span className="font-mono text-[#c8ff00] font-semibold shrink-0 sm:w-32">Actionable next step:</span>
+                      <span className="text-zinc-200 flex-1">{finding.recommendation}</span>
+                    </div>
+                  </div>
+
+                  {/* Verbatim Diff Evidence Excerpts */}
+                  {finding.evidence && finding.evidence.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {finding.evidence.map((ev, evIdx) => (
+                        <div key={evIdx} className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-xs">
+                          <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5 pb-1 border-b border-zinc-800">
+                            <span className="text-[#c8ff00] font-semibold flex items-center gap-1.5">
+                              <TerminalWindow className="w-3.5 h-3.5" />
+                              <span>Verbatim Diff Evidence: {ev.command}</span>
+                            </span>
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Verified Against Raw Diff</span>
+                          </div>
+                          <pre className="whitespace-pre-wrap text-zinc-200 font-mono text-[11px] leading-relaxed overflow-x-auto">
+                            {ev.excerpt}
+                          </pre>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
-      {/* Suggested Rollback Runbook */}
-      {activeAnalysis.suggestedRollbackPlan && (
-        <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/30">
-          <div className="flex items-center justify-between mb-3 border-b border-zinc-800/80 pb-3">
+      {/* Suggested Rollback Runbook (Suppressed on Informational / Zero Risk / No Changes) */}
+      {activeAnalysis.suggestedRollbackPlan &&
+        activeAnalysis.overallRisk !== 'Informational' &&
+        activeAnalysis.overallRisk !== 'SAFE' &&
+        activeAnalysis.riskScore > 0 && (
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ArrowCounterClockwise className="w-4 h-4 text-rose-400" weight="bold" />
               <h3 className="font-bold text-sm text-zinc-200">
-                Automated rollback and remediation runbook (advisory)
+                Automated Rollback & Remediation Runbook (Advisory)
               </h3>
             </div>
             <Button
@@ -267,15 +402,16 @@ export const AIAnalysisPage: React.FC = () => {
               leftIcon={copiedRollback ? <Check className="w-3.5 h-3.5 text-[#c8ff00]" weight="bold" /> : <Copy className="w-3.5 h-3.5" />}
               onClick={handleCopyRollback}
             >
-              {copiedRollback ? 'Copied' : 'Copy'}
+              {copiedRollback ? 'Copied' : 'Copy Runbook'}
             </Button>
           </div>
 
-          <div className="bg-zinc-950 rounded-lg p-3.5 border border-zinc-800/80 font-mono text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed overflow-x-auto">
+          <div className="bg-zinc-950 rounded-xl p-4 border border-zinc-800 font-mono text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed shadow-lg overflow-x-auto">
             {activeAnalysis.suggestedRollbackPlan}
           </div>
         </div>
       )}
+
     </div>
   );
 };

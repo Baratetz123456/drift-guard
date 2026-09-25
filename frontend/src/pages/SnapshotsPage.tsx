@@ -7,6 +7,7 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import { Select } from '../components/common/Select';
 import {
   Database,
   MagnifyingGlass,
@@ -98,31 +99,31 @@ export const SnapshotsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
-            <Funnel className="w-3.5 h-3.5 text-zinc-500" />
-            <select
+          <div className="w-36">
+            <Select
+              size="sm"
+              icon={<Funnel className="w-3.5 h-3.5 text-zinc-500" />}
               value={typeFilter}
               onChange={(e) => {
                 setTypeFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
             >
               <option value="ALL">All Stages</option>
               <option value="pre_change">Pre-Change</option>
               <option value="post_change">Post-Change</option>
               <option value="ad_hoc">Ad-Hoc</option>
-            </select>
+            </Select>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
-            <select
+          <div className="w-40">
+            <Select
+              size="sm"
               value={deviceFilter}
               onChange={(e) => {
                 setDeviceFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
             >
               <option value="ALL">All Devices</option>
               {uniqueDevices.map((d) => (
@@ -130,7 +131,7 @@ export const SnapshotsPage: React.FC = () => {
                   {d}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
       </div>

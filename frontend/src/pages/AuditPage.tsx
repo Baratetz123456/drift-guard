@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import { Select } from '../components/common/Select';
 import { AuditLogEntry } from '../types';
 import {
   ShieldCheck,
@@ -17,6 +18,7 @@ import {
   GitDiff,
   Sparkle,
   TerminalWindow,
+  Printer,
 } from '@phosphor-icons/react';
 
 export const AuditPage: React.FC = () => {
@@ -66,23 +68,33 @@ export const AuditPage: React.FC = () => {
     <div className="space-y-6 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
             <ShieldCheck className="w-6 h-6 text-zinc-300" weight="duotone" />
             <span>Audit Trail</span>
           </h1>
-          <p className="text-sm text-zinc-400 mt-1">
+          <p className="text-xs text-zinc-400 mt-1">
             Immutable audit records written asynchronously to persistent datastore with 90-day retention expiration.
           </p>
         </div>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon={<DownloadSimple className="w-4 h-4" weight="bold" />}
-          onClick={handleExportLogs}
-        >
-          Export
-        </Button>
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<Printer className="w-4 h-4" weight="bold" />}
+            onClick={() => window.open('/reports/audit/ledger', '_blank')}
+          >
+            Print Ledger
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<DownloadSimple className="w-4 h-4" weight="bold" />}
+            onClick={handleExportLogs}
+          >
+            Export
+          </Button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -102,38 +114,39 @@ export const AuditPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-            <Funnel className="w-3.5 h-3.5 text-zinc-500" />
-            <span>Status:</span>
+          <div className="w-36">
+            <Select
+              size="sm"
+              icon={<Funnel className="w-3.5 h-3.5 text-zinc-500" />}
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="SUCCESS">SUCCESS</option>
+              <option value="FAILED">FAILED</option>
+            </Select>
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-zinc-600"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="SUCCESS">SUCCESS</option>
-            <option value="FAILED">FAILED</option>
-          </select>
 
-          <select
-            value={actionFilter}
-            onChange={(e) => {
-              setActionFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-zinc-600"
-          >
-            <option value="ALL">All Actions</option>
-            {uniqueActions.map((act) => (
-              <option key={act} value={act}>
-                {act}
-              </option>
-            ))}
-          </select>
+          <div className="w-36">
+            <Select
+              size="sm"
+              value={actionFilter}
+              onChange={(e) => {
+                setActionFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="ALL">All Actions</option>
+              {uniqueActions.map((act) => (
+                <option key={act} value={act}>
+                  {act}
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
       </div>
 

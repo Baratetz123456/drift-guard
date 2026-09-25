@@ -8,8 +8,6 @@ from __future__ import annotations
 import logging
 import time
 
-from shared.response import success, from_exception
-
 from functions.collection_worker.service import WorkerService
 
 logger = logging.getLogger(__name__)

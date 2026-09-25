@@ -29,7 +29,7 @@ export const DashboardPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-12 font-sans w-full max-w-6xl pb-16">
+    <div className="space-y-12 font-sans w-full pb-16">
       {/* ========================================================================= */}
       {/* 1. EDITORIAL HERO & ABOUT DRIFTGUARD                                      */}
       {/* ========================================================================= */}
@@ -121,7 +121,7 @@ export const DashboardPage: React.FC = () => {
           </button>
 
           <button
-            onClick={() => navigate('/analysis?tab=report')}
+            onClick={() => navigate('/analysis?tab=compare')}
             className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800/60 hover:border-zinc-700 text-left transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between text-zinc-400 group-hover:text-white mb-2.5">
@@ -162,8 +162,8 @@ export const DashboardPage: React.FC = () => {
                 <h3 className="text-lg font-bold text-white">
                   Stage 1: Register Inventory & Command Profiles
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
-                  /setup
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-[#c8ff00]/10 text-[#c8ff00] border border-[#c8ff00]/30">
+                  PHASE 1: INVENTORY
                 </span>
               </div>
               <p className="text-sm text-zinc-300 leading-relaxed">
@@ -191,7 +191,7 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Senior Engineer Efficiency Pro-Tip */}
+            {/* Engineer Efficiency Pro-Tip */}
             <div className="p-3.5 rounded-lg border-l-2 border-[#c8ff00] bg-zinc-900/40 text-sm text-zinc-200 space-y-1">
               <span className="font-bold text-[#c8ff00]">Efficiency Pro-Tip: </span>
               <span>
@@ -223,8 +223,8 @@ export const DashboardPage: React.FC = () => {
                 <h3 className="text-lg font-bold text-white">
                   Stage 2: Capture Pre-Change Baseline Snapshots
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
-                  /operations
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/30">
+                  PHASE 2: CAPTURE
                 </span>
               </div>
               <p className="text-sm text-zinc-300 leading-relaxed">
@@ -244,7 +244,7 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Senior Engineer Efficiency Pro-Tip */}
+            {/* Engineer Efficiency Pro-Tip */}
             <div className="p-3.5 rounded-lg border-l-2 border-[#c8ff00] bg-zinc-900/40 text-sm text-zinc-200 space-y-1">
               <span className="font-bold text-[#c8ff00]">Efficiency Pro-Tip: </span>
               <span>
@@ -276,8 +276,8 @@ export const DashboardPage: React.FC = () => {
                 <h3 className="text-lg font-bold text-white">
                   Stage 3: Run Post-Change Capture & Timeline Diff Comparison
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
-                  /analysis
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-[#c8ff00]/10 text-[#c8ff00] border border-[#c8ff00]/30">
+                  PHASE 3: VERIFICATION
                 </span>
               </div>
               <p className="text-sm text-zinc-300 leading-relaxed">
@@ -298,7 +298,7 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Senior Engineer Efficiency Pro-Tip */}
+            {/* Engineer Efficiency Pro-Tip */}
             <div className="p-3.5 rounded-lg border-l-2 border-[#c8ff00] bg-zinc-900/40 text-sm text-zinc-200 space-y-1">
               <span className="font-bold text-[#c8ff00]">Efficiency Pro-Tip: </span>
               <span>
@@ -330,8 +330,8 @@ export const DashboardPage: React.FC = () => {
                 <h3 className="text-lg font-bold text-white">
                   Stage 4: Review Advisory AI Risk Synthesis & Audit Trail
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
-                  /analysis?tab=report
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                  PHASE 4: SYNTHESIS
                 </span>
               </div>
               <p className="text-sm text-zinc-300 leading-relaxed">
@@ -373,7 +373,7 @@ export const DashboardPage: React.FC = () => {
                 variant="secondary"
                 size="sm"
                 rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-                onClick={() => navigate('/analysis?tab=report')}
+                onClick={() => navigate('/analysis?tab=compare')}
               >
                 Go to AI Risk Analysis
               </Button>

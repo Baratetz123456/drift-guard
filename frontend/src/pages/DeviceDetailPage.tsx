@@ -6,6 +6,7 @@ import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Card } from '../components/common/Card';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
+import { Select } from '../components/common/Select';
 import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
 import { validateIpAddress } from '../utils/networkValidator';
 import {
@@ -131,7 +132,7 @@ export const DeviceDetailPage: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.hostname.trim()) return;
+    if (!formData.name.trim()) return;
 
     const parsedTags = formData.tags
       .split(',')
@@ -140,7 +141,7 @@ export const DeviceDetailPage: React.FC = () => {
 
     updateDevice(device.deviceId, {
       name: formData.name.trim(),
-      hostname: formData.hostname.trim(),
+      hostname: formData.hostname.trim() || formData.name.trim(),
       port: formData.port,
       deviceType: formData.deviceType,
       connectionType: formData.connectionType,
@@ -401,12 +402,11 @@ export const DeviceDetailPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  IP Address or FQDN
+                  IP Address or FQDN (Optional)
                 </label>
                 <input
                   type="text"
-                  required
-                  placeholder="10.200.1.1"
+                  placeholder="e.g. 10.200.1.1 (Defaults to Device Name if empty)"
                   value={formData.hostname}
                   onChange={(e) => setFormData({ ...formData, hostname: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"
@@ -416,22 +416,20 @@ export const DeviceDetailPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  Device Driver
-                </label>
-                <select
+                <Select
+                  label="Device Driver"
+                  size="sm"
                   value={formData.deviceType}
                   onChange={(e) =>
                     setFormData({ ...formData, deviceType: e.target.value as DeviceType })
                   }
-                  className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-100 focus:outline-none focus:border-zinc-500 font-medium"
                 >
                   {CISCO_DEVICE_PLATFORMS.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               <div>

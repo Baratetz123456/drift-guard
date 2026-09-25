@@ -130,6 +130,14 @@ Every standard feature or bugfix task follows this 4-phase sequence:
   - All operator sessions MUST use cryptographically structured JWTs (emulating the AWS Cognito User Pool ID token schema with `sub`, `email`, `cognito:groups`, `token_use: 'id'`, `iss`, `iat`, and `exp`).
   - Tokens MUST be stored exclusively in `sessionStorage` (never `localStorage`), guaranteeing complete destruction of credentials whenever the browser tab, window, or application is closed.
   - All authenticated routes MUST enforce a 30-minute inactivity timeout with user activity listeners (`mousemove`, `mousedown`, `keydown`, `wheel`, `touchstart`, `scroll`) and an interactive 60-second warning countdown dialog before automatic termination.
+  - **Strict Multi-Tenant Isolation & Zero Insecure Fallback**:
+    - Backend API handlers and Lambda microservices MUST NEVER fall back to a default or mock tenant identity (e.g. `user_default`) when authorization headers are missing, malformed, or expired. Missing or invalid authentication MUST strictly return `HTTP 401 Unauthorized`.
+    - All persistent records (DynamoDB `PK = USER#{userId}`, local storage `driftguard_${userId}_${key}`) MUST partition data by deterministic tenant ID (`usr_<sha256(email)>` or Cognito `sub`).
+    - Demo data seeding (e.g. 100 mock devices) is strictly quarantined to `operator@driftguard.local`. Newly registered or secondary tenant accounts MUST initialize with an unpolluted baseline.
+  - **Browser Cold-Restart Durability Testing Protocol**:
+    - Automated E2E verification of browser termination and cold restarts MUST use persistent browser profiles (`chromium.launchPersistentContext(userDataDir)`).
+    - Standard ephemeral contexts (`browser.newContext()`) wipe all disk storage upon close and are prohibited for cold-restart durability verification.
+    - The test must explicitly verify that upon closing and reopening the browser context, `sessionStorage` is purged (forcing re-authentication) while stored data remains 100% durable and accessible upon logging back in.
 - **Documentation Visual Standards (Zero-Mermaid Law)**:
   - Published architecture and system documentation MUST NOT use Mermaid text code blocks for public diagrams.
   - All diagrams MUST be generated as high-resolution visual assets stored under `docs/assets/diagrams/` and referenced via markdown image syntax (`![Caption](./assets/diagrams/<filename>.png)`).
@@ -219,3 +227,33 @@ All brand assets, color tokens, and logo geometry MUST strictly comply with the 
   - All headings, sub-headings, table headers, badges, and empty states MUST use sentence case conforming to shadcn/ui conventions.
 - **Consistent Terminology**:
   - Strictly use `snapshot`, `collection`, `baseline`, and `diff`.
+
+---
+
+## 7. AI Change Verification & Zero-Change Invariants
+
+- **The Prime Directive of Verification**:
+  - An empty diff, or a diff containing solely expected volatile drift (elapsed uptime between collections, packet/byte counters, interface rates, load average drift), is a **valid, correct, and successful analysis result**.
+  - System output for clean diffs MUST evaluate to severity **`Informational`** with an anchored risk score of **`0/100`**.
+  - Never inflate severity to appear thorough. A false alarm costs the operator more than a cosmetic volatile detail.
+
+- **Layer 1 Code Pre-Filtering (Safety Net & Cost Optimization)**:
+  - Code-level regex screening (`screen_diff_for_functional_changes`) MUST screen out directional volatile noise (elapsed uptime, packet counters, last input/output timestamps) before invoking LLM inference.
+  - If no functional signal remains after screening, the engine MUST early-exit, emit the canonical Informational payload, and report **`0 tokens (Layer 1 pre-filter)`** rather than consuming or hallucinating token usage.
+
+- **Outright Ban on Unanchored AI Numeric Scores**:
+  - LLM prompts MUST explicitly ban numeric scores, percentages, or ratings (`"Do not output numeric scores, percentages, or ratings of any kind."`).
+  - Models MUST output categorical `severity` (`Critical`, `High`, `Medium`, `Low`, `Informational`).
+  - Application code deterministically maps severity to anchored scores:
+    - `Critical` $\to$ **95/100**
+    - `High` $\to$ **80/100**
+    - `Medium` $\to$ **50/100**
+    - `Low` $\to$ **20/100**
+    - `Informational` $\to$ **0/100**
+
+- **Zero-Change Presentation Invariants**:
+  - **Strict Rollback Suppression**: The Automated Rollback & Remediation Runbook MUST NOT be displayed when severity is `Informational`, risk score is `0`, or no changes exist. Never suggest reverting configurations or soft-resetting routing sessions when no changes occurred.
+  - **Positive Baseline Congruent State**: When the findings count is 0, the UI MUST render a positive verification banner (**`Baseline Congruent`** with a **`Safe to Approve`** Voltage `#c8ff00` badge) confirming state congruence with the baseline.
+  - **Summary Envelope Invariant**: The summary field MUST begin with the exact string `AI analysis suggests ` and end with the exact string `Verify against raw output before approval.`
+  - **Verbatim Grounding**: Evidence excerpts MUST be copied verbatim from raw diffs and verified against raw diff lines.
+

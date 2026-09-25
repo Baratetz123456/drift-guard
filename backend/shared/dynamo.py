@@ -5,28 +5,121 @@ Provides typed access patterns for all DeltaNet entities.
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any, Optional
+import os
+from typing import Any
 
 import boto3
 from boto3.dynamodb.conditions import Key
 
-from shared.constants import TABLE_NAME, GSI1, GSI2, INLINE_THRESHOLD
+from shared.constants import (
+    DYNAMODB_ENDPOINT_URL,
+    GSI1,
+    GSI2,
+    TABLE_NAME,
+)
 
 logger = logging.getLogger(__name__)
 
-# Lazy-init DynamoDB resource (reused across invocations)
+# Lazy-init DynamoDB resources (reused across invocations)
+_resource = None
+_client = None
 _table = None
+
+
+def get_dynamo_resource():
+    """Get or create boto3 DynamoDB resource with optional local endpoint."""
+    global _resource
+    if _resource is None:
+        kwargs: dict[str, Any] = {}
+        if DYNAMODB_ENDPOINT_URL:
+            kwargs["endpoint_url"] = DYNAMODB_ENDPOINT_URL
+            kwargs["region_name"] = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+            kwargs["aws_access_key_id"] = os.environ.get("AWS_ACCESS_KEY_ID", "mock")
+            kwargs["aws_secret_access_key"] = os.environ.get("AWS_SECRET_ACCESS_KEY", "mock")
+        _resource = boto3.resource("dynamodb", **kwargs)
+    return _resource
+
+
+def get_dynamo_client():
+    """Get or create boto3 DynamoDB client with optional local endpoint."""
+    global _client
+    if _client is None:
+        kwargs: dict[str, Any] = {}
+        if DYNAMODB_ENDPOINT_URL:
+            kwargs["endpoint_url"] = DYNAMODB_ENDPOINT_URL
+            kwargs["region_name"] = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+            kwargs["aws_access_key_id"] = os.environ.get("AWS_ACCESS_KEY_ID", "mock")
+            kwargs["aws_secret_access_key"] = os.environ.get("AWS_SECRET_ACCESS_KEY", "mock")
+        _client = boto3.client("dynamodb", **kwargs)
+    return _client
 
 
 def get_table():
     """Get or create DynamoDB Table resource (connection reuse)."""
     global _table
     if _table is None:
-        dynamodb = boto3.resource("dynamodb")
-        _table = dynamodb.Table(TABLE_NAME)
+        resource = get_dynamo_resource()
+        _table = resource.Table(TABLE_NAME)
     return _table
+
+
+def ensure_table_exists() -> None:
+    """Ensure the DynamoDB table exists, provisioning PK/SK and GSI indexes if needed."""
+    client = get_dynamo_client()
+    try:
+        client.describe_table(TableName=TABLE_NAME)
+        logger.info(f"DynamoDB table '{TABLE_NAME}' verified and ready.")
+        return
+    except Exception as e:
+        err_msg = str(e)
+        if "ResourceNotFoundException" not in err_msg and "Cannot find table" not in err_msg:
+            # If it's another error, log warning and attempt create
+            logger.warning(f"Note during describe_table check: {err_msg}")
+
+    logger.info(f"Creating DynamoDB table '{TABLE_NAME}' with GSI1 and GSI2...")
+    try:
+        client.create_table(
+            TableName=TABLE_NAME,
+            KeySchema=[
+                {"AttributeName": "PK", "KeyType": "HASH"},
+                {"AttributeName": "SK", "KeyType": "RANGE"},
+            ],
+            AttributeDefinitions=[
+                {"AttributeName": "PK", "AttributeType": "S"},
+                {"AttributeName": "SK", "AttributeType": "S"},
+                {"AttributeName": "GSI1PK", "AttributeType": "S"},
+                {"AttributeName": "GSI1SK", "AttributeType": "S"},
+                {"AttributeName": "GSI2PK", "AttributeType": "S"},
+                {"AttributeName": "GSI2SK", "AttributeType": "S"},
+            ],
+            GlobalSecondaryIndexes=[
+                {
+                    "IndexName": GSI1,
+                    "KeySchema": [
+                        {"AttributeName": "GSI1PK", "KeyType": "HASH"},
+                        {"AttributeName": "GSI1SK", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {"ProjectionType": "ALL"},
+                },
+                {
+                    "IndexName": GSI2,
+                    "KeySchema": [
+                        {"AttributeName": "GSI2PK", "KeyType": "HASH"},
+                        {"AttributeName": "GSI2SK", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {"ProjectionType": "ALL"},
+                },
+            ],
+            BillingMode="PAY_PER_REQUEST",
+        )
+        logger.info(f"DynamoDB table '{TABLE_NAME}' created successfully.")
+    except Exception as create_err:
+        if "ResourceInUseException" in str(create_err):
+            logger.info(f"DynamoDB table '{TABLE_NAME}' was already created concurrently.")
+        else:
+            logger.error(f"Failed to create DynamoDB table: {create_err}")
+            raise
 
 
 # ============================================================
@@ -46,6 +139,7 @@ def put_item_unique(
 ) -> dict[str, Any]:
     """Put an item only if PK+SK doesn't exist (prevent overwrites)."""
     from botocore.exceptions import ClientError
+
     from shared.exceptions import ConflictError
 
     table = get_table()
@@ -61,7 +155,7 @@ def put_item_unique(
     return item
 
 
-def get_item(pk: str, sk: str) -> Optional[dict[str, Any]]:
+def get_item(pk: str, sk: str) -> dict[str, Any] | None:
     """Get a single item by PK and SK."""
     table = get_table()
     response = table.get_item(Key={"PK": pk, "SK": sk})
@@ -83,7 +177,7 @@ def update_item(
     pk: str,
     sk: str,
     updates: dict[str, Any],
-    condition: Optional[str] = None,
+    condition: str | None = None,
 ) -> dict[str, Any]:
     """Update specific attributes of an item."""
     table = get_table()
@@ -124,12 +218,12 @@ def delete_item(pk: str, sk: str) -> None:
 
 def query_items(
     pk: str,
-    sk_prefix: Optional[str] = None,
-    sk_between: Optional[tuple[str, str]] = None,
-    index_name: Optional[str] = None,
-    limit: Optional[int] = None,
+    sk_prefix: str | None = None,
+    sk_between: tuple[str, str] | None = None,
+    index_name: str | None = None,
+    limit: int | None = None,
     scan_forward: bool = True,
-    exclusive_start_key: Optional[dict] = None,
+    exclusive_start_key: dict | None = None,
 ) -> dict[str, Any]:
     """
     Query items with flexible SK conditions.
@@ -178,8 +272,8 @@ def query_items(
 
 def query_all(
     pk: str,
-    sk_prefix: Optional[str] = None,
-    index_name: Optional[str] = None,
+    sk_prefix: str | None = None,
+    index_name: str | None = None,
     scan_forward: bool = True,
 ) -> list[dict[str, Any]]:
     """Query all items matching the condition (handles pagination)."""
@@ -207,8 +301,7 @@ def batch_get_items(keys: list[dict[str, str]]) -> list[dict[str, Any]]:
     if not keys:
         return []
 
-    table = get_table()
-    dynamodb = boto3.resource("dynamodb")
+    dynamodb = get_dynamo_resource()
 
     items = []
     # DynamoDB batch_get limit is 100

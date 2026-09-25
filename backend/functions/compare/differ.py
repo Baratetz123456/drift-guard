@@ -9,7 +9,6 @@ import difflib
 import re
 from typing import Any
 
-
 # Commands that produce tabular output — preserve spacing
 TABULAR_COMMANDS = [
     "show ip interface brief",
@@ -89,10 +88,10 @@ def generate_diff(pre_output: str, post_output: str, command: str) -> dict[str, 
 
     # Count added/removed (skip header lines)
     lines_added = sum(
-        1 for l in diff_lines if l.startswith("+") and not l.startswith("+++")
+        1 for line in diff_lines if line.startswith("+") and not line.startswith("+++")
     )
     lines_removed = sum(
-        1 for l in diff_lines if l.startswith("-") and not l.startswith("---")
+        1 for line in diff_lines if line.startswith("-") and not line.startswith("---")
     )
 
     return {

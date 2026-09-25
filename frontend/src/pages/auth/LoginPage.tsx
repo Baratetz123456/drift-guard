@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '../../store/useAppStore';
 import { Button } from '../../components/common/Button';
+import { CaptchaVerification } from '../../components/auth/CaptchaVerification';
 import { AuthVisualShowcase } from '../../components/auth/AuthVisualShowcase';
 import {
   Lock,
   EnvelopeSimple,
   SignIn,
-  Lightning,
   Eye,
   EyeSlash,
   ShieldCheck,
+  WarningCircle,
 } from '@phosphor-icons/react';
 import { usePageMetadata } from '../../hooks/usePageMetadata';
 import { BrandLogo } from '../../components/common/BrandLogo';
+import { CopyrightFooter } from '../../components/common/CopyrightFooter';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,11 +27,54 @@ export const LoginPage: React.FC = () => {
     robots: 'index, follow',
   });
 
-  const { login, isAuthenticated } = useAppStore();
+  const { login, isAuthenticated, addToast } = useAppStore();
   const [email, setEmail] = useState('operator@driftguard.local');
   const [password, setPassword] = useState('••••••••••••');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Bot Defense States & On-Demand Reveal
+  const mountTimeRef = useRef<number>(Date.now());
+  const [honeypotValue, setHoneypotValue] = useState('');
+  const [showCaptcha, setShowCaptcha] = useState(false);
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [expectedCaptcha, setExpectedCaptcha] = useState('');
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+
+  // Helper to check session-authenticated operator identity
+  const isOperatorKnownInSession = (targetEmail: string): boolean => {
+    try {
+      const raw = sessionStorage.getItem('driftguard_session_operators');
+      const known: string[] = raw ? JSON.parse(raw) : [];
+      return known.includes(targetEmail.trim().toLowerCase());
+    } catch {
+      return false;
+    }
+  };
+
+  const recordOperatorInSession = (targetEmail: string) => {
+    try {
+      const clean = targetEmail.trim().toLowerCase();
+      const raw = sessionStorage.getItem('driftguard_session_operators');
+      const known: string[] = raw ? JSON.parse(raw) : [];
+      if (!known.includes(clean)) {
+        known.push(clean);
+        sessionStorage.setItem('driftguard_session_operators', JSON.stringify(known));
+      }
+    } catch {}
+  };
+
+  // Lockout countdown timer
+  React.useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutSeconds((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutSeconds]);
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -39,21 +84,60 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
-    setIsLoading(true);
-    try {
-      await login(email, password);
-      navigate('/');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    setErrorMessage(null);
+    setCaptchaError(null);
 
-  const handleDemoLogin = async () => {
+    if (lockoutSeconds > 0) {
+      setErrorMessage(`Account locked due to consecutive failed attempts. Wait ${lockoutSeconds}s before retrying.`);
+      return;
+    }
+
+    if (!email.trim() || !password) return;
+
+    // 1. Honeypot check
+    if (honeypotValue.trim()) {
+      setErrorMessage('Automated submission rejected. Bot signature detected.');
+      return;
+    }
+
+    const isKnown = isOperatorKnownInSession(email);
+
+    // 2. On-demand CAPTCHA trigger: only require for new user in this browser session
+    if (!isKnown && !showCaptcha) {
+      setShowCaptcha(true);
+      mountTimeRef.current = Date.now(); // Reset timing clock so operator has natural reading/typing time
+      return;
+    }
+
+    // 3. CAPTCHA verification check (if active for new operator)
+    if (!isKnown && showCaptcha) {
+      const elapsed = Date.now() - mountTimeRef.current;
+      if (elapsed < 500) {
+        setErrorMessage('Submission speed indicates automated submission. Please verify credentials.');
+        return;
+      }
+
+      if (!captchaInput.trim() || captchaInput.trim().toUpperCase() !== expectedCaptcha.toUpperCase()) {
+        setCaptchaError('Invalid verification code. Please enter the characters shown in the image.');
+        setErrorMessage('Verification failed. Please enter the correct CAPTCHA code.');
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
-      await login('network-architect@enterprise.net', 'demo-password');
+      await login(email, password, honeypotValue, mountTimeRef.current);
+      recordOperatorInSession(email);
       navigate('/');
+    } catch (err: any) {
+      const nextFailed = failedAttempts + 1;
+      setFailedAttempts(nextFailed);
+      if (nextFailed >= 5) {
+        setLockoutSeconds(60);
+        setErrorMessage('Too many failed sign-in attempts. Authentication locked for 60 seconds.');
+      } else {
+        setErrorMessage(err.message || 'Authentication failed. Please verify credentials.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -82,8 +166,29 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
 
+          {/* Error / Lockout Banner */}
+          {errorMessage && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2 animate-in fade-in duration-200">
+              <WarningCircle className="w-4 h-4 shrink-0" weight="fill" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           {/* Form directly on canvas — zero card wrapping */}
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Honeypot Trap Field: Invisible to legitimate human users */}
+            <div style={{ display: 'none', position: 'absolute', opacity: 0, zIndex: -1 }}>
+              <label htmlFor="operator_verification_code">Operator Code</label>
+              <input
+                id="operator_verification_code"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypotValue}
+                onChange={(e) => setHoneypotValue(e.target.value)}
+              />
+            </div>
+
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-zinc-300">
                 Corporate email or Cognito ID
@@ -135,25 +240,36 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Interactive Visual CAPTCHA Verification: Revealed on-demand for unverified operators */}
+            {showCaptcha && (
+              <div className="pt-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                <CaptchaVerification
+                  userInput={captchaInput}
+                  onUserInputChange={(val) => {
+                    setCaptchaInput(val);
+                    if (captchaError) setCaptchaError(null);
+                  }}
+                  onCodeChange={(code) => {
+                    setExpectedCaptcha(code);
+                    setCaptchaError(null);
+                  }}
+                  hasError={Boolean(captchaError)}
+                  errorMessage={captchaError}
+                />
+              </div>
+            )}
+
             <div className="pt-2 space-y-3">
               <Button
                 type="submit"
                 variant="primary"
                 isLoading={isLoading}
+                disabled={lockoutSeconds > 0}
                 leftIcon={<SignIn className="w-4 h-4" weight="bold" />}
                 className="w-full py-2.5 text-sm font-bold shadow-md shadow-[#c8ff00]/10"
               >
-                Sign in
+                {lockoutSeconds > 0 ? `Locked (${lockoutSeconds}s)` : 'Sign in'}
               </Button>
-
-              <button
-                type="button"
-                onClick={handleDemoLogin}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-850 text-zinc-200 border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer"
-              >
-                <Lightning className="w-4 h-4 text-[#c8ff00]" weight="fill" />
-                <span>Demo login</span>
-              </button>
             </div>
           </form>
 
@@ -165,15 +281,7 @@ export const LoginPage: React.FC = () => {
                 Register
               </Link>
             </div>
-            <div className="flex items-center justify-center gap-3 text-xs text-zinc-400">
-              <Link to="/terms" className="hover:text-zinc-200 transition-colors">
-                Terms of service
-              </Link>
-              <span>•</span>
-              <Link to="/privacy" className="hover:text-zinc-200 transition-colors">
-                Privacy policy
-              </Link>
-            </div>
+            <CopyrightFooter variant="auth" />
           </div>
 
           {/* Micro Security Notice */}
