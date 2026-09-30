@@ -442,84 +442,110 @@ export const CollectPage: React.FC = () => {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    await Promise.all(
-      targetsToExecute.map(async (dev) => {
-        try {
-          setParallelProgress((prev) => ({
-            ...prev,
-            [dev.deviceId]: {
-              ...prev[dev.deviceId],
-              status: 'executing',
-            },
-          }));
+    const MAX_CONCURRENCY = 10;
+    const batchId = `batch-${collectScope === 'group' ? selectedGroupId : 'custom'}-${Date.now().toString(36)}`;
+    const effectiveGroupId = collectScope === 'group' ? selectedGroupId : undefined;
 
-          const res = await fetch('/api/collect', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              deviceId: dev.deviceId,
-              deviceName: dev.name,
-              hostname: dev.hostname,
-              port: dev.port || 22,
-              deviceType: dev.deviceType,
-              username: dev.username,
-              password: dev.password,
-              commands: selectedSet.commands,
-              snapshotType,
-              changeTicket: ticketNumber,
-              notes: `${notes} [Batch Parallel Capture]`,
-            }),
-          });
+    const runWorker = async (dev: Device) => {
+      const targetStartTime = Date.now();
+      try {
+        setParallelProgress((prev) => ({
+          ...prev,
+          [dev.deviceId]: {
+            ...prev[dev.deviceId],
+            status: 'executing',
+          },
+        }));
 
-          const data = await res.json();
-          if (!res.ok || (data.status !== 'SUCCESS' && !data.success)) {
-            throw new Error(data.detail || data.error || data.message || 'Live SSH capture failed');
-          }
-
-          const snap = addSnapshot({
+        const res = await fetch('/api/collect', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
             deviceId: dev.deviceId,
             deviceName: dev.name,
-            deviceHostname: dev.hostname,
+            hostname: dev.hostname,
+            port: dev.port || 22,
             deviceType: dev.deviceType,
-            snapshotType,
+            username: dev.username,
+            password: dev.password,
             commands: selectedSet.commands,
-            outputs: data.outputs || {},
+            snapshotType,
             changeTicket: ticketNumber,
             notes: `${notes} [Batch Parallel Capture]`,
-          });
-          createdSnapshots.push(snap.snapshotId);
+            groupId: effectiveGroupId,
+            batchId,
+          }),
+        });
 
-          setParallelProgress((prev) => ({
-            ...prev,
-            [dev.deviceId]: {
-              ...prev[dev.deviceId],
-              status: 'completed',
-              snapshotId: snap.snapshotId,
-              error: undefined,
-            },
-          }));
-
-          setTerminalLogs((prev) => [
-            ...prev,
-            `[SUCCESS] Snapshot ${snap.snapshotId} generated for ${dev.name} and committed to vault`,
-          ]);
-        } catch (err: any) {
-          const errMsg = err?.message || 'SSH connection failed';
-          setParallelProgress((prev) => ({
-            ...prev,
-            [dev.deviceId]: {
-              ...prev[dev.deviceId],
-              status: 'failed',
-              error: errMsg,
-            },
-          }));
-          setTerminalLogs((prev) => [
-            ...prev,
-            `[ERROR] Failed collection for ${dev.name}: ${errMsg}`,
-          ]);
+        const data = await res.json();
+        if (!res.ok || (data.status !== 'SUCCESS' && !data.success)) {
+          throw new Error(data.detail || data.error || data.message || 'Live SSH capture failed');
         }
-      })
-    );
+
+        const durationMs = data.durationMs || (Date.now() - targetStartTime);
+
+        const snap = addSnapshot({
+          deviceId: dev.deviceId,
+          deviceName: dev.name,
+          deviceHostname: dev.hostname,
+          deviceType: dev.deviceType,
+          snapshotType,
+          commands: selectedSet.commands,
+          outputs: data.outputs || {},
+          changeTicket: ticketNumber,
+          notes: `${notes} [Batch Parallel Capture]`,
+          groupId: effectiveGroupId,
+          batchId,
+        });
+        createdSnapshots.push(snap.snapshotId);
+
+        setParallelProgress((prev) => ({
+          ...prev,
+          [dev.deviceId]: {
+            ...prev[dev.deviceId],
+            status: 'completed',
+            snapshotId: snap.snapshotId,
+            latencyMs: durationMs,
+            error: undefined,
+          },
+        }));
+
+        setTerminalLogs((prev) => [
+          ...prev,
+          `[SUCCESS] Snapshot ${snap.snapshotId} generated for ${dev.name} (${durationMs}ms) and committed to vault`,
+        ]);
+      } catch (err: any) {
+        const durationMs = Date.now() - targetStartTime;
+        const errMsg = err?.message || 'SSH connection failed';
+        setParallelProgress((prev) => ({
+          ...prev,
+          [dev.deviceId]: {
+            ...prev[dev.deviceId],
+            status: 'failed',
+            latencyMs: durationMs,
+            error: errMsg,
+          },
+        }));
+        setTerminalLogs((prev) => [
+          ...prev,
+          `[ERROR] Failed collection for ${dev.name}: ${errMsg}`,
+        ]);
+      }
+    };
+
+    // Controlled 10-worker pool: keep at most 10 active tasks at any moment
+    const activeWorkers: Promise<void>[] = [];
+    for (const dev of targetsToExecute) {
+      const p = runWorker(dev).then(() => {
+        const idx = activeWorkers.indexOf(p);
+        if (idx !== -1) activeWorkers.splice(idx, 1);
+      });
+      activeWorkers.push(p);
+      if (activeWorkers.length >= MAX_CONCURRENCY) {
+        await Promise.race(activeWorkers);
+      }
+    }
+    await Promise.all(activeWorkers);
 
     setCurrentStep(4);
     setCompletedSnapshotIds((prev) => {

@@ -242,18 +242,18 @@ export const PrintableAIReport: React.FC<PrintableAIReportProps> = ({
             <tr>
               <td className="p-1.5 border-r border-zinc-300 font-bold text-zinc-950">Telemetry Scope</td>
               <td className="p-1.5 border-r border-zinc-300">
-                {preSnapshot?.commands.length || comparison?.diffSummary.totalCommands || 3} show commands
+                {preSnapshot?.commands.length || comparison?.diffSummary?.totalCommands || 3} show commands
               </td>
               <td className="p-1.5 border-r border-zinc-300">
-                {postSnapshot?.commands.length || comparison?.diffSummary.totalCommands || 3} show commands
+                {postSnapshot?.commands.length || comparison?.diffSummary?.totalCommands || 3} show commands
               </td>
               <td className="p-1.5">
                 <span className="text-[#4d7c0f] font-bold">
-                  +{comparison?.diffSummary.totalAdditions || 0}
+                  +{comparison?.diffSummary?.totalAdditions || 0}
                 </span>
                 {' / '}
                 <span className="text-rose-700 font-bold">
-                  -{comparison?.diffSummary.totalDeletions || 0}
+                  -{comparison?.diffSummary?.totalDeletions || 0}
                 </span>
                 {' line deltas'}
               </td>

@@ -73,6 +73,8 @@ export interface Snapshot {
   timestamp: string;
   changeTicket?: string;
   notes?: string;
+  groupId?: string;
+  batchId?: string;
 }
 
 export interface DiffLine {
@@ -106,7 +108,7 @@ export interface Comparison {
   postSnapshotId: string;
   preTimestamp: string;
   postTimestamp: string;
-  diffSummary: {
+  diffSummary?: {
     totalCommands: number;
     changedCommands: number;
     identicalCommands: number;

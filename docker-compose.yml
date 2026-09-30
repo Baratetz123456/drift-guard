@@ -43,4 +43,22 @@ services:
       - ./backend:/app
     depends_on:
       - dynamodb-local
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  driftguard-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: driftguard-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      driftguard-backend:
+        condition: service_healthy
     restart: unless-stopped

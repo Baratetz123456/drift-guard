@@ -257,9 +257,27 @@ export const HistoryPage: React.FC = () => {
 
                       <td className="px-5 py-3.5 font-mono">
                         <div className="flex items-center gap-2">
-                          <span className="text-zinc-300">{cmp.diffSummary.changedCommands} cmds</span>
-                          <span className="text-[#c8ff00] font-bold">+{cmp.diffSummary.totalAdditions}</span>
-                          <span className="text-red-400 font-bold">-{cmp.diffSummary.totalDeletions}</span>
+                          <span className="text-zinc-300">
+                            {cmp.diffSummary?.changedCommands ??
+                              (Array.isArray(cmp.commandDiffs)
+                                ? cmp.commandDiffs.filter((d: any) => d?.hasDiff || (d?.linesAdded || d?.additions || 0) > 0 || (d?.linesDeleted || d?.deletions || 0) > 0).length
+                                : Object.values(cmp.commandDiffs || {}).filter((d: any) => d?.hasDiff || (d?.linesAdded ?? 0) > 0 || (d?.linesDeleted ?? 0) > 0).length
+                              )} cmds
+                          </span>
+                          <span className="text-[#c8ff00] font-bold">
+                            +{cmp.diffSummary?.totalAdditions ??
+                              (Array.isArray(cmp.commandDiffs)
+                                ? cmp.commandDiffs.reduce((acc: number, d: any) => acc + (d?.linesAdded || d?.additions || 0), 0)
+                                : Object.values(cmp.commandDiffs || {}).reduce((acc: number, d: any) => acc + (d?.linesAdded ?? d?.additions ?? 0), 0)
+                              )}
+                          </span>
+                          <span className="text-red-400 font-bold">
+                            -{cmp.diffSummary?.totalDeletions ??
+                              (Array.isArray(cmp.commandDiffs)
+                                ? cmp.commandDiffs.reduce((acc: number, d: any) => acc + (d?.linesDeleted || d?.deletions || 0), 0)
+                                : Object.values(cmp.commandDiffs || {}).reduce((acc: number, d: any) => acc + (d?.linesDeleted ?? d?.deletions ?? 0), 0)
+                              )}
+                          </span>
                         </div>
                       </td>
 

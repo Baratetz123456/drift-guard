@@ -735,7 +735,28 @@ export const useAppStore = create<AppState>((set, get) => ({
         deviceType: c.deviceType || c.driver || 'cisco_xe',
       }));
       const loadedSnapshots = snapRes?.snapshots || loadUserStoredItems<Snapshot[]>('snapshots', isDemoUser ? initialSnapshots : [], currentUserId);
-      const loadedComparisons = compRes?.comparisons || loadUserStoredItems<Comparison[]>('comparisons', isDemoUser ? initialComparisons : [], currentUserId);
+      const rawComparisons = compRes?.comparisons || loadUserStoredItems<Comparison[]>('comparisons', isDemoUser ? initialComparisons : [], currentUserId);
+      const loadedComparisons = (rawComparisons || []).map((cmp: any) => {
+        const cmdDiffs = cmp.commandDiffs || {};
+        const isArray = Array.isArray(cmdDiffs);
+        const diffList = isArray ? cmdDiffs : Object.values(cmdDiffs);
+        const changedCount = diffList.filter((d: any) => d?.hasDiff || (d?.linesAdded || d?.additions || 0) > 0 || (d?.linesDeleted || d?.deletions || 0) > 0).length;
+        const addCount = diffList.reduce((acc: number, d: any) => acc + (d?.linesAdded || d?.additions || 0), 0);
+        const delCount = diffList.reduce((acc: number, d: any) => acc + (d?.linesDeleted || d?.deletions || 0), 0);
+        const totalCmds = isArray ? cmdDiffs.length : Object.keys(cmdDiffs).length;
+
+        return {
+          ...cmp,
+          commandDiffs: isArray ? {} : (cmdDiffs || {}),
+          diffSummary: cmp.diffSummary || {
+            totalCommands: totalCmds,
+            changedCommands: changedCount,
+            identicalCommands: Math.max(0, totalCmds - changedCount),
+            totalAdditions: addCount,
+            totalDeletions: delCount,
+          },
+        };
+      });
       const loadedModels = loadStoredAIModels(currentUserId);
       const activeLoaded = loadedModels.find((m) => m.isActive) || loadedModels[0];
       const baseSettings = setRes || loadUserStoredItems<UserSettings>('settings', initialSettings, currentUserId);

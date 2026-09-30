@@ -449,6 +449,8 @@ def list_snapshots(user_id: str, device_id: str | None = None) -> list[dict[str,
             "snapshotType": item.get("snapshotType", "baseline"),
             "changeTicket": item.get("changeTicket", ""),
             "notes": item.get("notes", ""),
+            "groupId": item.get("groupId"),
+            "batchId": item.get("batchId"),
             "commands": item.get("commands", []),
             "outputs": item.get("outputs", {}),
             "createdAt": item.get("createdAt", get_utc_now_iso()),
@@ -476,6 +478,8 @@ def create_snapshot(user_id: str, data: dict[str, Any]) -> dict[str, Any]:
         "snapshotType": data.get("snapshotType", "baseline"),
         "changeTicket": data.get("changeTicket", ""),
         "notes": data.get("notes", ""),
+        "groupId": data.get("groupId"),
+        "batchId": data.get("batchId"),
         "commands": data.get("commands", []),
         "outputs": data.get("outputs", {}),
         "createdAt": now_iso,
@@ -500,6 +504,34 @@ def delete_snapshot(user_id: str, snapshot_id: str) -> bool:
 # COMPARISONS & DIFFS
 # =============================================================================
 
+def _compute_diff_summary(item_or_data: dict[str, Any]) -> dict[str, Any]:
+    existing = item_or_data.get("diffSummary")
+    if isinstance(existing, dict) and "changedCommands" in existing:
+        return existing
+
+    diffs = item_or_data.get("commandDiffs", [])
+    if isinstance(diffs, list):
+        changed = sum(1 for d in diffs if isinstance(d, dict) and (d.get("hasDiff") or d.get("linesAdded", 0) > 0 or d.get("linesDeleted", 0) > 0))
+        additions = sum(d.get("linesAdded", 0) or d.get("additions", 0) for d in diffs if isinstance(d, dict))
+        deletions = sum(d.get("linesDeleted", 0) or d.get("deletions", 0) for d in diffs if isinstance(d, dict))
+        total = len(diffs)
+    elif isinstance(diffs, dict):
+        changed = sum(1 for d in diffs.values() if isinstance(d, dict) and (d.get("hasDiff") or d.get("linesAdded", 0) > 0 or d.get("linesDeleted", 0) > 0))
+        additions = sum(d.get("linesAdded", 0) or d.get("additions", 0) for d in diffs.values() if isinstance(d, dict))
+        deletions = sum(d.get("linesDeleted", 0) or d.get("deletions", 0) for d in diffs.values() if isinstance(d, dict))
+        total = len(diffs)
+    else:
+        changed = additions = deletions = total = 0
+
+    return {
+        "totalCommands": total,
+        "changedCommands": changed,
+        "identicalCommands": max(0, total - changed),
+        "totalAdditions": additions,
+        "totalDeletions": deletions,
+    }
+
+
 def list_comparisons(user_id: str) -> list[dict[str, Any]]:
     """List comparisons for a user."""
     items = dynamo.query_all(
@@ -516,6 +548,7 @@ def list_comparisons(user_id: str) -> list[dict[str, Any]]:
             "preSnapshotId": item.get("preSnapshotId", ""),
             "postSnapshotId": item.get("postSnapshotId", ""),
             "changeLabel": item.get("changeLabel", ""),
+            "diffSummary": _compute_diff_summary(item),
             "commandDiffs": item.get("commandDiffs", []),
             "createdAt": item.get("createdAt", get_utc_now_iso()),
         })
@@ -526,6 +559,7 @@ def create_comparison(user_id: str, data: dict[str, Any]) -> dict[str, Any]:
     """Store a comparison diff item in DynamoDB."""
     cmp_id = data.get("comparisonId") or f"cmp-{uuid.uuid4().hex[:8]}"
     now_iso = get_utc_now_iso()
+    diff_summary = _compute_diff_summary(data)
 
     item = {
         "PK": f"USER#{user_id}",
@@ -539,6 +573,7 @@ def create_comparison(user_id: str, data: dict[str, Any]) -> dict[str, Any]:
         "preSnapshotId": data.get("preSnapshotId", ""),
         "postSnapshotId": data.get("postSnapshotId", ""),
         "changeLabel": data.get("changeLabel", ""),
+        "diffSummary": diff_summary,
         "commandDiffs": data.get("commandDiffs", []),
         "createdAt": now_iso,
     }

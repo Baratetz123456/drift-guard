@@ -7,6 +7,7 @@ per-user tenant data isolation, multi-layer bot defense, and abuse quota enforce
 from __future__ import annotations
 
 import base64
+import concurrent.futures
 import hashlib
 import json
 import logging
@@ -239,10 +240,23 @@ class CollectRequest(BaseModel):
     username: str | None = None
     password: str | None = None
     enableSecret: str | None = None
-    commands: list[str]
+    commands: list[str] = []
     snapshotType: str | None = "baseline"
     changeTicket: str | None = None
     notes: str | None = None
+    groupId: str | None = None
+    batchId: str | None = None
+
+
+class BatchCollectRequest(BaseModel):
+    groupId: str | None = None
+    batchId: str | None = None
+    devices: list[CollectRequest]
+    commands: list[str] | None = None
+    snapshotType: str | None = "baseline"
+    changeTicket: str | None = None
+    notes: str | None = None
+    maxConcurrency: int | None = 10
 
 
 class CompareRequest(BaseModel):
@@ -702,29 +716,53 @@ def get_user_history(user_id: str = Depends(extract_user_id)):
 
 
 
-@app.post("/collect")
-@app.post("/api/collect")
-def run_collection_endpoint(req: CollectRequest, user_id: str = Depends(extract_user_id)):
-    """Execute show commands over SSH with daily quota check and database persistence."""
-    # Enforce Daily Collection Quota (100 / day)
+def _collect_single_device_target(
+    user_id: str,
+    target: CollectRequest,
+    default_commands: list[str] | None = None,
+    default_snapshot_type: str | None = "baseline",
+    default_ticket: str | None = None,
+    default_notes: str | None = None,
+    group_id: str | None = None,
+    batch_id: str | None = None,
+    timeout: int = 30,
+) -> dict[str, Any]:
+    """Execute SSH collection for a single device target with quota enforcement and snapshot archiving."""
+    start_time = time.time()
+    cmds = target.commands if (target.commands and len(target.commands) > 0) else (default_commands or [])
+    if not cmds:
+        return {
+            "success": False,
+            "status": "FAILED",
+            "deviceId": target.deviceId or "dev-unknown",
+            "deviceName": target.deviceName or target.hostname or "unknown",
+            "error": "No show commands specified for collection.",
+            "durationMs": 0,
+        }
+
+    # Daily collection quota enforcement
     allowed, count, quota = dynamo_store.check_and_increment_quota(user_id, "collect")
     if not allowed:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Daily collection quota exceeded: Max {quota} collections per day utilized. Quota resets at 00:00 UTC.",
-        )
+        return {
+            "success": False,
+            "status": "FAILED",
+            "deviceId": target.deviceId or "dev-unknown",
+            "deviceName": target.deviceName or target.hostname or "unknown",
+            "error": f"Daily collection quota exceeded: Max {quota} collections per day utilized. Quota resets at 00:00 UTC.",
+            "durationMs": 0,
+        }
 
-    # Auto-hydrate credentials from DynamoDB if deviceId is provided
-    host = req.hostname
-    port = req.port or 22
-    platform = req.deviceType or "cisco_xe"
-    username = req.username
-    password = req.password
-    secret = req.enableSecret
-    dev_name = req.deviceName or req.hostname
+    # Hydrate target credentials from DynamoDB if deviceId is provided
+    host = target.hostname
+    port = target.port or 22
+    platform = target.deviceType or "cisco_xe"
+    username = target.username
+    password = target.password
+    secret = target.enableSecret
+    dev_name = target.deviceName or target.hostname
 
-    if req.deviceId:
-        stored_device = dynamo_store.get_device(user_id, req.deviceId)
+    if target.deviceId:
+        stored_device = dynamo_store.get_device(user_id, target.deviceId)
         if stored_device:
             host = host or stored_device.get("hostname")
             port = port or stored_device.get("port") or 22
@@ -735,14 +773,24 @@ def run_collection_endpoint(req: CollectRequest, user_id: str = Depends(extract_
             dev_name = dev_name or stored_device.get("name")
 
     if not host:
-        raise HTTPException(status_code=400, detail="Missing target hostname for collection.")
+        return {
+            "success": False,
+            "status": "FAILED",
+            "deviceId": target.deviceId or "dev-unknown",
+            "deviceName": dev_name or "unknown",
+            "error": "Missing target hostname for collection.",
+            "durationMs": 0,
+        }
     if not username or not password:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Missing SSH credentials for network target '{host}'. Configure credentials in Device settings.",
-        )
+        return {
+            "success": False,
+            "status": "FAILED",
+            "deviceId": target.deviceId or "dev-unknown",
+            "deviceName": dev_name or "unknown",
+            "error": f"Missing SSH credentials for network target '{host}'. Configure credentials in Device settings.",
+            "durationMs": 0,
+        }
 
-    start_time = time.time()
     try:
         outputs = execute_ssh_collection(
             host=host,
@@ -750,26 +798,33 @@ def run_collection_endpoint(req: CollectRequest, user_id: str = Depends(extract_
             platform=platform,
             username=username,
             password=password,
-            commands=req.commands,
+            commands=cmds,
             secret=secret,
+            timeout=timeout,
         )
         duration_ms = round((time.time() - start_time) * 1000)
+        snap_type = target.snapshotType or default_snapshot_type or "baseline"
+        ticket = target.changeTicket or default_ticket
+        notes_val = target.notes or default_notes
+        grp = target.groupId or group_id
+        bat = target.batchId or batch_id
 
         # Save snapshot in DynamoDB
-        snap_id = f"snap-{req.snapshotType or 'base'}-{uuid.uuid4().hex[:6]}"
-
+        snap_id = f"snap-{snap_type}-{uuid.uuid4().hex[:6]}"
         dynamo_store.create_snapshot(
             user_id=user_id,
             data={
                 "snapshotId": snap_id,
-                "deviceId": req.deviceId or "dev-unknown",
+                "deviceId": target.deviceId or "dev-unknown",
                 "deviceName": dev_name,
                 "deviceHostname": host,
                 "deviceType": platform,
-                "snapshotType": req.snapshotType or "baseline",
-                "changeTicket": req.changeTicket,
-                "notes": req.notes,
-                "commands": req.commands,
+                "snapshotType": snap_type,
+                "changeTicket": ticket,
+                "notes": notes_val,
+                "groupId": grp,
+                "batchId": bat,
+                "commands": cmds,
                 "outputs": outputs,
             },
         )
@@ -780,27 +835,128 @@ def run_collection_endpoint(req: CollectRequest, user_id: str = Depends(extract_
             action="COLLECT",
             target=dev_name,
             result="SUCCESS",
-            details=f"Captured {len(req.commands)} commands in {duration_ms}ms",
+            details=f"Captured {len(cmds)} commands in {duration_ms}ms" + (f" [Batch: {bat}]" if bat else ""),
         )
 
         return {
             "success": True,
             "status": "SUCCESS",
             "snapshotId": snap_id,
-            "deviceId": req.deviceId or "dev-unknown",
+            "deviceId": target.deviceId or "dev-unknown",
             "deviceName": dev_name,
+            "deviceHostname": host,
+            "deviceType": platform,
             "durationMs": duration_ms,
-            "commands": req.commands,
+            "commands": cmds,
             "outputs": outputs,
-            "remainingDailyQuota": quota - count,
+            "groupId": grp,
+            "batchId": bat,
+            "remainingDailyQuota": max(0, quota - count),
         }
-    except HTTPException:
-        raise
     except Exception as e:
         duration_ms = round((time.time() - start_time) * 1000)
         err_msg = f"{type(e).__name__}: {e!s}"
         logger.error(f"Collection FAILED for {host}: {err_msg}")
-        raise HTTPException(status_code=500, detail=f"SSH Collection failure: {err_msg}")
+        dynamo_store.add_audit_log(
+            user_id=user_id,
+            action="COLLECT",
+            target=dev_name,
+            result="FAILED",
+            details=f"Failed in {duration_ms}ms: {err_msg}",
+        )
+        return {
+            "success": False,
+            "status": "FAILED",
+            "deviceId": target.deviceId or "dev-unknown",
+            "deviceName": dev_name,
+            "deviceHostname": host,
+            "deviceType": platform,
+            "durationMs": duration_ms,
+            "error": err_msg,
+        }
+
+
+@app.post("/collect")
+@app.post("/api/collect")
+def run_collection_endpoint(req: CollectRequest, user_id: str = Depends(extract_user_id)):
+    """Execute show commands over SSH with daily quota check and database persistence."""
+    settings = dynamo_store.get_user_settings(user_id) or {}
+    timeout = settings.get("defaultTimeoutSeconds") or 30
+    res = _collect_single_device_target(user_id=user_id, target=req, timeout=timeout)
+    if not res.get("success"):
+        err = res.get("error", "Collection failed")
+        status_code = 429 if "quota exceeded" in err.lower() else (400 if "missing" in err.lower() else 500)
+        raise HTTPException(status_code=status_code, detail=err)
+    return res
+
+
+@app.post("/collect/batch")
+@app.post("/api/collect/batch")
+def run_batch_collection_endpoint(req: BatchCollectRequest, user_id: str = Depends(extract_user_id)):
+    """Execute show commands across a group of network devices in parallel with 10-worker pool throttling."""
+    settings = dynamo_store.get_user_settings(user_id) or {}
+    timeout = settings.get("defaultTimeoutSeconds") or 30
+    batch_id = req.batchId or f"batch-{req.groupId or 'grp'}-{uuid.uuid4().hex[:6]}"
+    max_workers = min(max(1, req.maxConcurrency or 10), 10)
+
+    start_time = time.time()
+    results = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_dev = {
+            executor.submit(
+                _collect_single_device_target,
+                user_id=user_id,
+                target=dev,
+                default_commands=req.commands,
+                default_snapshot_type=req.snapshotType,
+                default_ticket=req.changeTicket,
+                default_notes=req.notes,
+                group_id=req.groupId,
+                batch_id=batch_id,
+                timeout=timeout,
+            ): dev
+            for dev in req.devices
+        }
+        for future in concurrent.futures.as_completed(future_to_dev):
+            dev = future_to_dev[future]
+            try:
+                res = future.result()
+                results.append(res)
+            except Exception as exc:
+                results.append({
+                    "success": False,
+                    "status": "FAILED",
+                    "deviceId": dev.deviceId or "dev-unknown",
+                    "deviceName": dev.deviceName or dev.hostname or "unknown",
+                    "durationMs": 0,
+                    "error": str(exc),
+                })
+
+    duration_ms = round((time.time() - start_time) * 1000)
+    successful = sum(1 for r in results if r.get("status") == "SUCCESS")
+    failed = len(results) - successful
+
+    dynamo_store.add_audit_log(
+        user_id=user_id,
+        action="BATCH_COLLECT",
+        target=req.groupId or f"Batch ({len(req.devices)} targets)",
+        result="SUCCESS" if failed == 0 else ("PARTIAL" if successful > 0 else "FAILED"),
+        details=f"Parallel capture: {successful} successful, {failed} failed in {duration_ms}ms (concurrency: {max_workers})",
+    )
+
+    return {
+        "success": successful > 0,
+        "status": "SUCCESS" if failed == 0 else ("PARTIAL_SUCCESS" if successful > 0 else "FAILED"),
+        "batchId": batch_id,
+        "groupId": req.groupId,
+        "totalTargets": len(req.devices),
+        "successfulCount": successful,
+        "failedCount": failed,
+        "durationMs": duration_ms,
+        "maxConcurrency": max_workers,
+        "results": results,
+    }
 
 
 @app.get("/compare")
