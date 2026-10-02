@@ -37,6 +37,17 @@ jobs:
         working-directory: backend
         run: ruff check .
 
+      - name: Start DynamoDB Local Container
+        run: |
+          docker run -d -p 8000:8000 --name dynamodb-local amazon/dynamodb-local:latest -jar DynamoDBLocal.jar -inMemory -sharedDb
+          for i in {1..30}; do
+            if curl -s http://localhost:8000; then
+              echo "DynamoDB Local container ready!"
+              break
+            fi
+            sleep 1
+          done
+
       - name: Test — pytest
         working-directory: backend
         run: pytest tests/ -v --tb=short

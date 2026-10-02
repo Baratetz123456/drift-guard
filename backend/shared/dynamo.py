@@ -73,6 +73,9 @@ def ensure_table_exists() -> None:
         return
     except Exception as e:
         err_msg = str(e)
+        if "Could not connect" in err_msg or "Connection refused" in err_msg or "EndpointConnectionError" in type(e).__name__:
+            logger.error(f"Cannot connect to DynamoDB endpoint '{DYNAMODB_ENDPOINT_URL}': {err_msg}")
+            raise
         if "ResourceNotFoundException" not in err_msg and "Cannot find table" not in err_msg:
             # If it's another error, log warning and attempt create
             logger.warning(f"Note during describe_table check: {err_msg}")
