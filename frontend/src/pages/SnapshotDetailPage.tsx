@@ -19,6 +19,12 @@ import {
   Printer,
   DownloadSimple,
 } from '@phosphor-icons/react';
+import { ExportDropdown } from '../components/common/ExportDropdown';
+import {
+  exportSingleSnapshotExcel,
+  exportSingleSnapshotCsv,
+  exportSingleSnapshotJson,
+} from '../utils/snapshotExporter';
 
 export const SnapshotDetailPage: React.FC = () => {
   const { snapshotId } = useParams<{ snapshotId: string }>();
@@ -131,15 +137,21 @@ export const SnapshotDetailPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            leftIcon={<DownloadSimple className="w-4 h-4" weight="bold" />}
-            onClick={handleExportJson}
-          >
-            Export
-          </Button>
+          <ExportDropdown
+            label="Export"
+            onExportExcel={() => {
+              exportSingleSnapshotExcel(snapshot);
+              addToast('success', `Snapshot ${snapshot.snapshotId} exported to Excel (.xlsx)`);
+            }}
+            onExportCsv={() => {
+              exportSingleSnapshotCsv(snapshot);
+              addToast('success', `Snapshot ${snapshot.snapshotId} exported to CSV (.csv)`);
+            }}
+            onExportJson={() => {
+              exportSingleSnapshotJson(snapshot);
+              addToast('info', `Snapshot ${snapshot.snapshotId} exported as JSON`);
+            }}
+          />
           <Button
             type="button"
             variant="secondary"

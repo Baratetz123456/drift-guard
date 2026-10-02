@@ -3,19 +3,8 @@ Database-backed Authentication & Password Verification Unit Tests.
 Validates DynamoDB user profile retrieval, PBKDF2 hashing, lockout state, and 401 rejection.
 """
 
-import os
-import sys
 import unittest
-from unittest.mock import MagicMock, patch
-
-# Ensure backend directory and vendor directory are in python path
-BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if BACKEND_DIR not in sys.path:
-    sys.path.insert(0, BACKEND_DIR)
-
-VENDOR_DIR = os.path.join(BACKEND_DIR, "vendor")
-if os.path.isdir(VENDOR_DIR) and VENDOR_DIR not in sys.path:
-    sys.path.insert(0, VENDOR_DIR)
+from unittest.mock import patch
 
 from shared import dynamo_store
 
