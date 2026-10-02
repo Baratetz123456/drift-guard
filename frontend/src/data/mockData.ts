@@ -483,8 +483,8 @@ export const initialAnalyses: AIAnalysis[] = [
     deviceId: 'dev-001',
     overallRisk: 'High',
     riskScore: 78,
-    summary: 'AI analysis suggests potential BGP peer session drop to AS65002 and inadvertent administrative shutdown of GigabitEthernet0/0/2, resulting in a loss of 42 routing prefixes. Senior engineer verification required before change approval.',
-    executiveSummary: 'Maintenance activity CHG-998214 successfully brought up VLAN 300 and TenGigabitEthernet0/1/1. However, peer 10.200.1.6 (AS65002) transitioned from Established (42 prefixes) into an "Active" (TCP SYN failed) state. Concurrently, GigabitEthernet0/0/2 was placed into administratively down status, causing routing table degradation from 247 subnets down to 204 subnets. Senior engineer verification required before closing change window.',
+    summary: 'AI analysis suggests potential BGP peer session drop to AS65002 and inadvertent administrative shutdown of GigabitEthernet0/0/2, resulting in a loss of 42 routing prefixes. Engineer verification required before change approval.',
+    executiveSummary: 'Maintenance activity CHG-998214 successfully brought up VLAN 300 and TenGigabitEthernet0/1/1. However, peer 10.200.1.6 (AS65002) transitioned from Established (42 prefixes) into an "Active" (TCP SYN failed) state. Concurrently, GigabitEthernet0/0/2 was placed into administratively down status, causing routing table degradation from 247 subnets down to 204 subnets. Engineer verification required before closing change window.',
     findings: [
       {
         title: 'BGP Peer Flapped & Stuck in Active State',
@@ -520,7 +520,7 @@ export const initialAnalyses: AIAnalysis[] = [
       },
     ],
     suggestedRollbackPlan: `# Advisory Remediation Runbook
-# Senior engineer verification required prior to script execution.
+# Engineer verification required prior to script execution.
 
 1. Re-enable interface:
    configure terminal

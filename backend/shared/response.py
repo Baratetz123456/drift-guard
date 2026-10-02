@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def success(
     body: Any = None,
     status_code: int = 200,
-    headers: Optional[dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
 ) -> dict:
     """Build a successful API Gateway response."""
     response = {
@@ -55,7 +55,7 @@ def no_content() -> dict:
 def error(
     message: str,
     status_code: int = 500,
-    details: Optional[dict] = None,
+    details: dict | None = None,
 ) -> dict:
     """Build an error API Gateway response."""
     body = {"error": message}
@@ -88,8 +88,8 @@ def from_exception(exc: Exception) -> dict:
 
 def paginated(
     items: list,
-    last_key: Optional[dict] = None,
-    count: Optional[int] = None,
+    last_key: dict | None = None,
+    count: int | None = None,
 ) -> dict:
     """Build a paginated response with items and optional next token."""
     import base64
@@ -122,7 +122,7 @@ def parse_pagination(event: dict) -> dict:
             result["exclusiveStartKey"] = json.loads(
                 base64.b64decode(next_token).decode()
             )
-        except Exception:
-            pass
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Invalid pagination nextToken ignored: {e}")
 
     return result

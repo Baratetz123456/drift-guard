@@ -6,7 +6,6 @@ Uses Netmiko for device connectivity with per-command error isolation.
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any
 
 from shared import dynamo, kms, s3
@@ -101,7 +100,7 @@ class WorkerService:
 
                     except Exception as cmd_error:
                         logger.warning(f"Command '{cmd}' failed: {cmd_error}")
-                        errors.append(f"{cmd}: {str(cmd_error)}")
+                        errors.append(f"{cmd}: {cmd_error!s}")
                         command_outputs[cmd] = {
                             "error": str(cmd_error),
                             "sizeBytes": 0,

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '../../store/useAppStore';
 import { Button } from '../../components/common/Button';
+import { CaptchaVerification } from '../../components/auth/CaptchaVerification';
 import { AuthVisualShowcase } from '../../components/auth/AuthVisualShowcase';
 import {
   User,
@@ -11,9 +12,12 @@ import {
   Eye,
   EyeSlash,
   ShieldCheck,
+  WarningCircle,
 } from '@phosphor-icons/react';
 import { usePageMetadata } from '../../hooks/usePageMetadata';
 import { BrandLogo } from '../../components/common/BrandLogo';
+import { CopyrightFooter } from '../../components/common/CopyrightFooter';
+import { Checkbox } from '../../components/common/Checkbox';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,6 +36,15 @@ export const RegisterPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Bot Defense States & On-Demand Reveal
+  const mountTimeRef = useRef<number>(Date.now());
+  const [honeypotValue, setHoneypotValue] = useState('');
+  const [showCaptcha, setShowCaptcha] = useState(false);
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [expectedCaptcha, setExpectedCaptcha] = useState('');
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -41,11 +54,52 @@ export const RegisterPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || !name || !agreedToTerms) return;
+    setErrorMessage(null);
+    setCaptchaError(null);
+
+    if (!name.trim() || !email.trim() || !password || !agreedToTerms) return;
+
+    // 1. Honeypot check
+    if (honeypotValue.trim()) {
+      setErrorMessage('Automated registration rejected. Bot signature detected.');
+      return;
+    }
+
+    // 2. On-demand CAPTCHA trigger on submission
+    if (!showCaptcha) {
+      setShowCaptcha(true);
+      mountTimeRef.current = Date.now(); // Reset timing clock so operator has natural reading/typing time
+      return;
+    }
+
+    // 3. CAPTCHA verification check
+    const elapsed = Date.now() - mountTimeRef.current;
+    if (elapsed < 500) {
+      setErrorMessage('Submission speed indicates automated bot registration. Please verify details.');
+      return;
+    }
+
+    if (!captchaInput.trim() || captchaInput.trim().toUpperCase() !== expectedCaptcha.toUpperCase()) {
+      setCaptchaError('Invalid verification code. Please enter the characters shown in the image.');
+      setErrorMessage('Verification failed. Please enter the correct CAPTCHA code.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await register(name, email, password);
+      await register(name, email, password, honeypotValue, mountTimeRef.current);
+      try {
+        const clean = email.trim().toLowerCase();
+        const raw = sessionStorage.getItem('driftguard_session_operators');
+        const known: string[] = raw ? JSON.parse(raw) : [];
+        if (!known.includes(clean)) {
+          known.push(clean);
+          sessionStorage.setItem('driftguard_session_operators', JSON.stringify(known));
+        }
+      } catch {}
       navigate('/');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -74,8 +128,29 @@ export const RegisterPage: React.FC = () => {
             </p>
           </div>
 
+          {/* Error Banner */}
+          {errorMessage && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2 animate-in fade-in duration-200">
+              <WarningCircle className="w-4 h-4 shrink-0" weight="fill" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           {/* Form directly on canvas — zero card wrapping */}
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Honeypot Trap Field */}
+            <div style={{ display: 'none', position: 'absolute', opacity: 0, zIndex: -1 }}>
+              <label htmlFor="operator_verification_code">Operator Code</label>
+              <input
+                id="operator_verification_code"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypotValue}
+                onChange={(e) => setHoneypotValue(e.target.value)}
+              />
+            </div>
+
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-zinc-300">
                 Full name
@@ -135,36 +210,51 @@ export const RegisterPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Interactive Visual CAPTCHA Verification: Revealed on-demand for registration */}
+            {showCaptcha && (
+              <div className="pt-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                <CaptchaVerification
+                  userInput={captchaInput}
+                  onUserInputChange={(val) => {
+                    setCaptchaInput(val);
+                    if (captchaError) setCaptchaError(null);
+                  }}
+                  onCodeChange={(code) => {
+                    setExpectedCaptcha(code);
+                    setCaptchaError(null);
+                  }}
+                  hasError={Boolean(captchaError)}
+                  errorMessage={captchaError}
+                />
+              </div>
+            )}
+
             {/* Terms and Privacy Policy Checkbox Agreement */}
-            <div className="flex items-start gap-2.5 pt-1">
-              <input
-                type="checkbox"
+            <div className="pt-1">
+              <Checkbox
                 id="terms-agreement"
                 required
                 checked={agreedToTerms}
                 onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-[#c8ff00] focus:ring-[#c8ff00]/40 focus:ring-offset-0 cursor-pointer accent-[#c8ff00]"
+                label={
+                  <span className="font-normal text-zinc-400">
+                    I agree to the{' '}
+                    <Link
+                      to="/terms"
+                      className="text-zinc-200 hover:text-[#c8ff00] underline font-semibold transition-colors"
+                    >
+                      Terms of service
+                    </Link>{' '}
+                    and{' '}
+                    <Link
+                      to="/privacy"
+                      className="text-zinc-200 hover:text-[#c8ff00] underline font-semibold transition-colors"
+                    >
+                      Privacy policy
+                    </Link>
+                  </span>
+                }
               />
-              <label
-                htmlFor="terms-agreement"
-                className="text-xs text-zinc-400 leading-normal select-none cursor-pointer"
-              >
-                I agree to the{' '}
-                <Link
-                  to="/terms"
-                  className="text-zinc-200 hover:text-[#c8ff00] underline font-semibold transition-colors"
-                >
-                  Terms of service
-                </Link>{' '}
-                and{' '}
-                <Link
-                  to="/privacy"
-                  className="text-zinc-200 hover:text-[#c8ff00] underline font-semibold transition-colors"
-                >
-                  Privacy policy
-                </Link>
-                .
-              </label>
             </div>
 
             <div className="pt-2">
@@ -193,15 +283,7 @@ export const RegisterPage: React.FC = () => {
                 Sign in
               </Link>
             </div>
-            <div className="flex items-center justify-center gap-3 text-xs text-zinc-400">
-              <Link to="/terms" className="hover:text-zinc-200 transition-colors">
-                Terms of service
-              </Link>
-              <span>•</span>
-              <Link to="/privacy" className="hover:text-zinc-200 transition-colors">
-                Privacy policy
-              </Link>
-            </div>
+            <CopyrightFooter variant="auth" />
           </div>
 
           {/* Micro Security Notice */}

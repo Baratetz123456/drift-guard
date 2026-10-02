@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Device, Snapshot, DeviceType } from '../types';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import { Select } from '../components/common/Select';
+import { Checkbox } from '../components/common/Checkbox';
 import { DateRangeFilter, DateRangeValue, isWithinDateRange } from '../components/common/DateRangeFilter';
 import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
 import {
@@ -24,6 +26,9 @@ import {
   Ticket,
   ShieldCheck,
   CaretRight,
+  Sparkle,
+  XCircle,
+  CircleNotch,
 } from '@phosphor-icons/react';
 
 export const ComparePage: React.FC = () => {
@@ -32,10 +37,67 @@ export const ComparePage: React.FC = () => {
   const queryPre = searchParams.get('preSnapId');
   const queryPost = searchParams.get('postSnapId');
 
-  const { devices, snapshots, createComparison } = useAppStore();
+  const { devices, snapshots, createComparison, runAIAnalysis, settings, aiModels, testAiConnection, addToast } = useAppStore();
+
+  const activeModel = useMemo(
+    () => aiModels.find((m) => m.isActive) || aiModels[0] || null,
+    [aiModels]
+  );
 
   // Active step in the 3-step guided flow
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
+  const [autoRunAi, setAutoRunAi] = useState(false);
+  const [isLaunching, setIsLaunching] = useState(false);
+
+  // AI model availability test state in Step 3
+  const [aiAvailability, setAiAvailability] = useState<{
+    testing: boolean;
+    available: boolean | null;
+    latencyMs?: number;
+    model: string;
+    message?: string;
+  }>({
+    testing: false,
+    available: null,
+    model: activeModel?.modelIdentifier || settings.defaultModel || 'google/gemini-2.0-flash-lite:free',
+  });
+
+  const checkAiModelStatus = async (targetModel?: string) => {
+    const currentActive = aiModels.find((m) => m.isActive) || aiModels[0];
+    const modelToTest = targetModel || currentActive?.modelIdentifier || settings.defaultModel || 'google/gemini-2.0-flash-lite:free';
+    const apiKey = currentActive?.apiKey || settings.apiKey;
+    const baseUrl = currentActive?.baseUrl || settings.aiBaseUrl;
+
+    setAiAvailability({
+      testing: true,
+      available: null,
+      model: modelToTest,
+    });
+    try {
+      const res = await testAiConnection(modelToTest, apiKey, baseUrl);
+      setAiAvailability({
+        testing: false,
+        available: res.success,
+        latencyMs: res.latencyMs,
+        model: modelToTest,
+        message: res.message,
+      });
+    } catch (err: any) {
+      setAiAvailability({
+        testing: false,
+        available: false,
+        model: modelToTest,
+        message: err.message || 'Model unreachable',
+      });
+    }
+  };
+
+  // Event trigger: Automatically test AI model connection when redirected or navigated to Step 3 (Review & compare tab)
+  useEffect(() => {
+    if (activeStep === 3) {
+      checkAiModelStatus();
+    }
+  }, [activeStep, activeModel?.id, activeModel?.modelIdentifier, settings.defaultModel]);
 
   // Selected device
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
@@ -164,13 +226,23 @@ export const ComparePage: React.FC = () => {
   };
 
   // Step 3: Run compare
-  const handleLaunchComparison = () => {
+  const handleLaunchComparison = async () => {
     if (!preSnapId || !postSnapId) return;
+    setIsLaunching(true);
     try {
       const cmp = createComparison(preSnapId, postSnapId);
+      if (autoRunAi) {
+        try {
+          await runAIAnalysis(cmp.comparisonId);
+        } catch (err: any) {
+          console.error('AI Analysis background compilation warning:', err);
+        }
+      }
       navigate(`/analysis/comparisons/${cmp.comparisonId}`);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLaunching(false);
     }
   };
 
@@ -193,11 +265,11 @@ export const ComparePage: React.FC = () => {
     <div className="space-y-6 font-sans">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
           <GitDiff className="w-6 h-6 text-zinc-300" weight="duotone" />
           <span>Visual Diff & Timeline Comparison</span>
         </h1>
-        <p className="text-sm text-zinc-400 mt-1">
+        <p className="text-xs text-zinc-400 mt-1">
           Follow the 3-step operational workflow to select a network node, isolate change timeline points, and analyze configuration drift.
         </p>
       </div>
@@ -208,29 +280,29 @@ export const ComparePage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveStep(1)}
-          className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 ${
+          className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
             activeStep === 1
-              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg'
+              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg ring-1 ring-[#c8ff00]/30'
               : selectedDevice
               ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700'
               : 'bg-zinc-950/40 border-zinc-900 text-zinc-500'
           }`}
         >
           <div
-            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
-              selectedDevice && activeStep !== 1
-                ? 'bg-[#c8ff00] text-zinc-950'
-                : activeStep === 1
-                ? 'bg-[#c8ff00] text-zinc-950'
-                : 'bg-zinc-800 text-zinc-400'
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${
+              activeStep === 1
+                ? 'bg-[#c8ff00] text-zinc-950 shadow-sm'
+                : selectedDevice && activeStep > 1
+                ? 'bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30'
+                : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
             }`}
           >
-            {selectedDevice && activeStep !== 1 ? <Check className="w-4 h-4" weight="bold" /> : '1'}
+            {selectedDevice && activeStep > 1 ? <Check className="w-4 h-4" weight="bold" /> : '1'}
           </div>
           <div className="truncate">
-            <div className="text-sm font-bold leading-tight">1. Choose Device</div>
-            <div className="text-xs text-zinc-300 truncate mt-0.5">
-              {selectedDevice ? selectedDevice.name : '100 nodes in inventory'}
+            <div className="text-sm font-bold leading-tight text-white">1. Choose Device</div>
+            <div className="text-xs text-zinc-400 truncate mt-1">
+              {selectedDevice ? `${selectedDevice.name} (${selectedDevice.hostname})` : `${devices.length} nodes in inventory`}
             </div>
           </div>
         </button>
@@ -240,38 +312,38 @@ export const ComparePage: React.FC = () => {
           type="button"
           disabled={!selectedDevice}
           onClick={() => selectedDevice && setActiveStep(2)}
-          className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3 ${
+          className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
             !selectedDevice
               ? 'bg-zinc-950/40 border-zinc-900 text-zinc-600 opacity-60 cursor-not-allowed'
               : activeStep === 2
-              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg cursor-pointer'
+              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg ring-1 ring-[#c8ff00]/30'
               : preSnapshot && postSnapshot
-              ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700 cursor-pointer'
-              : 'bg-zinc-900/30 border-zinc-800 text-zinc-400 cursor-pointer'
+              ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+              : 'bg-zinc-900/30 border-zinc-800 text-zinc-400'
           }`}
         >
           <div
-            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
-              preSnapshot && postSnapshot && activeStep !== 2
-                ? 'bg-[#c8ff00] text-zinc-950'
-                : activeStep === 2
-                ? 'bg-[#c8ff00] text-zinc-950'
-                : 'bg-zinc-800 text-zinc-400'
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${
+              activeStep === 2
+                ? 'bg-[#c8ff00] text-zinc-950 shadow-sm'
+                : preSnapshot && postSnapshot && activeStep > 2
+                ? 'bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30'
+                : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
             }`}
           >
-            {preSnapshot && postSnapshot && activeStep !== 2 ? (
+            {preSnapshot && postSnapshot && activeStep > 2 ? (
               <Check className="w-4 h-4" weight="bold" />
             ) : (
               '2'
             )}
           </div>
           <div className="truncate">
-            <div className="text-sm font-bold leading-tight">2. Select Timeline</div>
-            <div className="text-xs text-zinc-300 truncate mt-0.5">
+            <div className="text-sm font-bold leading-tight text-white">2. Select Timeline</div>
+            <div className="text-xs text-zinc-400 truncate mt-1">
               {preSnapshot && postSnapshot
-                ? 'Pre & Post points selected'
+                ? `${preSnapshot.snapshotId} ➔ ${postSnapshot.snapshotId}`
                 : selectedDevice
-                ? 'Pick baseline & verification'
+                ? `${deviceSnapshots.length} snapshot points recorded`
                 : 'Requires device selection'}
             </div>
           </div>
@@ -282,28 +354,32 @@ export const ComparePage: React.FC = () => {
           type="button"
           disabled={!preSnapshot || !postSnapshot}
           onClick={() => preSnapshot && postSnapshot && setActiveStep(3)}
-          className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3 ${
+          className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
             !preSnapshot || !postSnapshot
               ? 'bg-zinc-950/40 border-zinc-900 text-zinc-600 opacity-60 cursor-not-allowed'
               : activeStep === 3
-              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg cursor-pointer'
-              : 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700 cursor-pointer'
+              ? 'bg-zinc-900 border-[#c8ff00] text-white shadow-lg ring-1 ring-[#c8ff00]/30'
+              : 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700'
           }`}
         >
           <div
-            className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${
               activeStep === 3
-                ? 'bg-[#c8ff00] text-zinc-950'
+                ? 'bg-[#c8ff00] text-zinc-950 shadow-sm'
                 : preSnapshot && postSnapshot
-                ? 'bg-zinc-800 text-zinc-300'
-                : 'bg-zinc-800 text-zinc-600'
+                ? 'bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30'
+                : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
             }`}
           >
-            3
+            {preSnapshot && postSnapshot && activeStep !== 3 ? (
+              <Check className="w-4 h-4" weight="bold" />
+            ) : (
+              '3'
+            )}
           </div>
           <div className="truncate">
-            <div className="text-sm font-bold leading-tight">3. Review & Compare</div>
-            <div className="text-xs text-zinc-300 truncate mt-0.5">
+            <div className="text-sm font-bold leading-tight text-white">3. Review & Compare</div>
+            <div className="text-xs text-zinc-400 truncate mt-1">
               {preSnapshot && postSnapshot ? 'Ready to compare diff' : 'Pending snapshot selection'}
             </div>
           </div>
@@ -334,15 +410,15 @@ export const ComparePage: React.FC = () => {
             {/* Filters */}
             <div className="flex items-center gap-2.5 flex-wrap">
               {/* Platform */}
-              <div className="flex items-center gap-2 text-sm text-zinc-300 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2">
-                <Funnel className="w-4 h-4 text-zinc-400" />
-                <select
+              <div className="w-36">
+                <Select
+                  size="sm"
+                  icon={<Funnel className="w-3.5 h-3.5 text-zinc-500" />}
                   value={devicePlatformFilter}
                   onChange={(e) => {
                     setDevicePlatformFilter(e.target.value);
                     setDevicePage(1);
                   }}
-                  className="bg-transparent border-none text-sm text-zinc-200 focus:outline-none cursor-pointer"
                 >
                   <option value="ALL">All Drivers</option>
                   {CISCO_DEVICE_PLATFORMS.map((p) => (
@@ -350,22 +426,24 @@ export const ComparePage: React.FC = () => {
                       {p.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               {/* Status */}
-              <select
-                value={deviceStatusFilter}
-                onChange={(e) => {
-                  setDeviceStatusFilter(e.target.value);
-                  setDevicePage(1);
-                }}
-                className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-zinc-600 cursor-pointer"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="ONLINE">Online Only</option>
-                <option value="OFFLINE">Offline Only</option>
-              </select>
+              <div className="w-36">
+                <Select
+                  size="sm"
+                  value={deviceStatusFilter}
+                  onChange={(e) => {
+                    setDeviceStatusFilter(e.target.value);
+                    setDevicePage(1);
+                  }}
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="ONLINE">Online Only</option>
+                  <option value="OFFLINE">Offline Only</option>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -465,10 +543,10 @@ export const ComparePage: React.FC = () => {
       {/* ========================================================================= */}
       {activeStep === 2 && selectedDevice && (
         <div className="space-y-4">
-          {/* Selected Device Context Card */}
-          <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+          {/* Selected Device Context Header */}
+          <div className="pb-4 border-b border-zinc-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-zinc-800/80 border border-zinc-700/80 flex items-center justify-center shrink-0">
                 <HardDrives className="w-5 h-5 text-zinc-300" weight="duotone" />
               </div>
               <div>
@@ -510,7 +588,7 @@ export const ComparePage: React.FC = () => {
           </div>
 
           {/* Date Range Selector */}
-          <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40">
+          <div className="py-2">
             <DateRangeFilter
               value={dateRange}
               onChange={(newRange) => {
@@ -536,18 +614,20 @@ export const ComparePage: React.FC = () => {
               />
             </div>
 
-            <select
-              value={stageFilter}
-              onChange={(e) => {
-                setStageFilter(e.target.value);
-                setTimelinePage(1);
-              }}
-              className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-zinc-600 cursor-pointer"
-            >
-              <option value="ALL">All Stages</option>
-              <option value="PRE">Pre-Change Only</option>
-              <option value="POST">Post-Change Only</option>
-            </select>
+            <div className="w-40">
+              <Select
+                size="sm"
+                value={stageFilter}
+                onChange={(e) => {
+                  setStageFilter(e.target.value);
+                  setTimelinePage(1);
+                }}
+              >
+                <option value="ALL">All Stages</option>
+                <option value="PRE">Pre-Change Only</option>
+                <option value="POST">Post-Change Only</option>
+              </Select>
+            </div>
           </div>
 
           {/* Chronological Snapshot Table */}
@@ -701,10 +781,10 @@ export const ComparePage: React.FC = () => {
       {/* STEP 3: REVIEW & COMPARE PRE-CHECK                                        */}
       {/* ========================================================================= */}
       {activeStep === 3 && preSnapshot && postSnapshot && (
-        <div className="space-y-6 w-full">
-          {/* Side-by-Side Comparison Pre-check Card */}
-          <div className="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div className="space-y-6 w-full pt-1">
+          {/* Side-by-Side Comparison Pre-check */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-4">
               <div>
                 <h2 className="text-xl font-bold text-white">Review Comparison Specifications</h2>
                 <p className="text-sm text-zinc-300 mt-1">
@@ -761,12 +841,96 @@ export const ComparePage: React.FC = () => {
             </div>
 
             {/* Read-Only Safety Pre-check Banner */}
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950/80 flex items-center justify-between text-sm">
+            <div className="p-3.5 rounded-xl bg-zinc-900/40 border border-zinc-800/60 flex items-center justify-between text-sm">
               <div className="flex items-center gap-2 text-zinc-200">
                 <ShieldCheck className="w-5 h-5 text-[#c8ff00]" weight="fill" />
                 <span>DriftGuard verified: Both snapshots contain read-only Cisco show telemetry.</span>
               </div>
               <span className="font-mono text-[#c8ff00] font-bold text-sm">100% Safe</span>
+            </div>
+
+            {/* Auto-run Drift Analysis & Real-Time Model Availability */}
+            <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/60 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#c8ff00]/10 border border-[#c8ff00]/20 flex items-center justify-center shrink-0">
+                    <Sparkle className="w-4 h-4 text-[#c8ff00]" weight="fill" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-white flex items-center gap-2">
+                      <span>Auto-run Drift Analysis</span>
+                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                        {settings.hasApiKey || activeModel?.apiKey ? 'Model Configured' : 'Key Required'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-zinc-400">
+                      Automatically evaluate operational risk and generate remediation runbook upon comparison creation.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={autoRunAi}
+                    onChange={(e) => setAutoRunAi(e.target.checked)}
+                  />
+                </div>
+              </div>
+
+              {/* Model Live Availability Status Strip */}
+              <div className="pt-2.5 border-t border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-zinc-500">Inference Engine:</span>
+                  <span className="text-zinc-200 font-bold">
+                    {activeModel?.name || (aiAvailability.model?.includes('gemini') || aiAvailability.model?.includes('free') ? 'DriftGuard Verification Engine' : aiAvailability.model)}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-zinc-800/80 border border-zinc-700/60 text-zinc-300 font-mono text-[10px]">
+                    {activeModel?.modelIdentifier || aiAvailability.model}
+                  </span>
+                  {activeModel?.baseUrl && !activeModel.isDefault && (
+                    <span className="text-[10px] text-zinc-500 hidden md:inline truncate max-w-[180px]" title={activeModel.baseUrl}>
+                      {activeModel.baseUrl.replace(/^https?:\/\//, '')}
+                    </span>
+                  )}
+                  <span className="text-zinc-600">•</span>
+                  {aiAvailability.testing ? (
+                    <span className="flex items-center gap-1.5 text-zinc-400">
+                      <CircleNotch className="w-3.5 h-3.5 animate-spin text-[#c8ff00]" />
+                      Testing connection...
+                    </span>
+                  ) : aiAvailability.available ? (
+                    <span className="flex items-center gap-1 text-[#c8ff00]">
+                      <CheckCircle className="w-3.5 h-3.5" weight="fill" />
+                      Available
+                      {typeof aiAvailability.latencyMs === 'number' && (
+                        <span className="text-zinc-400">({aiAvailability.latencyMs}ms)</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-rose-400">
+                      <XCircle className="w-3.5 h-3.5" weight="fill" />
+                      Offline: {aiAvailability.message || 'Unavailable'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => checkAiModelStatus()}
+                    disabled={aiAvailability.testing}
+                    className="text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer underline text-[11px]"
+                  >
+                    Re-test
+                  </button>
+                  <Link
+                    to="/settings"
+                    className="text-zinc-400 hover:text-[#c8ff00] transition-colors text-[11px] underline"
+                  >
+                    Manage Models
+                  </Link>
+                </div>
+              </div>
             </div>
 
             {/* Navigation & Launch */}
@@ -785,10 +949,11 @@ export const ComparePage: React.FC = () => {
                 type="button"
                 variant="primary"
                 size="sm"
-                leftIcon={<GitDiff className="w-4 h-4" weight="bold" />}
+                disabled={isLaunching}
+                leftIcon={<GitDiff className={`w-4 h-4 ${isLaunching ? 'animate-spin' : ''}`} weight="bold" />}
                 onClick={handleLaunchComparison}
               >
-                Compare
+                {isLaunching ? 'Processing...' : 'Compare'}
               </Button>
             </div>
           </div>

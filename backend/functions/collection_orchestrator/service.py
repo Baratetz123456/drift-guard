@@ -6,19 +6,18 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import boto3
 
 from shared import dynamo
 from shared.audit import log_action
-from shared.constants import EntityPrefix, GSI1, STATE_MACHINE_ARN
+from shared.constants import GSI1, STATE_MACHINE_ARN, EntityPrefix
 from shared.exceptions import ConflictError, ValidationError
 from shared.models import (
     CreateCollectionRequest,
-    CollectionJobResponse,
-    JobStatus,
     DeviceCollectionStatus,
+    JobStatus,
     generate_id,
     utc_now,
 )
@@ -171,7 +170,7 @@ class OrchestratorService:
     def list_jobs(
         self,
         user_id: str,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 20,
     ) -> list[dict[str, Any]]:
         """List collection jobs, optionally filtered by status."""
@@ -230,7 +229,7 @@ class OrchestratorService:
         except Exception as e:
             logger.warning(f"Failed to stop SFN execution: {e}")
 
-        updated = dynamo.update_item(
+        dynamo.update_item(
             pk,
             sk,
             {

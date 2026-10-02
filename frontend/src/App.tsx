@@ -16,6 +16,7 @@ import { ComparisonDetailPage } from './pages/ComparisonDetailPage';
 import { AuditLogDetailPage } from './pages/AuditLogDetailPage';
 import { OperationsPage } from './pages/OperationsPage';
 import { AnalysisPage } from './pages/AnalysisPage';
+import { PrintableReportPage } from './pages/PrintableReportPage';
 
 export const App: React.FC = () => {
   return (
@@ -29,6 +30,11 @@ export const App: React.FC = () => {
 
         {/* Protected Dashboard & App routes */}
         <Route element={<ProtectedRoute />}>
+          {/* Standalone 1:1 Actual-Size White Canvas Document View (Completely isolated from app layout) */}
+          <Route path="reports/audit/ledger" element={<PrintableReportPage />} />
+          <Route path="reports/:type/:id" element={<PrintableReportPage />} />
+          <Route path="reports/:analysisId" element={<PrintableReportPage />} />
+
           <Route path="/" element={<Layout />}>
             {/* 4 Primary Operational Phases */}
             <Route index element={<DashboardPage />} />

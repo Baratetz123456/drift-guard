@@ -5,15 +5,14 @@ Routes: GET /snapshots, GET /snapshots/{snapshotId}, DELETE /snapshots/{snapshot
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from shared.auth import get_user_id
 from shared import dynamo, s3
-from shared.constants import EntityPrefix, GSI1
-from shared.response import success, no_content, from_exception
+from shared.auth import get_user_id
+from shared.constants import GSI1, EntityPrefix
 from shared.exceptions import DeltaNetError
+from shared.response import from_exception, no_content, success
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -56,8 +55,8 @@ def lambda_handler(event: dict, context) -> dict:
 
 def _list_snapshots(
     user_id: str,
-    device_id: Optional[str] = None,
-    label: Optional[str] = None,
+    device_id: str | None = None,
+    label: str | None = None,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
     """List snapshots filtered by device and/or label."""
@@ -126,7 +125,7 @@ def _delete_snapshot(user_id: str, snapshot_sk: str) -> None:
 
     # Collect S3 keys
     s3_keys = []
-    for cmd, meta in item.get("commandOutputs", {}).items():
+    for meta in item.get("commandOutputs", {}).values():
         if isinstance(meta, dict) and "s3Key" in meta:
             s3_keys.append(meta["s3Key"])
 

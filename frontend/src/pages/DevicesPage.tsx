@@ -7,6 +7,8 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import { Select } from '../components/common/Select';
+import { Checkbox } from '../components/common/Checkbox';
 import { CISCO_DEVICE_PLATFORMS } from '../utils/ciscoSyntaxValidator';
 import { validateIpAddress, validateDeviceType, validateConnectionType } from '../utils/networkValidator';
 import {
@@ -184,8 +186,8 @@ export const DevicesPage: React.FC = () => {
       const password = parts[4] || '';
       const rawConnectionType = parts[5] || '';
 
-      // 1. Live IP Syntax Validator
-      const ipValidation = validateIpAddress(ipAddress);
+      // 1. Live IP Syntax Validator (Optional in bulk import; fallback to Device Name if omitted)
+      const ipValidation = ipAddress ? validateIpAddress(ipAddress) : { isValid: true };
 
       // 2. Live Device Type Availability Validator
       const driverValidation = validateDeviceType(deviceType);
@@ -202,7 +204,7 @@ export const DevicesPage: React.FC = () => {
         errors.push('Missing hostname');
       }
 
-      if (!ipValidation.isValid) {
+      if (ipAddress && !ipValidation.isValid) {
         isValid = false;
         errors.push(ipValidation.error || 'Invalid IP syntax');
       }
@@ -267,11 +269,11 @@ export const DevicesPage: React.FC = () => {
 
   const handleCreateSingleDevice = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.hostname) return;
+    if (!formData.name.trim()) return;
 
     addDevice({
       name: formData.name.trim(),
-      hostname: formData.hostname.trim(),
+      hostname: formData.hostname.trim() || formData.name.trim(),
       port: formData.port,
       deviceType: formData.deviceType,
       authType: 'password',
@@ -304,7 +306,7 @@ export const DevicesPage: React.FC = () => {
     addDevices(
       validItems.map((d) => ({
         name: d.hostname,
-        hostname: d.ipAddress,
+        hostname: d.ipAddress || d.hostname,
         port: d.resolvedPort,
         deviceType: d.normalizedDriver as DeviceType,
         authType: 'password',
@@ -335,14 +337,14 @@ export const DevicesPage: React.FC = () => {
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingDevice || !editFormData.name || !editFormData.hostname) return;
+    if (!editingDevice || !editFormData.name.trim()) return;
 
     setPendingUpdateData({
       deviceId: editingDevice.deviceId,
       name: editFormData.name.trim(),
       updates: {
         name: editFormData.name.trim(),
-        hostname: editFormData.hostname.trim(),
+        hostname: editFormData.hostname.trim() || editFormData.name.trim(),
         port: editFormData.port,
         deviceType: editFormData.deviceType,
         authType: editFormData.authType,
@@ -561,15 +563,15 @@ export const DevicesPage: React.FC = () => {
 
             <div className="flex items-center gap-2">
               {/* Driver Filter */}
-              <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
-                <Funnel className="w-3.5 h-3.5 text-zinc-500" />
-                <select
+              <div className="w-36">
+                <Select
+                  size="sm"
+                  icon={<Funnel className="w-3.5 h-3.5 text-zinc-500" />}
                   value={driverFilter}
                   onChange={(e) => {
                     setDriverFilter(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
                 >
                   <option value="ALL">All Drivers</option>
                   {CISCO_DEVICE_PLATFORMS.map((p) => (
@@ -577,24 +579,24 @@ export const DevicesPage: React.FC = () => {
                       {p.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               {/* Status Filter */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
-                <select
+              <div className="w-32">
+                <Select
+                  size="sm"
                   value={statusFilter}
                   onChange={(e) => {
                     setStatusFilter(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
                 >
                   <option value="ALL">All Statuses</option>
                   <option value="online">Online</option>
                   <option value="offline">Offline</option>
                   <option value="untested">Untested</option>
-                </select>
+                </Select>
               </div>
             </div>
           </div>
@@ -746,24 +748,23 @@ export const DevicesPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5">
-                <Funnel className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="text-xs text-zinc-400">Platform:</span>
-                <select
+              <div className="w-44">
+                <Select
+                  size="sm"
+                  icon={<Funnel className="w-3.5 h-3.5 text-zinc-400" />}
                   value={groupDriverFilter}
                   onChange={(e) => {
                     setGroupDriverFilter(e.target.value);
                     setGroupCurrentPage(1);
                   }}
-                  className="bg-transparent text-xs text-zinc-200 focus:outline-none font-medium cursor-pointer"
                 >
-                  <option value="ALL" className="bg-zinc-900">All Platforms</option>
-                  <option value="cisco_xe" className="bg-zinc-900">Cisco IOS-XE</option>
-                  <option value="cisco_xr" className="bg-zinc-900">Cisco IOS-XR</option>
-                  <option value="cisco_nxos" className="bg-zinc-900">Cisco NX-OS</option>
-                  <option value="cisco_ios" className="bg-zinc-900">Cisco IOS Classic</option>
-                  <option value="cisco_asa" className="bg-zinc-900">Cisco ASA</option>
-                </select>
+                  <option value="ALL">All Platforms</option>
+                  <option value="cisco_xe">Cisco IOS-XE</option>
+                  <option value="cisco_xr">Cisco IOS-XR</option>
+                  <option value="cisco_nxos">Cisco NX-OS</option>
+                  <option value="cisco_ios">Cisco IOS Classic</option>
+                  <option value="cisco_asa">Cisco ASA</option>
+                </Select>
               </div>
 
               <span className="text-xs text-zinc-500 font-mono hidden md:inline">
@@ -968,11 +969,9 @@ export const DevicesPage: React.FC = () => {
                       className="flex items-center justify-between p-2 hover:bg-zinc-900/60 rounded-lg cursor-pointer transition-colors"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={isChecked}
                           onChange={() => handleToggleDeviceInGroup(device.deviceId)}
-                          className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-[#c8ff00] focus:ring-[#c8ff00] cursor-pointer"
                         />
                         <div className="min-w-0">
                           <div className="text-xs font-bold text-zinc-200 truncate">{device.name}</div>
@@ -1075,32 +1074,31 @@ export const DevicesPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                    IP Address or FQDN
+                    IP Address or FQDN (Optional)
                   </label>
                   <input
                     type="text"
-                    required
-                    placeholder="10.200.1.1"
+                    placeholder="e.g. 10.200.1.1 (Defaults to Device Name if empty)"
                     value={formData.hostname}
                     onChange={(e) => setFormData({ ...formData, hostname: e.target.value })}
                     className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-300 mb-1">Device Driver</label>
-                  <select
+                  <Select
+                    label="Device Driver"
+                    size="sm"
                     value={formData.deviceType}
                     onChange={(e) =>
                       setFormData({ ...formData, deviceType: e.target.value as DeviceType })
                     }
-                    className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
                   >
                     {CISCO_DEVICE_PLATFORMS.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
 
@@ -1147,19 +1145,17 @@ export const DevicesPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                    Connection Type
-                  </label>
-                  <select
+                  <Select
+                    label="Connection Type"
+                    size="sm"
                     value={formData.connectionType}
                     onChange={(e) =>
                       handleConnectionTypeChange(e.target.value as 'ssh' | 'telnet')
                     }
-                    className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
                   >
                     <option value="ssh">SSH (Port 22 default)</option>
                     <option value="telnet">Telnet (Port 23 default)</option>
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-zinc-300 mb-1">
@@ -1406,11 +1402,11 @@ export const DevicesPage: React.FC = () => {
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2">
                 <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                  IP Address or FQDN
+                  IP Address or FQDN (Optional)
                 </label>
                 <input
                   type="text"
-                  required
+                  placeholder="e.g. 10.200.1.1 (Defaults to Device Name if empty)"
                   value={editFormData.hostname}
                   onChange={(e) => setEditFormData({ ...editFormData, hostname: e.target.value })}
                   className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"
@@ -1430,25 +1426,26 @@ export const DevicesPage: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1">Device Driver</label>
-                <select
+                <Select
+                  label="Device Driver"
+                  size="sm"
                   value={editFormData.deviceType}
                   onChange={(e) =>
                     setEditFormData({ ...editFormData, deviceType: e.target.value as DeviceType })
                   }
-                  className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
                 >
                   {CISCO_DEVICE_PLATFORMS.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1">Auth Type</label>
-                <select
+                <Select
+                  label="Auth Type"
+                  size="sm"
                   value={editFormData.authType}
                   onChange={(e) =>
                     setEditFormData({
@@ -1456,12 +1453,11 @@ export const DevicesPage: React.FC = () => {
                       authType: e.target.value as 'password' | 'key' | 'secret_arn',
                     })
                   }
-                  className="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
                 >
                   <option value="password">Password (Encrypted)</option>
                   <option value="key">SSH Private Key</option>
                   <option value="secret_arn">Secret Vault Reference</option>
-                </select>
+                </Select>
               </div>
             </div>
 

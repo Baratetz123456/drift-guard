@@ -14,6 +14,7 @@ import {
   Clock,
   HardDrives,
   TerminalWindow,
+  Printer,
 } from '@phosphor-icons/react';
 
 export const AuditLogDetailPage: React.FC = () => {
@@ -84,6 +85,15 @@ export const AuditLogDetailPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            leftIcon={<Printer className="w-4 h-4" weight="bold" />}
+            onClick={() => window.open(`/reports/audit/${log.auditId}`, '_blank')}
+          >
+            Print Report
+          </Button>
           <Button
             type="button"
             variant="secondary"

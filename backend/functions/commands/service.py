@@ -11,9 +11,9 @@ from shared import dynamo
 from shared.constants import EntityPrefix
 from shared.exceptions import ConflictError
 from shared.models import (
+    CommandSetResponse,
     CreateCommandSetRequest,
     UpdateCommandSetRequest,
-    CommandSetResponse,
     generate_id,
     utc_now,
 )

@@ -7,11 +7,10 @@ from __future__ import annotations
 
 import logging
 
-from shared.auth import get_user_id
-from shared.response import success, from_exception
-from shared.exceptions import DeltaNetError
-
 from functions.ai_analyze.service import AIAnalyzeService
+from shared.auth import get_user_id
+from shared.exceptions import DeltaNetError
+from shared.response import from_exception, success
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

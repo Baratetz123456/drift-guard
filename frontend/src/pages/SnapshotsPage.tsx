@@ -7,6 +7,7 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PaginationToolbar } from '../components/common/PaginationToolbar';
+import { Select } from '../components/common/Select';
 import {
   Database,
   MagnifyingGlass,
@@ -16,10 +17,19 @@ import {
   Funnel,
   CaretRight,
 } from '@phosphor-icons/react';
+import { ExportDropdown } from '../components/common/ExportDropdown';
+import {
+  exportSingleSnapshotExcel,
+  exportSingleSnapshotCsv,
+  exportSingleSnapshotJson,
+  exportBulkSnapshotsExcel,
+  exportBulkSnapshotsCsv,
+  exportBulkSnapshotsJson,
+} from '../utils/snapshotExporter';
 
 export const SnapshotsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { snapshots, deleteSnapshot } = useAppStore();
+  const { snapshots, deleteSnapshot, addToast } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [deviceFilter, setDeviceFilter] = useState<string>('ALL');
@@ -72,13 +82,31 @@ export const SnapshotsPage: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          leftIcon={<GitDiff className="w-4 h-4" weight="bold" />}
-          onClick={() => navigate('/compare')}
-        >
-          Compare
-        </Button>
+        <div className="flex items-center gap-2.5">
+          <ExportDropdown
+            label={filteredSnapshots.length < snapshots.length ? `Export (${filteredSnapshots.length})` : 'Export Vault'}
+            disabled={filteredSnapshots.length === 0}
+            onExportExcel={() => {
+              exportBulkSnapshotsExcel(filteredSnapshots, `Type: ${typeFilter}, Device: ${deviceFilter}`);
+              addToast('success', `${filteredSnapshots.length} snapshot(s) exported to Excel (.xlsx)`);
+            }}
+            onExportCsv={() => {
+              exportBulkSnapshotsCsv(filteredSnapshots);
+              addToast('success', `${filteredSnapshots.length} snapshot(s) exported to CSV (.csv)`);
+            }}
+            onExportJson={() => {
+              exportBulkSnapshotsJson(filteredSnapshots);
+              addToast('info', `${filteredSnapshots.length} snapshot(s) exported as JSON`);
+            }}
+          />
+          <Button
+            variant="primary"
+            leftIcon={<GitDiff className="w-4 h-4" weight="bold" />}
+            onClick={() => navigate('/compare')}
+          >
+            Compare
+          </Button>
+        </div>
       </div>
 
       {/* Filters and Search Bar */}
@@ -98,31 +126,31 @@ export const SnapshotsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
-            <Funnel className="w-3.5 h-3.5 text-zinc-500" />
-            <select
+          <div className="w-36">
+            <Select
+              size="sm"
+              icon={<Funnel className="w-3.5 h-3.5 text-zinc-500" />}
               value={typeFilter}
               onChange={(e) => {
                 setTypeFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
             >
               <option value="ALL">All Stages</option>
               <option value="pre_change">Pre-Change</option>
               <option value="post_change">Post-Change</option>
               <option value="ad_hoc">Ad-Hoc</option>
-            </select>
+            </Select>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-400">
-            <select
+          <div className="w-40">
+            <Select
+              size="sm"
               value={deviceFilter}
               onChange={(e) => {
                 setDeviceFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-transparent border-none text-xs text-zinc-200 focus:outline-none cursor-pointer"
             >
               <option value="ALL">All Devices</option>
               {uniqueDevices.map((d) => (
@@ -130,7 +158,7 @@ export const SnapshotsPage: React.FC = () => {
                   {d}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
       </div>
@@ -265,18 +293,35 @@ export const SnapshotsPage: React.FC = () => {
 
             <div className="flex items-center justify-between pt-3 border-t border-zinc-800 text-sm text-zinc-400">
               <span className="font-mono text-xs text-zinc-400">Archive URI: {selectedSnapshot.s3Key}</span>
-              <Button
-                variant="primary"
-                size="sm"
-                leftIcon={<GitDiff className="w-3.5 h-3.5" weight="bold" />}
-                onClick={() => {
-                  const snapId = selectedSnapshot.snapshotId;
-                  setSelectedSnapshot(null);
-                  navigate(`/analysis?tab=compare&preSnapId=${snapId}`);
-                }}
-              >
-                Compare
-              </Button>
+              <div className="flex items-center gap-2">
+                <ExportDropdown
+                  label="Export"
+                  onExportExcel={() => {
+                    exportSingleSnapshotExcel(selectedSnapshot);
+                    addToast('success', `Snapshot ${selectedSnapshot.snapshotId} exported to Excel (.xlsx)`);
+                  }}
+                  onExportCsv={() => {
+                    exportSingleSnapshotCsv(selectedSnapshot);
+                    addToast('success', `Snapshot ${selectedSnapshot.snapshotId} exported to CSV (.csv)`);
+                  }}
+                  onExportJson={() => {
+                    exportSingleSnapshotJson(selectedSnapshot);
+                    addToast('info', `Snapshot ${selectedSnapshot.snapshotId} exported as JSON`);
+                  }}
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<GitDiff className="w-3.5 h-3.5" weight="bold" />}
+                  onClick={() => {
+                    const snapId = selectedSnapshot.snapshotId;
+                    setSelectedSnapshot(null);
+                    navigate(`/analysis?tab=compare&preSnapId=${snapId}`);
+                  }}
+                >
+                  Compare
+                </Button>
+              </div>
             </div>
           </div>
         </Modal>

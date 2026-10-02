@@ -110,6 +110,29 @@ export function getJwtRemainingSeconds(token: string | null | undefined): number
 }
 
 /**
+ * Derives a deterministic, consistent user ID from email for per-user tenant data isolation.
+ * Guarantees identical ID across browser restarts and distinct IDs across users.
+ */
+export function resolveDeterministicUserId(email: string): string {
+  const clean = email.trim().toLowerCase();
+  if (clean === 'operator@driftguard.local') {
+    return 'user_default';
+  }
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < clean.length; i++) {
+    hash ^= clean.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  const hex = (hash >>> 0).toString(16).padStart(8, '0');
+  let hash2 = 5381;
+  for (let i = 0; i < clean.length; i++) {
+    hash2 = (Math.imul(hash2, 33) ^ clean.charCodeAt(i)) >>> 0;
+  }
+  const hex2 = (hash2 >>> 0).toString(16).padStart(4, '0').slice(0, 4);
+  return `usr_${hex}${hex2}`;
+}
+
+/**
  * Generates an emulated cryptographically structured ID token.
  * Default lifespan: 30 minutes (1800 seconds).
  */
@@ -124,7 +147,7 @@ export function generateCognitoJwt(
 ): string {
   const iat = Math.floor(Date.now() / 1000);
   const exp = iat + lifespanSeconds;
-  const userId = params.userId || `usr-${Date.now().toString(36)}`;
+  const userId = params.userId || resolveDeterministicUserId(params.email);
   const role = params.role || 'Network Architect';
   const name = params.name || params.email.split('@')[0].replace('.', ' ').toUpperCase();
 

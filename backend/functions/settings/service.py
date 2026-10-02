@@ -6,6 +6,7 @@ Supports arbitrary OpenAI-compatible endpoints (OpenRouter, OpenAI, Local Ollama
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from shared import dynamo, kms
@@ -17,6 +18,9 @@ from shared.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_AI_MODEL = os.environ.get("DEFAULT_AI_MODEL", "google/gemini-2.0-flash-lite:free")
+DEFAULT_AI_BASE_URL = os.environ.get("DEFAULT_AI_BASE_URL", "https://openrouter.ai/api/v1")
 
 
 class SettingsService:
@@ -83,8 +87,8 @@ class SettingsService:
 
         return {
             "api_key": kms.decrypt_value(item["aiApiKeyEncrypted"]),
-            "base_url": item.get("aiBaseUrl", "https://openrouter.ai/api/v1"),
-            "model": item.get("aiModel", "anthropic/claude-3.5-sonnet"),
+            "base_url": item.get("aiBaseUrl", DEFAULT_AI_BASE_URL),
+            "model": item.get("aiModel", DEFAULT_AI_MODEL),
             "max_tokens": item.get("aiMaxTokens", 4096),
         }
 
@@ -96,8 +100,8 @@ class SettingsService:
             "SK": EntityPrefix.SETTINGS,
             "entityType": "UserSettings",
             "userId": user_id,
-            "aiBaseUrl": "https://openrouter.ai/api/v1",
-            "aiModel": "anthropic/claude-3.5-sonnet",
+            "aiBaseUrl": DEFAULT_AI_BASE_URL,
+            "aiModel": DEFAULT_AI_MODEL,
             "aiMaxTokens": 4096,
             "defaultTimeoutSeconds": 30,
             "maskSecretsInDiffs": True,
@@ -111,9 +115,9 @@ class SettingsService:
     def _to_response(self, item: dict[str, Any]) -> dict[str, Any]:
         """Convert settings item to an API response without disclosing the secret key."""
         return UserSettingsResponse(
-            aiBaseUrl=item.get("aiBaseUrl", "https://openrouter.ai/api/v1"),
+            aiBaseUrl=item.get("aiBaseUrl", DEFAULT_AI_BASE_URL),
             hasApiKey=bool(item.get("aiApiKeyEncrypted")),
-            aiModel=item.get("aiModel", "anthropic/claude-3.5-sonnet"),
+            aiModel=item.get("aiModel", DEFAULT_AI_MODEL),
             aiMaxTokens=item.get("aiMaxTokens", 4096),
             defaultTimeoutSeconds=item.get("defaultTimeoutSeconds", 30),
             maskSecretsInDiffs=item.get("maskSecretsInDiffs", True),

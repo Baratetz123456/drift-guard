@@ -6,19 +6,18 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
+from functions.compare.differ import generate_diff
 from shared import dynamo, s3
 from shared.audit import log_action
-from shared.constants import EntityPrefix, GSI1, GSI2, S3Prefix
+from shared.constants import GSI1, GSI2, EntityPrefix, S3Prefix
 from shared.exceptions import ValidationError
 from shared.models import (
     CreateComparisonRequest,
     generate_id,
     utc_now,
 )
-
-from functions.compare.differ import generate_diff
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +141,7 @@ class CompareService:
         return self._to_response(comparison_item)
 
     def list_comparisons(
-        self, user_id: str, device_id: Optional[str] = None
+        self, user_id: str, device_id: str | None = None
     ) -> list[dict[str, Any]]:
         """List comparisons, optionally filtered by device."""
         pk = dynamo.build_pk(user_id)
@@ -190,7 +189,7 @@ class CompareService:
 
         # Clean up S3 artifacts
         s3_keys = []
-        for cmd, diff_data in item.get("diffs", {}).items():
+        for diff_data in item.get("diffs", {}).values():
             if isinstance(diff_data, dict) and "s3Key" in diff_data:
                 s3_keys.append(diff_data["s3Key"])
 

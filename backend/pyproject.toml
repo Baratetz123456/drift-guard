@@ -1,0 +1,44 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+exclude = [
+    ".git",
+    "vendor",
+    "layers",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "PIE",  # flake8-pie
+]
+ignore = [
+    "E501",   # line length
+    "EXE002", # file executable without shebang (cross-platform filesystem artefact)
+    "B008",   # function call in argument defaults (FastAPI Depends/Field)
+    "B904",   # within an except clause, raise exceptions with from err
+    "UP042",  # replace str, Enum with StrEnum
+    "UP017",  # datetime.UTC alias
+]
+
+[tool.ruff.lint.per-file-ignores]
+"local_collector.py" = ["E402"]
+"scripts/*" = ["E402", "W291"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

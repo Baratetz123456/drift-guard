@@ -7,6 +7,7 @@ import { Badge } from '../components/common/Badge';
 import { Card } from '../components/common/Card';
 import { Modal } from '../components/common/Modal';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
+import { Checkbox } from '../components/common/Checkbox';
 import {
   UsersThree,
   ArrowLeft,
@@ -403,8 +404,7 @@ export const DeviceGroupDetailPage: React.FC = () => {
                       className="flex items-center justify-between px-4 py-2.5 hover:bg-zinc-900/50 cursor-pointer text-sm transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={isChecked}
                           onChange={() => {
                             setSelectedToAddDeviceIds((prev) =>
@@ -413,7 +413,6 @@ export const DeviceGroupDetailPage: React.FC = () => {
                                 : [...prev, dev.deviceId]
                             );
                           }}
-                          className="rounded bg-zinc-900 border-zinc-700 text-[#c8ff00] focus:ring-0 cursor-pointer"
                         />
                         <span className="font-bold text-zinc-200">{dev.name}</span>
                         <span className="text-zinc-400 font-mono text-xs">({dev.hostname})</span>

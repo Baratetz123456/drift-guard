@@ -23,9 +23,6 @@ export const AuthVisualShowcase: React.FC = () => {
         {/* Brand Row */}
         <div className="flex items-center justify-between">
           <BrandLogo variant="full" showTagline={false} size={30} />
-          <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#c8ff00]/15 text-[#c8ff00] border border-[#c8ff00]/30">
-            v1.2
-          </span>
         </div>
 
         {/* Tagline Pill */}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { Select } from './Select';
 
 interface PaginationToolbarProps {
   currentPage: number;
@@ -37,20 +38,22 @@ export const PaginationToolbar: React.FC<PaginationToolbarProps> = ({
         {onPageSizeChange && (
           <div className="flex items-center gap-2 pl-3 border-l border-zinc-800">
             <span className="text-zinc-400 text-xs">Per page:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                onPageSizeChange(Number(e.target.value));
-                onPageChange(1);
-              }}
-              className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500 cursor-pointer"
-            >
-              {pageSizeOptions.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
+            <div className="w-20">
+              <Select
+                size="sm"
+                value={pageSize}
+                onChange={(e) => {
+                  onPageSizeChange(Number(e.target.value));
+                  onPageChange(1);
+                }}
+              >
+                {pageSizeOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
         )}
       </div>

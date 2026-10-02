@@ -6,12 +6,11 @@ Used for input validation, serialization, and DynamoDB item construction.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
-
 
 # ============================================================
 # Enums
@@ -73,7 +72,7 @@ def generate_id(prefix: str = "") -> str:
 
 def utc_now() -> str:
     """Return current UTC timestamp as ISO 8601 string."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # ============================================================
@@ -87,10 +86,10 @@ class CreateDeviceRequest(BaseModel):
     platform: Platform
     username: str = Field(..., min_length=1, max_length=100)
     password: str = Field(..., min_length=1, max_length=200)
-    enableSecret: Optional[str] = Field(default=None, max_length=200)
+    enableSecret: str | None = Field(default=None, max_length=200)
     timeoutSeconds: int = Field(default=30, ge=5, le=120)
     tags: list[str] = Field(default_factory=list, max_length=20)
-    commandSetId: Optional[str] = None
+    commandSetId: str | None = None
 
     @field_validator("managementIp")
     @classmethod
@@ -111,16 +110,16 @@ class CreateDeviceRequest(BaseModel):
 
 
 class UpdateDeviceRequest(BaseModel):
-    deviceName: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    managementIp: Optional[str] = Field(default=None, min_length=7, max_length=253)
-    sshPort: Optional[int] = Field(default=None, ge=1, le=65535)
-    platform: Optional[Platform] = None
-    username: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    password: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    enableSecret: Optional[str] = Field(default=None, max_length=200)
-    timeoutSeconds: Optional[int] = Field(default=None, ge=5, le=120)
-    tags: Optional[list[str]] = None
-    commandSetId: Optional[str] = None
+    deviceName: str | None = Field(default=None, min_length=1, max_length=100)
+    managementIp: str | None = Field(default=None, min_length=7, max_length=253)
+    sshPort: int | None = Field(default=None, ge=1, le=65535)
+    platform: Platform | None = None
+    username: str | None = Field(default=None, min_length=1, max_length=100)
+    password: str | None = Field(default=None, min_length=1, max_length=200)
+    enableSecret: str | None = Field(default=None, max_length=200)
+    timeoutSeconds: int | None = Field(default=None, ge=5, le=120)
+    tags: list[str] | None = None
+    commandSetId: str | None = None
 
 
 class CreateCommandSetRequest(BaseModel):
@@ -136,9 +135,9 @@ class CreateCommandSetRequest(BaseModel):
 
 
 class UpdateCommandSetRequest(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    commands: Optional[list[str]] = Field(default=None, min_length=1, max_length=20)
-    isDefault: Optional[bool] = None
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    commands: list[str] | None = Field(default=None, min_length=1, max_length=20)
+    isDefault: bool | None = None
 
     @field_validator("commands")
     @classmethod
@@ -149,17 +148,11 @@ class UpdateCommandSetRequest(BaseModel):
         return v
 
 
-class UpdateSettingsRequest(BaseModel):
-    openaiApiKey: Optional[str] = None
-    openaiModel: Optional[str] = Field(default=None, pattern=r"^gpt-")
-    openaiMaxTokens: Optional[int] = Field(default=None, ge=256, le=128000)
-    defaultCommandSetId: Optional[str] = None
-
 
 class CreateCollectionRequest(BaseModel):
     deviceIds: list[str] = Field(..., min_length=1, max_length=50)
     label: CollectionLabel
-    changeLabel: Optional[str] = Field(default=None, max_length=200)
+    changeLabel: str | None = Field(default=None, max_length=200)
 
 
 class CreateComparisonRequest(BaseModel):
@@ -179,7 +172,7 @@ class DeviceResponse(BaseModel):
     platform: str
     timeoutSeconds: int
     tags: list[str]
-    commandSetId: Optional[str] = None
+    commandSetId: str | None = None
     createdAt: str
     updatedAt: str
 
@@ -195,27 +188,19 @@ class CommandSetResponse(BaseModel):
     updatedAt: str
 
 
-class UserSettingsResponse(BaseModel):
-    hasApiKey: bool
-    openaiModel: str = "gpt-4o"
-    openaiMaxTokens: int = 4096
-    defaultCommandSetId: Optional[str] = None
-    createdAt: str
-    updatedAt: str
-
 
 class DeviceResult(BaseModel):
     deviceId: str
     status: DeviceCollectionStatus
-    snapshotId: Optional[str] = None
-    error: Optional[str] = None
-    durationMs: Optional[int] = None
+    snapshotId: str | None = None
+    error: str | None = None
+    durationMs: int | None = None
 
 
 class CollectionJobResponse(BaseModel):
     jobId: str
     label: str
-    changeLabel: Optional[str] = None
+    changeLabel: str | None = None
     status: JobStatus
     totalDevices: int
     successCount: int = 0
@@ -223,12 +208,12 @@ class CollectionJobResponse(BaseModel):
     pendingCount: int = 0
     deviceResults: dict[str, DeviceResult] = {}
     startedAt: str
-    completedAt: Optional[str] = None
+    completedAt: str | None = None
 
 
 class CommandOutputMeta(BaseModel):
-    inline: Optional[str] = None
-    s3Key: Optional[str] = None
+    inline: str | None = None
+    s3Key: str | None = None
     sizeBytes: int = 0
     lineCount: int = 0
 
@@ -239,10 +224,10 @@ class SnapshotResponse(BaseModel):
     deviceName: str
     jobId: str
     label: str
-    changeLabel: Optional[str] = None
+    changeLabel: str | None = None
     timestamp: str
     commandOutputs: dict[str, CommandOutputMeta] = {}
-    collectionDurationMs: Optional[int] = None
+    collectionDurationMs: int | None = None
     platform: str
 
 
@@ -270,10 +255,10 @@ class ComparisonResponse(BaseModel):
     postSnapshotSK: str
     preLabel: str
     postLabel: str
-    changeLabel: Optional[str] = None
+    changeLabel: str | None = None
     diffSummary: DiffStats
     diffs: dict[str, CommandDiff] = {}
-    analysisId: Optional[str] = None
+    analysisId: str | None = None
     createdAt: str
 
 
@@ -282,17 +267,20 @@ class AIAnalysisResponse(BaseModel):
     comparisonId: str
     deviceId: str
     deviceName: str
-    changeLabel: Optional[str] = None
+    changeLabel: str | None = None
     model: str
     promptTokens: int = 0
     completionTokens: int = 0
     totalTokens: int = 0
     severity: Severity
+    riskScore: int = 0
     summary: str
-    impactAnalysis: str
-    risks: list[str] = []
+    impactAnalysis: str = ""
+    risks: list[Any] = []
+    conflictsDetected: list[str] = []
     recommendations: list[str] = []
-    commandBreakdown: list[dict[str, str]] = []
+    commandBreakdown: list[dict[str, Any]] = []
+    suggestedRollbackPlan: str | None = None
     processingStrategy: AnalysisStrategy
     createdAt: str
 
@@ -307,14 +295,14 @@ class AuditLogEntry(BaseModel):
 
 
 class UpdateSettingsRequest(BaseModel):
-    aiBaseUrl: Optional[str] = "https://openrouter.ai/api/v1"
-    aiApiKey: Optional[str] = None
-    aiModel: Optional[str] = "anthropic/claude-3.5-sonnet"
-    aiMaxTokens: Optional[int] = 4096
-    defaultTimeoutSeconds: Optional[int] = 30
-    maskSecretsInDiffs: Optional[bool] = True
-    normalizeDynamicCounters: Optional[bool] = True
-    defaultCommandSetId: Optional[str] = None
+    aiBaseUrl: str | None = "https://openrouter.ai/api/v1"
+    aiApiKey: str | None = None
+    aiModel: str | None = "anthropic/claude-3.5-sonnet"
+    aiMaxTokens: int | None = 4096
+    defaultTimeoutSeconds: int | None = 30
+    maskSecretsInDiffs: bool | None = True
+    normalizeDynamicCounters: bool | None = True
+    defaultCommandSetId: str | None = None
 
 
 class UserSettingsResponse(BaseModel):
@@ -325,7 +313,7 @@ class UserSettingsResponse(BaseModel):
     defaultTimeoutSeconds: int = 30
     maskSecretsInDiffs: bool = True
     normalizeDynamicCounters: bool = True
-    defaultCommandSetId: Optional[str] = None
+    defaultCommandSetId: str | None = None
     createdAt: str = ""
     updatedAt: str = ""
 
