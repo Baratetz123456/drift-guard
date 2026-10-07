@@ -37,6 +37,7 @@ interface Toast {
   id: string;
   type: 'success' | 'error' | 'info' | 'warning';
   message: string;
+  duration?: number;
 }
 
 interface AppState {
@@ -63,7 +64,7 @@ interface AppState {
   toasts: Toast[];
 
   // Toast actions
-  addToast: (type: 'success' | 'error' | 'info' | 'warning', message: string) => void;
+  addToast: (type: 'success' | 'error' | 'info' | 'warning', message: string, duration?: number) => void;
   removeToast: (id: string) => void;
 
   // Device actions
@@ -818,9 +819,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   // ACTIONS
   // =========================================================================
 
-  addToast: (type, message, duration = 4000) => {
+  addToast: (type, message, duration = 10000) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    set((state) => ({ toasts: [...state.toasts, { id, type, message, duration }] }));
+    set((state) => {
+      // Cap visible notifications at 5 maximum; evict oldest if a new one arrives
+      const trimmed = state.toasts.length >= 5 ? state.toasts.slice(state.toasts.length - 4) : state.toasts;
+      return { toasts: [...trimmed, { id, type, message, duration }] };
+    });
   },
 
   removeToast: (id) => {
